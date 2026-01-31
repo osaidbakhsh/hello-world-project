@@ -17,11 +17,14 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.employees': 'الموظفين',
     'nav.licenses': 'التراخيص',
     'nav.tasks': 'المهام',
-    'nav.networks': 'الشبكات',
+    'nav.networks': 'النطاقات',
+    'nav.domains': 'النطاقات',
+    'nav.webApps': 'تطبيقات الويب',
     'nav.reports': 'التقارير',
     'nav.settings': 'الإعدادات',
     'nav.vacations': 'الإجازات',
     'nav.employeeReports': 'تقارير الموظفين',
+    'nav.auditLog': 'سجل العمليات',
     
     // Dashboard
     'dashboard.title': 'لوحة التحكم الرئيسية',
@@ -30,9 +33,20 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.expiringLicenses': 'تراخيص قريبة الانتهاء',
     'dashboard.pendingTasks': 'المهام المعلقة',
     'dashboard.employees': 'الموظفين',
-    'dashboard.networks': 'الشبكات',
-    'dashboard.selectNetwork': 'اختر الشبكة',
-    'dashboard.allNetworks': 'جميع الشبكات',
+    'dashboard.networks': 'النطاقات',
+    'dashboard.domains': 'النطاقات',
+    'dashboard.selectNetwork': 'اختر النطاق',
+    'dashboard.allNetworks': 'جميع النطاقات',
+    'dashboard.allDomains': 'جميع النطاقات',
+    'dashboard.myTasks': 'مهامي',
+    'dashboard.teamTasks': 'مهام الفريق',
+    'dashboard.allTasks': 'كل المهام',
+    
+    // Web Apps
+    'webApps.title': 'تطبيقات الويب',
+    'webApps.add': 'إضافة تطبيق',
+    'webApps.manage': 'إدارة التطبيقات',
+    'webApps.openLink': 'فتح الرابط',
     
     // Servers
     'servers.title': 'إدارة السيرفرات',
@@ -50,6 +64,7 @@ const translations: Record<Language, Record<string, string>> = {
     'servers.diskSpace': 'مساحة القرص',
     'servers.users': 'المستخدمين',
     'servers.network': 'الشبكة',
+    'servers.domain': 'النطاق',
     'servers.status': 'الحالة',
     'servers.lastUpdate': 'آخر تحديث',
     
@@ -117,6 +132,7 @@ const translations: Record<Language, Record<string, string>> = {
     'licenses.expiryDate': 'تاريخ الانتهاء',
     'licenses.daysLeft': 'الأيام المتبقية',
     'licenses.server': 'السيرفر المرتبط',
+    'licenses.domain': 'النطاق',
     'licenses.cost': 'التكلفة',
     'licenses.vendor': 'المورد',
     'licenses.notes': 'ملاحظات',
@@ -164,11 +180,14 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.employees': 'Employees',
     'nav.licenses': 'Licenses',
     'nav.tasks': 'Tasks',
-    'nav.networks': 'Networks',
+    'nav.networks': 'Domains',
+    'nav.domains': 'Domains',
+    'nav.webApps': 'Web Apps',
     'nav.reports': 'Reports',
     'nav.settings': 'Settings',
     'nav.vacations': 'Vacations',
     'nav.employeeReports': 'Employee Reports',
+    'nav.auditLog': 'Audit Log',
     
     // Dashboard
     'dashboard.title': 'Main Dashboard',
@@ -177,9 +196,20 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.expiringLicenses': 'Expiring Licenses',
     'dashboard.pendingTasks': 'Pending Tasks',
     'dashboard.employees': 'Employees',
-    'dashboard.networks': 'Networks',
-    'dashboard.selectNetwork': 'Select Network',
-    'dashboard.allNetworks': 'All Networks',
+    'dashboard.networks': 'Domains',
+    'dashboard.domains': 'Domains',
+    'dashboard.selectNetwork': 'Select Domain',
+    'dashboard.allNetworks': 'All Domains',
+    'dashboard.allDomains': 'All Domains',
+    'dashboard.myTasks': 'My Tasks',
+    'dashboard.teamTasks': 'Team Tasks',
+    'dashboard.allTasks': 'All Tasks',
+    
+    // Web Apps
+    'webApps.title': 'Web Applications',
+    'webApps.add': 'Add Application',
+    'webApps.manage': 'Manage Apps',
+    'webApps.openLink': 'Open Link',
     
     // Servers
     'servers.title': 'Server Management',
@@ -197,6 +227,7 @@ const translations: Record<Language, Record<string, string>> = {
     'servers.diskSpace': 'Disk Space',
     'servers.users': 'Users',
     'servers.network': 'Network',
+    'servers.domain': 'Domain',
     'servers.status': 'Status',
     'servers.lastUpdate': 'Last Update',
     
@@ -264,6 +295,7 @@ const translations: Record<Language, Record<string, string>> = {
     'licenses.expiryDate': 'Expiry Date',
     'licenses.daysLeft': 'Days Left',
     'licenses.server': 'Linked Server',
+    'licenses.domain': 'Domain',
     'licenses.cost': 'Cost',
     'licenses.vendor': 'Vendor',
     'licenses.notes': 'Notes',
