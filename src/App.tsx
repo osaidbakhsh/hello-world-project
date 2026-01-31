@@ -10,6 +10,7 @@ import Layout from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import Servers from "./pages/Servers";
 import Employees from "./pages/Employees";
+import EmployeePermissions from "./pages/EmployeePermissions";
 import Vacations from "./pages/Vacations";
 import Licenses from "./pages/Licenses";
 import Tasks from "./pages/Tasks";
@@ -45,6 +46,7 @@ const App = () => (
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/servers" element={<Servers />} />
                 <Route path="/employees" element={<Employees />} />
+                <Route path="/employee-permissions" element={<EmployeePermissions />} />
                 <Route path="/vacations" element={<Vacations />} />
                 <Route path="/licenses" element={<Licenses />} />
                 <Route path="/tasks" element={<Tasks />} />

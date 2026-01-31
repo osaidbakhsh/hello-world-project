@@ -21,6 +21,7 @@ import {
   Wifi,
   LogOut,
   User,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -42,6 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { path: '/', icon: LayoutDashboard, label: 'nav.dashboard' },
     { path: '/servers', icon: Server, label: 'nav.servers' },
     { path: '/employees', icon: Users, label: 'nav.employees', adminOnly: true },
+    { path: '/employee-permissions', icon: Shield, label: 'صلاحيات الموظفين', adminOnly: true, isArabic: true },
     { path: '/vacations', icon: Calendar, label: 'nav.vacations' },
     { path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
     { path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
@@ -137,7 +139,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {!collapsed && (
-                  <span className="truncate">{t(item.label)}</span>
+                  <span className="truncate">{'isArabic' in item && item.isArabic ? item.label : t(item.label)}</span>
                 )}
               </Link>
             );
