@@ -336,67 +336,76 @@ export const downloadEmployeeTemplate = () => {
   XLSX.writeFile(wb, 'employee-import-template.xlsx');
 };
 
-// ==================== Task Template V2 ====================
+// ==================== Task Template V2 - UNIFIED with export ====================
 export const downloadTaskTemplate = () => {
+  // Use same column names as professionalExport.ts for round-trip compatibility
   const templateData = [
     {
       'task_id': '',
       'title': 'Server Maintenance',
       'description': 'Monthly maintenance for production servers',
-      'server_name': 'Server-01',
       'assignee_email': 'ahmed@company.com',
+      'task_status': 'draft',
       'priority': 'high',
       'frequency': 'monthly',
       'due_date': new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      'status': 'pending',
     },
     {
       'task_id': '',
       'title': 'Backup Verification',
       'description': 'Weekly backup verification and testing',
-      'server_name': '',
       'assignee_email': 'sara@company.com',
+      'task_status': 'assigned',
       'priority': 'medium',
       'frequency': 'weekly',
       'due_date': new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      'status': 'pending',
     },
   ];
 
   const lookupData = [
     { 'Field': 'priority', 'Allowed Values': 'low, medium, high' },
     { 'Field': 'frequency', 'Allowed Values': 'once, daily, weekly, monthly' },
-    { 'Field': 'status', 'Allowed Values': 'pending, completed' },
+    { 'Field': 'task_status', 'Allowed Values': 'draft, assigned, in_progress, blocked, in_review, done' },
   ];
 
   const instructionsData = [
-    { 'Column': 'task_id', 'Description': 'Leave empty for new. Fill to update existing.', 'Required': 'No' },
+    { 'Column': 'task_id', 'Description': 'Leave empty for new. Fill with ID from export to update existing.', 'Required': 'No' },
     { 'Column': 'title', 'Description': 'Task title', 'Required': 'Yes' },
     { 'Column': 'description', 'Description': 'Task description', 'Required': 'No' },
-    { 'Column': 'server_name', 'Description': 'Related server name (for auto-linking)', 'Required': 'No' },
-    { 'Column': 'assignee_email', 'Description': 'Assignee email (for auto-linking)', 'Required': 'No' },
+    { 'Column': 'assignee_email', 'Description': 'Assignee email (for auto-linking to profile)', 'Required': 'No' },
+    { 'Column': 'task_status', 'Description': 'Kanban status (see Lookup)', 'Required': 'No' },
     { 'Column': 'priority', 'Description': 'Task priority (see Lookup)', 'Required': 'No' },
     { 'Column': 'frequency', 'Description': 'Task frequency (see Lookup)', 'Required': 'No' },
     { 'Column': 'due_date', 'Description': 'Due date (YYYY-MM-DD)', 'Required': 'No' },
-    { 'Column': 'status', 'Description': 'Task status (see Lookup)', 'Required': 'No' },
+  ];
+
+  const importNotes = [
+    { 'Note': '1. Export/Import Compatibility: This template matches the export format exactly.' },
+    { 'Note': '2. You can export tasks, modify them, and re-import to update.' },
+    { 'Note': '3. If task_id is provided, that record will be updated.' },
+    { 'Note': '4. If task_id is empty, system matches by title to update or create new.' },
+    { 'Note': '5. Assignee linking: Use email address to auto-link to employee profile.' },
   ];
 
   const ws1 = XLSX.utils.json_to_sheet(templateData);
   const ws2 = XLSX.utils.json_to_sheet(lookupData);
   const ws3 = XLSX.utils.json_to_sheet(instructionsData);
+  const ws4 = XLSX.utils.json_to_sheet(importNotes);
 
   ws1['!cols'] = [
-    { wch: 36 }, { wch: 25 }, { wch: 40 }, { wch: 15 },
-    { wch: 25 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 10 },
+    { wch: 36 }, { wch: 25 }, { wch: 40 }, { wch: 25 },
+    { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
   ];
 
-  ws2['!cols'] = [{ wch: 12 }, { wch: 40 }];
-  ws3['!cols'] = [{ wch: 18 }, { wch: 50 }, { wch: 10 }];
+  ws2['!cols'] = [{ wch: 12 }, { wch: 60 }];
+  ws3['!cols'] = [{ wch: 18 }, { wch: 60 }, { wch: 10 }];
+  ws4['!cols'] = [{ wch: 80 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, 'Tasks');
   XLSX.utils.book_append_sheet(wb, ws2, 'Lookup Values');
   XLSX.utils.book_append_sheet(wb, ws3, 'Instructions');
+  XLSX.utils.book_append_sheet(wb, ws4, 'Import Notes');
   XLSX.writeFile(wb, 'task-import-template.xlsx');
 };
 

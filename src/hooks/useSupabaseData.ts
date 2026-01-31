@@ -409,13 +409,29 @@ export function useDashboardStats(selectedDomainId?: string) {
       const now = new Date();
       const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+      // Calculate task stats using BOTH status AND task_status for Kanban sync
+      const completedTasks = tasks?.filter(t => 
+        t.status === 'completed' || (t as any).task_status === 'done'
+      ).length || 0;
+      
+      const pendingTasks = tasks?.filter(t => 
+        t.status !== 'completed' && (t as any).task_status !== 'done'
+      ).length || 0;
+      
+      const overdueTasks = tasks?.filter(t => 
+        t.due_date && 
+        new Date(t.due_date) < now && 
+        t.status !== 'completed' && 
+        (t as any).task_status !== 'done'
+      ).length || 0;
+
       setStats({
         totalServers: serversData.length,
         activeServers: serversData.filter(s => s.status === 'active').length,
         totalTasks: tasks?.length || 0,
-        completedTasks: tasks?.filter(t => t.status === 'completed').length || 0,
-        pendingTasks: tasks?.filter(t => t.status === 'pending').length || 0,
-        overdueTasks: tasks?.filter(t => t.status === 'overdue' || (t.due_date && new Date(t.due_date) < now && t.status !== 'completed')).length || 0,
+        completedTasks,
+        pendingTasks,
+        overdueTasks,
         totalLicenses: licensesData.length,
         expiringLicenses: licensesData.filter(l => l.expiry_date && new Date(l.expiry_date) <= thirtyDaysFromNow).length,
         totalEmployees: profiles?.length || 0,

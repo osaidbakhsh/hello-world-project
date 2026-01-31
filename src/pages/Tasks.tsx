@@ -673,13 +673,18 @@ const Tasks: React.FC = () => {
             try {
               // Get old data for audit
               const task = filteredTasks.find(t => t.id === taskId);
-              const oldStatus = (task as any)?.task_status || task?.status || 'draft';
+              const oldTaskStatus = (task as any)?.task_status || 'draft';
+              const oldStatus = task?.status || 'pending';
               
-              // Update task status
+              // Map task_status to legacy status for Dashboard sync
+              const legacyStatus = newStatus === 'done' ? 'completed' : 'pending';
+              
+              // Update BOTH task_status AND status for sync with Dashboard
               const { error } = await supabase
                 .from('tasks')
                 .update({ 
                   task_status: newStatus,
+                  status: legacyStatus,
                   completed_at: newStatus === 'done' ? new Date().toISOString() : null
                 })
                 .eq('id', taskId);
@@ -692,8 +697,8 @@ const Tasks: React.FC = () => {
                 action: 'update',
                 table_name: 'tasks',
                 record_id: taskId,
-                old_data: { task_status: oldStatus },
-                new_data: { task_status: newStatus },
+                old_data: { task_status: oldTaskStatus, status: oldStatus },
+                new_data: { task_status: newStatus, status: legacyStatus },
                 entity_name: task?.title,
                 user_agent: navigator.userAgent,
               });
@@ -706,6 +711,52 @@ const Tasks: React.FC = () => {
               refetch();
             } catch (error) {
               console.error('Error updating status:', error);
+              toast({
+                title: t('common.error'),
+                description: String(error),
+                variant: 'destructive',
+              });
+            }
+          }}
+          onCloneTask={async (taskId) => {
+            try {
+              const task = filteredTasks.find(t => t.id === taskId);
+              if (!task) return;
+              
+              // Clone task without id and timestamps
+              const { error } = await supabase.from('tasks').insert({
+                title: `${task.title} (نسخة)`,
+                description: task.description,
+                server_id: task.server_id,
+                assigned_to: task.assigned_to,
+                priority: task.priority,
+                frequency: task.frequency,
+                due_date: task.due_date,
+                status: 'pending',
+                task_status: 'draft',
+                created_by: profile?.id,
+              });
+              
+              if (error) throw error;
+              
+              // Log clone action
+              await supabase.from('audit_logs').insert({
+                user_id: profile?.id,
+                action: 'create',
+                table_name: 'tasks',
+                entity_name: `${task.title} (نسخة)`,
+                new_data: { cloned_from: taskId },
+                user_agent: navigator.userAgent,
+              });
+              
+              toast({
+                title: t('common.success'),
+                description: language === 'ar' ? 'تم نسخ المهمة بنجاح' : 'Task cloned successfully',
+              });
+              
+              refetch();
+            } catch (error) {
+              console.error('Error cloning task:', error);
               toast({
                 title: t('common.error'),
                 description: String(error),

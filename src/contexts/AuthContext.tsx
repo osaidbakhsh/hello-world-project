@@ -38,6 +38,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const fetchProfile = async (userId: string) => {
+    // Check sessionStorage cache first for faster loading
+    const cacheKey = `profile_${userId}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        // Cache valid for 5 minutes
+        if (parsed.timestamp && Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+          return parsed.data as Profile;
+        }
+      } catch {
+        sessionStorage.removeItem(cacheKey);
+      }
+    }
+
     try {
       const { data, error } = await withTimeout(
         supabase
@@ -51,6 +66,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching profile:', error);
         return null;
       }
+      
+      // Cache the profile for faster subsequent loads
+      if (data) {
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          data,
+          timestamp: Date.now(),
+        }));
+      }
+      
       return data as Profile;
     } catch (error) {
       console.error('Error fetching profile:', error);

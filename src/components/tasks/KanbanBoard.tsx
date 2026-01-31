@@ -17,8 +17,9 @@ import {
   Clock,
   CheckCircle,
   GripVertical,
-  Play,
   RotateCcw,
+  Copy,
+  Ban,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +33,7 @@ interface Task {
   due_date?: string | null;
   assigned_to?: string | null;
   frequency?: string;
+  created_at?: string;
 }
 
 interface Profile {
@@ -44,14 +46,17 @@ interface KanbanBoardProps {
   profiles: Profile[];
   onTaskClick?: (task: Task) => void;
   onStatusChange?: (taskId: string, newStatus: string) => void;
+  onCloneTask?: (taskId: string) => void;
 }
 
+// Jira-style statuses with Blocked column
 const STATUSES = [
-  { key: 'draft', label: 'tasks.draft', color: 'bg-muted' },
-  { key: 'assigned', label: 'tasks.assigned', color: 'bg-info/20' },
-  { key: 'in_progress', label: 'tasks.inProgress', color: 'bg-warning/20' },
-  { key: 'in_review', label: 'tasks.inReview', color: 'bg-primary/20' },
-  { key: 'done', label: 'tasks.done', color: 'bg-success/20' },
+  { key: 'draft', label: 'tasks.draft', color: 'bg-muted', icon: Clock },
+  { key: 'assigned', label: 'tasks.assigned', color: 'bg-info/20', icon: User },
+  { key: 'in_progress', label: 'tasks.inProgress', color: 'bg-warning/20', icon: Clock },
+  { key: 'blocked', label: 'tasks.blocked', color: 'bg-destructive/20', icon: Ban },
+  { key: 'in_review', label: 'tasks.inReview', color: 'bg-primary/20', icon: CheckCircle },
+  { key: 'done', label: 'tasks.done', color: 'bg-success/20', icon: CheckCircle },
 ];
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({
@@ -59,10 +64,17 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   profiles,
   onTaskClick,
   onStatusChange,
+  onCloneTask,
 }) => {
   const { t, dir } = useLanguage();
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+
+  // Generate Jira-style task ID
+  const getTaskNumber = (task: Task) => {
+    const index = tasks.findIndex(t => t.id === task.id);
+    return `TASK-${String(index + 1).padStart(3, '0')}`;
+  };
 
   const getTasksByStatus = (status: string) => {
     return tasks.filter(task => {
@@ -78,6 +90,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     if (!assigneeId) return null;
     const profile = profiles.find(p => p.id === assigneeId);
     return profile?.full_name;
+  };
+
+  const getAssigneeInitials = (assigneeId: string | null) => {
+    const name = getAssigneeName(assigneeId);
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   };
 
   const getPriorityBadge = (priority: string | undefined) => {
@@ -112,7 +130,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     setDraggedTaskId(taskId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', taskId);
-    // Add drag ghost styling
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '0.5';
     }
@@ -141,7 +158,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     const taskId = e.dataTransfer.getData('text/plain');
     
     if (taskId && onStatusChange) {
-      // Find the task's current status
       const task = tasks.find(t => t.id === taskId);
       const currentStatus = task?.task_status || task?.status || 'draft';
       
@@ -176,11 +192,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   };
 
+  const handleClone = (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    if (onCloneTask) {
+      onCloneTask(taskId);
+    }
+  };
+
   return (
     <div className="flex gap-4 overflow-x-auto pb-4" dir={dir}>
       {STATUSES.map((status) => {
         const statusTasks = getTasksByStatus(status.key);
         const isDragOver = dragOverColumn === status.key;
+        const StatusIcon = status.icon;
         
         return (
           <div 
@@ -197,7 +221,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             )}>
               <CardHeader className="py-3">
                 <CardTitle className="text-sm font-medium flex items-center justify-between">
-                  <span>{t(status.label)}</span>
+                  <span className="flex items-center gap-2">
+                    <StatusIcon className="w-4 h-4" />
+                    {t(status.label)}
+                  </span>
                   <Badge variant="secondary" className="text-xs">
                     {statusTasks.length}
                   </Badge>
@@ -207,10 +234,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 {statusTasks.map((task) => {
                   const priorityBadge = getPriorityBadge(task.priority);
                   const assignee = getAssigneeName(task.assigned_to);
+                  const assigneeInitials = getAssigneeInitials(task.assigned_to);
                   const overdue = isOverdue(task.due_date);
                   const slaStatus = getSLAStatus(task);
                   const isDragging = draggedTaskId === task.id;
                   const taskStatus = task.task_status || task.status || 'draft';
+                  const taskNumber = getTaskNumber(task);
                   
                   return (
                     <Card
@@ -219,16 +248,29 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       onDragStart={(e) => handleDragStart(e, task.id)}
                       onDragEnd={handleDragEnd}
                       className={cn(
-                        'cursor-grab active:cursor-grabbing hover:shadow-md transition-all',
-                        overdue && status.key !== 'done' && 'border-destructive/50',
+                        'cursor-grab active:cursor-grabbing hover:shadow-md transition-all border-l-4',
+                        overdue && status.key !== 'done' ? 'border-l-destructive' : 'border-l-transparent',
                         isDragging && 'opacity-50 scale-95'
                       )}
                       onClick={() => onTaskClick?.(task)}
                     >
                       <CardContent className="p-3 space-y-2">
+                        {/* Task Header with ID and Drag Handle */}
                         <div className="flex items-start gap-2">
                           <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5 cursor-grab" />
                           <div className="flex-1 min-w-0">
+                            {/* Jira-style Task ID */}
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+                                {taskNumber}
+                              </Badge>
+                              {slaStatus && status.key !== 'done' && (
+                                <div className={cn(
+                                  'w-2 h-2 rounded-full animate-pulse',
+                                  slaStatus.class
+                                )} title={slaStatus.label} />
+                              )}
+                            </div>
                             <h4 className="font-medium text-sm line-clamp-2">
                               {task.title}
                             </h4>
@@ -240,17 +282,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           </div>
                         </div>
                         
+                        {/* Priority and Date */}
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge className={cn('text-xs border', priorityBadge.class)}>
                             {priorityBadge.label}
                           </Badge>
-                          
-                          {slaStatus && status.key !== 'done' && (
-                            <div className={cn(
-                              'w-2 h-2 rounded-full',
-                              slaStatus.class
-                            )} title={slaStatus.label} />
-                          )}
                           
                           {task.due_date && (
                             <div className={cn(
@@ -262,20 +298,23 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                               ) : (
                                 <Calendar className="w-3 h-3" />
                               )}
-                              {new Date(task.due_date).toLocaleDateString()}
+                              {new Date(task.due_date).toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US')}
                             </div>
                           )}
                         </div>
                         
+                        {/* Assignee Avatar */}
                         {assignee && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <User className="w-3 h-3" />
-                            {assignee}
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
+                              {assigneeInitials}
+                            </div>
+                            <span className="text-xs text-muted-foreground truncate">{assignee}</span>
                           </div>
                         )}
 
                         {/* Quick Actions */}
-                        <div className="flex items-center gap-2 pt-2 border-t mt-2">
+                        <div className="flex items-center gap-1 pt-2 border-t mt-2">
                           {/* Quick Status Dropdown */}
                           <Select
                             value={taskStatus}
@@ -295,6 +334,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                               ))}
                             </SelectContent>
                           </Select>
+
+                          {/* Clone Button */}
+                          {onCloneTask && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={(e) => handleClone(e, task.id)}
+                              title={t('tasks.cloneTask')}
+                            >
+                              <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                            </Button>
+                          )}
 
                           {/* Mark Complete / Back to Progress */}
                           {status.key !== 'done' ? (
