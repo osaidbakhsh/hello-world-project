@@ -24,23 +24,31 @@ const Login: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await signIn(email, password);
+    try {
+      const { error } = await signIn(email, password);
 
-    if (error) {
-      toast({
-        title: t('common.error'),
-        description: error.message === 'Invalid login credentials' 
-          ? 'بيانات تسجيل الدخول غير صحيحة' 
-          : error.message,
-        variant: 'destructive',
-      });
+      if (error) {
+        toast({
+          title: t('common.error'),
+          description: error.message === 'Invalid login credentials' 
+            ? 'بيانات تسجيل الدخول غير صحيحة' 
+            : error.message,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+      } else {
+        toast({
+          title: t('common.success'),
+          description: 'تم تسجيل الدخول بنجاح',
+        });
+        // Small delay to ensure auth state is updated
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 100);
+      }
+    } catch (err) {
+      console.error('Login error:', err);
       setIsLoading(false);
-    } else {
-      toast({
-        title: t('common.success'),
-        description: 'تم تسجيل الدخول بنجاح',
-      });
-      navigate('/');
     }
   };
 

@@ -6,16 +6,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -24,16 +32,42 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Shield, Network, Search, Edit, Save, UserCog, Eye, Pencil } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Users, Shield, Network, Search, Save, UserCog, Eye, Pencil, 
+  Plus, Key, Download, Mail, Phone, Building, User, Loader2,
+  RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Profile } from '@/lib/supabase';
 
 interface DomainPermission {
   domain_id: string;
   domain_name: string;
   can_view: boolean;
   can_edit: boolean;
+}
+
+interface NewEmployeeForm {
+  email: string;
+  password: string;
+  full_name: string;
+  department: string;
+  position: string;
+  phone: string;
+  role: 'admin' | 'employee';
 }
 
 const EmployeePermissions: React.FC = () => {
@@ -45,23 +79,52 @@ const EmployeePermissions: React.FC = () => {
   const { data: memberships, refetch: refetchMemberships } = useDomainMemberships();
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [permissions, setPermissions] = useState<DomainPermission[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Filter non-admin profiles
-  const employeeProfiles = profiles.filter(p => p.role === 'employee');
+  const [activeTab, setActiveTab] = useState('all');
   
-  const filteredProfiles = employeeProfiles.filter(profile =>
-    profile.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    profile.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Dialog states
+  const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
+  const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isLdapImportOpen, setIsLdapImportOpen] = useState(false);
+  
+  // Loading states
+  const [isSaving, setIsSaving] = useState(false);
+  const [isAddingEmployee, setIsAddingEmployee] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  
+  // Form data
+  const [newEmployeeForm, setNewEmployeeForm] = useState<NewEmployeeForm>({
+    email: '',
+    password: '',
+    full_name: '',
+    department: 'IT',
+    position: '',
+    phone: '',
+    role: 'employee',
+  });
+  
+  const [newPassword, setNewPassword] = useState('');
+
+  // Filter profiles based on search and active tab
+  const filteredProfiles = profiles.filter(profile => {
+    const matchesSearch = 
+      profile.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      profile.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (profile.department?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+    
+    if (activeTab === 'all') return matchesSearch;
+    if (activeTab === 'admins') return matchesSearch && profile.role === 'admin';
+    if (activeTab === 'employees') return matchesSearch && profile.role === 'employee';
+    return matchesSearch;
+  });
 
   // Load permissions when a profile is selected
   useEffect(() => {
     if (selectedProfile && domains.length > 0) {
-      const profileMemberships = memberships.filter(m => m.profile_id === selectedProfile);
+      const profileMemberships = memberships.filter(m => m.profile_id === selectedProfile.id);
       
       const domainPermissions: DomainPermission[] = domains.map(domain => {
         const membership = profileMemberships.find(m => m.domain_id === domain.id);
@@ -77,9 +140,20 @@ const EmployeePermissions: React.FC = () => {
     }
   }, [selectedProfile, domains, memberships]);
 
-  const handleOpenPermissions = (profileId: string) => {
-    setSelectedProfile(profileId);
-    setIsDialogOpen(true);
+  const handleOpenPermissions = (profile: Profile) => {
+    setSelectedProfile(profile);
+    setIsPermissionsOpen(true);
+  };
+
+  const handleOpenResetPassword = (profile: Profile) => {
+    setSelectedProfile(profile);
+    setNewPassword('');
+    setIsResetPasswordOpen(true);
+  };
+
+  const handleOpenDeleteConfirm = (profile: Profile) => {
+    setSelectedProfile(profile);
+    setIsDeleteConfirmOpen(true);
   };
 
   const handleToggleView = (domainId: string, checked: boolean) => {
@@ -98,6 +172,157 @@ const EmployeePermissions: React.FC = () => {
     ));
   };
 
+  const handleAddEmployee = async () => {
+    if (!newEmployeeForm.email || !newEmployeeForm.password || !newEmployeeForm.full_name) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى ملء جميع الحقول المطلوبة',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (newEmployeeForm.password.length < 6) {
+      toast({
+        title: 'خطأ',
+        description: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsAddingEmployee(true);
+    try {
+      // Create user via Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: newEmployeeForm.email,
+        password: newEmployeeForm.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            full_name: newEmployeeForm.full_name,
+            role: newEmployeeForm.role,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      // Update the profile with additional info
+      if (data.user) {
+        // Wait a moment for the trigger to create the profile
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            department: newEmployeeForm.department,
+            position: newEmployeeForm.position,
+            phone: newEmployeeForm.phone,
+          })
+          .eq('user_id', data.user.id);
+
+        if (updateError) console.error('Error updating profile:', updateError);
+      }
+
+      await refetchProfiles();
+      
+      toast({
+        title: 'تم بنجاح',
+        description: 'تم إضافة الموظف بنجاح. سيتم إرسال رابط تأكيد البريد الإلكتروني.',
+      });
+      
+      setIsAddEmployeeOpen(false);
+      setNewEmployeeForm({
+        email: '',
+        password: '',
+        full_name: '',
+        department: 'IT',
+        position: '',
+        phone: '',
+        role: 'employee',
+      });
+    } catch (error: any) {
+      console.error('Error adding employee:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في إضافة الموظف',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAddingEmployee(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedProfile || !newPassword) return;
+
+    if (newPassword.length < 6) {
+      toast({
+        title: 'خطأ',
+        description: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      // Send password reset email
+      const { error } = await supabase.auth.resetPasswordForEmail(selectedProfile.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'تم بنجاح',
+        description: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى البريد الإلكتروني',
+      });
+      
+      setIsResetPasswordOpen(false);
+      setNewPassword('');
+    } catch (error: any) {
+      console.error('Error resetting password:', error);
+      toast({
+        title: 'خطأ',
+        description: error.message || 'فشل في إعادة تعيين كلمة المرور',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    if (!selectedProfile) return;
+
+    try {
+      // Delete from profiles table (this will cascade due to RLS)
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', selectedProfile.id);
+
+      if (error) throw error;
+
+      await refetchProfiles();
+      toast({
+        title: 'تم بنجاح',
+        description: 'تم حذف الموظف بنجاح',
+      });
+      
+      setIsDeleteConfirmOpen(false);
+    } catch (error: any) {
+      console.error('Error deleting profile:', error);
+      toast({
+        title: 'خطأ',
+        description: 'فشل في حذف الموظف. قد يكون مرتبطًا ببيانات أخرى.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleSavePermissions = async () => {
     if (!selectedProfile) return;
     
@@ -107,7 +332,7 @@ const EmployeePermissions: React.FC = () => {
       const { error: deleteError } = await supabase
         .from('domain_memberships')
         .delete()
-        .eq('profile_id', selectedProfile);
+        .eq('profile_id', selectedProfile.id);
 
       if (deleteError) throw deleteError;
 
@@ -115,7 +340,7 @@ const EmployeePermissions: React.FC = () => {
       const newMemberships = permissions
         .filter(p => p.can_view)
         .map(p => ({
-          profile_id: selectedProfile,
+          profile_id: selectedProfile.id,
           domain_id: p.domain_id,
           can_edit: p.can_edit,
         }));
@@ -129,12 +354,12 @@ const EmployeePermissions: React.FC = () => {
       }
 
       await refetchMemberships();
-      toast({ title: t('common.success'), description: 'تم حفظ الصلاحيات بنجاح' });
-      setIsDialogOpen(false);
+      toast({ title: 'تم بنجاح', description: 'تم حفظ الصلاحيات بنجاح' });
+      setIsPermissionsOpen(false);
     } catch (error) {
       console.error('Error saving permissions:', error);
       toast({ 
-        title: t('common.error'), 
+        title: 'خطأ', 
         description: 'فشل في حفظ الصلاحيات',
         variant: 'destructive' 
       });
@@ -155,12 +380,13 @@ const EmployeePermissions: React.FC = () => {
     });
   };
 
-  const selectedProfileData = profiles.find(p => p.id === selectedProfile);
-
   if (!isAdmin) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">ليس لديك صلاحية للوصول لهذه الصفحة</p>
+        <div className="text-center space-y-4">
+          <Shield className="w-16 h-16 text-muted-foreground mx-auto" />
+          <p className="text-muted-foreground text-lg">ليس لديك صلاحية للوصول لهذه الصفحة</p>
+        </div>
       </div>
     );
   }
@@ -168,140 +394,387 @@ const EmployeePermissions: React.FC = () => {
   return (
     <div className="space-y-6" dir={dir}>
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-3 rounded-xl bg-primary/10">
-          <UserCog className="w-6 h-6 text-primary" />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-primary/10">
+            <UserCog className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">إدارة الموظفين والصلاحيات</h1>
+            <p className="text-muted-foreground">إضافة موظفين جدد وتعيين صلاحياتهم على الدومينات</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold">إدارة صلاحيات الموظفين</h1>
-          <p className="text-muted-foreground">تحديد الدومينات والشبكات التي يمكن لكل موظف الوصول إليها</p>
+        
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setIsLdapImportOpen(true)}>
+            <Download className="w-4 h-4 me-2" />
+            استيراد من LDAP
+          </Button>
+          <Button onClick={() => setIsAddEmployeeOpen(true)}>
+            <Plus className="w-4 h-4 me-2" />
+            إضافة موظف
+          </Button>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="البحث عن موظف..."
-          className="ps-10"
-        />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">إجمالي الموظفين</p>
+                <p className="text-3xl font-bold">{profiles.length}</p>
+              </div>
+              <Users className="w-10 h-10 text-primary opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-accent/5 to-accent/10 border-accent/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">المسؤولون</p>
+                <p className="text-3xl font-bold text-accent">{profiles.filter(p => p.role === 'admin').length}</p>
+              </div>
+              <Shield className="w-10 h-10 text-accent opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-muted/50 to-muted border-border">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">الموظفون</p>
+                <p className="text-3xl font-bold">{profiles.filter(p => p.role === 'employee').length}</p>
+              </div>
+              <User className="w-10 h-10 text-muted-foreground opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Employees List */}
-      <div className="grid gap-4">
-        {profilesLoading ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              جاري التحميل...
-            </CardContent>
-          </Card>
-        ) : filteredProfiles.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              لا يوجد موظفين
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
+      {/* Tabs and Search */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+          <TabsList>
+            <TabsTrigger value="all">الكل ({profiles.length})</TabsTrigger>
+            <TabsTrigger value="admins">المسؤولون ({profiles.filter(p => p.role === 'admin').length})</TabsTrigger>
+            <TabsTrigger value="employees">الموظفون ({profiles.filter(p => p.role === 'employee').length})</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="البحث عن موظف..."
+            className="ps-10"
+          />
+        </div>
+      </div>
+
+      {/* Employees Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                قائمة الموظفين ({filteredProfiles.length})
+                قائمة الموظفين
               </CardTitle>
               <CardDescription>
-                اضغط على "تعديل الصلاحيات" لتحديد الدومينات المتاحة لكل موظف
+                عرض وإدارة جميع الموظفين المسجلين في النظام
               </CardDescription>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => refetchProfiles()}>
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {profilesLoading ? (
+            <div className="py-12 text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+              <p className="text-muted-foreground mt-2">جاري التحميل...</p>
+            </div>
+          ) : filteredProfiles.length === 0 ? (
+            <div className="py-12 text-center">
+              <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">لا يوجد موظفين</p>
+              <Button className="mt-4" onClick={() => setIsAddEmployeeOpen(true)}>
+                <Plus className="w-4 h-4 me-2" />
+                إضافة موظف جديد
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>الموظف</TableHead>
                     <TableHead>البريد الإلكتروني</TableHead>
                     <TableHead>القسم</TableHead>
-                    <TableHead>الدومينات المتاحة</TableHead>
+                    <TableHead>الدور</TableHead>
+                    <TableHead>الدومينات</TableHead>
                     <TableHead className="text-end">الإجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredProfiles.map((profile) => {
-                    const domainCount = getProfileDomainCount(profile.id);
                     const profileDomains = getProfileDomains(profile.id);
                     
                     return (
                       <TableRow key={profile.id}>
-                        <TableCell className="font-medium">{profile.full_name}</TableCell>
-                        <TableCell className="text-muted-foreground">{profile.email}</TableCell>
-                        <TableCell>{profile.department || 'IT'}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{profile.full_name}</p>
+                              <p className="text-xs text-muted-foreground">{profile.position || 'لم يحدد'}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Mail className="w-4 h-4" />
+                            {profile.email}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            <Building className="w-3 h-3 me-1" />
+                            {profile.department || 'IT'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={profile.role === 'admin' ? 'default' : 'secondary'}
+                            className={profile.role === 'admin' ? 'bg-accent text-accent-foreground' : ''}
+                          >
+                            {profile.role === 'admin' ? 'مسؤول' : 'موظف'}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {domainCount === 0 ? (
-                              <Badge variant="outline" className="text-muted-foreground">
-                                لا يوجد
-                              </Badge>
+                            {profileDomains.length === 0 ? (
+                              <span className="text-muted-foreground text-sm">لا يوجد</span>
                             ) : (
-                              profileDomains.slice(0, 3).map((d, i) => (
-                                <Badge 
-                                  key={i} 
-                                  variant="secondary"
-                                  className={cn(
-                                    d.can_edit ? 'bg-primary/10 text-primary' : ''
-                                  )}
-                                >
-                                  {d.name}
-                                  {d.can_edit && <Pencil className="w-3 h-3 ms-1" />}
-                                </Badge>
-                              ))
-                            )}
-                            {profileDomains.length > 3 && (
-                              <Badge variant="outline">+{profileDomains.length - 3}</Badge>
+                              <>
+                                {profileDomains.slice(0, 2).map((d, i) => (
+                                  <Badge 
+                                    key={i} 
+                                    variant="secondary"
+                                    className={cn(
+                                      "text-xs",
+                                      d.can_edit ? 'bg-primary/10 text-primary' : ''
+                                    )}
+                                  >
+                                    {d.name}
+                                    {d.can_edit && <Pencil className="w-2 h-2 ms-1" />}
+                                  </Badge>
+                                ))}
+                                {profileDomains.length > 2 && (
+                                  <Badge variant="outline" className="text-xs">+{profileDomains.length - 2}</Badge>
+                                )}
+                              </>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenPermissions(profile.id)}
-                          >
-                            <Shield className="w-4 h-4 me-2" />
-                            تعديل الصلاحيات
-                          </Button>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenPermissions(profile)}
+                              title="الصلاحيات"
+                            >
+                              <Shield className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenResetPassword(profile)}
+                              title="إعادة تعيين كلمة المرور"
+                            >
+                              <Key className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleOpenDeleteConfirm(profile)}
+                              title="حذف"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
                   })}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Employee Dialog */}
+      <Dialog open={isAddEmployeeOpen} onOpenChange={setIsAddEmployeeOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              إضافة موظف جديد
+            </DialogTitle>
+            <DialogDescription>
+              أدخل بيانات الموظف الجديد. سيتم إرسال رابط تأكيد البريد الإلكتروني.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="full_name">الاسم الكامل *</Label>
+                <Input
+                  id="full_name"
+                  value={newEmployeeForm.full_name}
+                  onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, full_name: e.target.value })}
+                  placeholder="أحمد محمد"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">الدور *</Label>
+                <Select
+                  value={newEmployeeForm.role}
+                  onValueChange={(value: 'admin' | 'employee') => 
+                    setNewEmployeeForm({ ...newEmployeeForm, role: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employee">موظف</SelectItem>
+                    <SelectItem value="admin">مسؤول</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">البريد الإلكتروني *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newEmployeeForm.email}
+                onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, email: e.target.value })}
+                placeholder="employee@company.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">كلمة المرور *</Label>
+              <Input
+                id="password"
+                type="password"
+                value={newEmployeeForm.password}
+                onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, password: e.target.value })}
+                placeholder="6 أحرف على الأقل"
+              />
+            </div>
+
+            <Separator />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="department">القسم</Label>
+                <Select
+                  value={newEmployeeForm.department}
+                  onValueChange={(value) => setNewEmployeeForm({ ...newEmployeeForm, department: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IT">تقنية المعلومات</SelectItem>
+                    <SelectItem value="DevOps">DevOps</SelectItem>
+                    <SelectItem value="Security">أمن المعلومات</SelectItem>
+                    <SelectItem value="Network">الشبكات</SelectItem>
+                    <SelectItem value="Support">الدعم الفني</SelectItem>
+                    <SelectItem value="System Admin">إدارة الأنظمة</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="position">المسمى الوظيفي</Label>
+                <Input
+                  id="position"
+                  value={newEmployeeForm.position}
+                  onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, position: e.target.value })}
+                  placeholder="مهندس أنظمة"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">رقم الهاتف</Label>
+              <Input
+                id="phone"
+                value={newEmployeeForm.phone}
+                onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, phone: e.target.value })}
+                placeholder="+966 5x xxx xxxx"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddEmployeeOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={handleAddEmployee} disabled={isAddingEmployee}>
+              {isAddingEmployee ? (
+                <>
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  جاري الإضافة...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 me-2" />
+                  إضافة الموظف
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Permissions Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isPermissionsOpen} onOpenChange={setIsPermissionsOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="w-5 h-5" />
-              صلاحيات الموظف: {selectedProfileData?.full_name}
+              صلاحيات الموظف: {selectedProfile?.full_name}
             </DialogTitle>
+            <DialogDescription>
+              حدد الدومينات التي يمكن للموظف الوصول إليها. صلاحية "التعديل" تتيح له إضافة وتعديل السيرفرات والمهام.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              حدد الدومينات التي يمكن للموظف الوصول إليها. صلاحية "التعديل" تتيح له إضافة وتعديل السيرفرات والمهام.
-            </p>
-
             {domainsLoading ? (
-              <div className="py-8 text-center text-muted-foreground">
-                جاري التحميل...
+              <div className="py-8 text-center">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto" />
               </div>
             ) : domains.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
-                لا يوجد دومينات. قم بإضافة دومين أولاً من صفحة الشبكات.
+                <Network className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>لا يوجد دومينات. قم بإضافة دومين أولاً من صفحة الشبكات.</p>
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
@@ -359,17 +832,133 @@ const EmployeePermissions: React.FC = () => {
                 </Table>
               </div>
             )}
+          </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                إلغاء
-              </Button>
-              <Button onClick={handleSavePermissions} disabled={isSaving}>
-                <Save className="w-4 h-4 me-2" />
-                {isSaving ? 'جاري الحفظ...' : 'حفظ الصلاحيات'}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPermissionsOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={handleSavePermissions} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  جاري الحفظ...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 me-2" />
+                  حفظ الصلاحيات
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              إعادة تعيين كلمة المرور
+            </DialogTitle>
+            <DialogDescription>
+              سيتم إرسال رابط إعادة تعيين كلمة المرور إلى البريد الإلكتروني للموظف.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+              <User className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="font-medium">{selectedProfile?.full_name}</p>
+                <p className="text-sm text-muted-foreground">{selectedProfile?.email}</p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResetPasswordOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={handleResetPassword} disabled={isResettingPassword}>
+              {isResettingPassword ? (
+                <>
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  جاري الإرسال...
+                </>
+              ) : (
+                <>
+                  <Mail className="w-4 h-4 me-2" />
+                  إرسال رابط إعادة التعيين
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              تأكيد الحذف
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف الموظف "{selectedProfile?.full_name}"؟ 
+              لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProfile}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="w-4 h-4 me-2" />
+              حذف الموظف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* LDAP Import Dialog */}
+      <Dialog open={isLdapImportOpen} onOpenChange={setIsLdapImportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5" />
+              استيراد من Active Directory
+            </DialogTitle>
+            <DialogDescription>
+              استيراد الموظفين من خادم LDAP / Active Directory
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="p-4 border border-dashed rounded-lg text-center">
+              <Network className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground mb-2">
+                لاستخدام هذه الميزة، تأكد من إعداد LDAP في صفحة الإعدادات أولاً.
+              </p>
+              <Button variant="outline" onClick={() => {
+                setIsLdapImportOpen(false);
+                // Navigate to settings
+                window.location.href = '/settings';
+              }}>
+                الذهاب للإعدادات
               </Button>
             </div>
           </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLdapImportOpen(false)}>
+              إغلاق
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
