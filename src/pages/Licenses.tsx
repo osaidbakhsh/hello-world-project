@@ -34,6 +34,7 @@ import { Plus, Search, Edit, Trash2, KeyRound, AlertTriangle, CheckCircle, Clock
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DataTableHeader, licenseSortOptions, applySortToData } from '@/components/DataTableHeader';
 
 interface LicenseFormData {
   name: string;
@@ -76,6 +77,7 @@ const Licenses: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sortValue, setSortValue] = useState<string>('expiry_date-asc');
   
   const [formData, setFormData] = useState<LicenseFormData>(initialFormData);
 
@@ -108,6 +110,11 @@ const Licenses: React.FC = () => {
       return matchesSearch && matchesStatus;
     });
   }, [licenses, searchQuery, statusFilter]);
+
+  // Apply sorting
+  const sortedLicenses = useMemo(() => {
+    return applySortToData(filteredLicenses, sortValue);
+  }, [filteredLicenses, sortValue]);
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.expiry_date) {
@@ -431,6 +438,15 @@ const Licenses: React.FC = () => {
               </SelectContent>
             </Select>
           </div>
+          
+          {/* Sort Controls */}
+          <div className="mt-4">
+            <DataTableHeader
+              sortOptions={licenseSortOptions}
+              currentSort={sortValue}
+              onSortChange={setSortValue}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -459,8 +475,8 @@ const Licenses: React.FC = () => {
                       ))}
                     </TableRow>
                   ))
-                ) : filteredLicenses.length > 0 ? (
-                  filteredLicenses.map((license) => {
+                ) : sortedLicenses.length > 0 ? (
+                  sortedLicenses.map((license) => {
                     const status = getLicenseStatus(license.expiry_date);
                     const daysLeft = getDaysLeft(license.expiry_date);
                     const statusBadge = getStatusBadge(status);

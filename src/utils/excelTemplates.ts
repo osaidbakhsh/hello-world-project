@@ -1,81 +1,174 @@
 import * as XLSX from 'xlsx';
 
-// Server Import Template
+// ==================== Server Import Template V2 ====================
 export const downloadServerTemplate = () => {
   const templateData = [
     {
-      Name: 'Server-01',
-      IP: '192.168.1.10',
-      OS: 'Windows Server',
-      Version: '2022',
-      Environment: 'production',
-      Owner: 'Ahmed',
-      Responsible: 'Mohammed',
-      Description: 'Main Database Server',
-      Status: 'active',
-      Network: 'main-network',
-      'Disk_C_Total_GB': 500,
-      'Disk_C_Used_GB': 250,
-      'Disk_D_Total_GB': 1000,
-      'Disk_D_Used_GB': 400,
+      'server_id': '',  // Empty for new, fill for update
+      'name': 'Server-01',
+      'ip_address': '192.168.1.10',
+      'operating_system': 'Windows Server 2022',
+      'environment': 'production',
+      'status': 'active',
+      'owner': 'Ahmed',
+      'responsible_user': 'Mohammed',
+      'network_name': 'Main Network',
+      'cpu': '4 vCPU',
+      'ram': '16 GB',
+      'disk_space': '500 GB',
+      'notes': 'Main Database Server',
     },
     {
-      Name: 'Server-02',
-      IP: '192.168.1.11',
-      OS: 'Ubuntu Server',
-      Version: '22.04 LTS',
-      Environment: 'testing',
-      Owner: 'Sara',
-      Responsible: 'Khalid',
-      Description: 'Web Application Server',
-      Status: 'active',
-      Network: 'test-network',
-      'Disk_C_Total_GB': 200,
-      'Disk_C_Used_GB': 80,
-      'Disk_D_Total_GB': 0,
-      'Disk_D_Used_GB': 0,
+      'server_id': '',
+      'name': 'Server-02',
+      'ip_address': '192.168.1.11',
+      'operating_system': 'Ubuntu 22.04 LTS',
+      'environment': 'testing',
+      'status': 'active',
+      'owner': 'Sara',
+      'responsible_user': 'Khalid',
+      'network_name': 'Test Network',
+      'cpu': '2 vCPU',
+      'ram': '8 GB',
+      'disk_space': '200 GB',
+      'notes': 'Web Application Server',
     },
   ];
 
-  // Create instructions sheet
+  const lookupData = [
+    { 'Field': 'environment', 'Allowed Values': 'production, testing, development, staging' },
+    { 'Field': 'status', 'Allowed Values': 'active, inactive, maintenance' },
+    { 'Field': 'operating_system', 'Allowed Values': 'Windows Server 2022, Windows Server 2019, Ubuntu 22.04 LTS, Ubuntu 20.04 LTS, CentOS, Red Hat Enterprise, Debian' },
+  ];
+
   const instructionsData = [
-    { 'Column': 'Name', 'Description': 'Server name (required)', 'Example': 'Server-01', 'Required': 'Yes' },
-    { 'Column': 'IP', 'Description': 'IP Address (required)', 'Example': '192.168.1.10', 'Required': 'Yes' },
-    { 'Column': 'OS', 'Description': 'Operating System', 'Example': 'Windows Server, Ubuntu Server, CentOS, Red Hat, Debian', 'Required': 'No' },
-    { 'Column': 'Version', 'Description': 'OS Version', 'Example': '2022, 2019, 22.04 LTS', 'Required': 'No' },
-    { 'Column': 'Environment', 'Description': 'Server environment', 'Example': 'production, testing, development, staging', 'Required': 'No' },
-    { 'Column': 'Owner', 'Description': 'Server owner name', 'Example': 'Ahmed Mohammed', 'Required': 'No' },
-    { 'Column': 'Responsible', 'Description': 'Responsible person name', 'Example': 'Khalid Ali', 'Required': 'No' },
-    { 'Column': 'Description', 'Description': 'Server description', 'Example': 'Main Database Server', 'Required': 'No' },
-    { 'Column': 'Status', 'Description': 'Server status', 'Example': 'active, inactive, maintenance', 'Required': 'No' },
-    { 'Column': 'Network', 'Description': 'Network name', 'Example': 'main-network', 'Required': 'No' },
-    { 'Column': 'Disk_C_Total_GB', 'Description': 'C: drive total space in GB', 'Example': '500', 'Required': 'No' },
-    { 'Column': 'Disk_C_Used_GB', 'Description': 'C: drive used space in GB', 'Example': '250', 'Required': 'No' },
-    { 'Column': 'Disk_D_Total_GB', 'Description': 'D: drive total space in GB', 'Example': '1000', 'Required': 'No' },
-    { 'Column': 'Disk_D_Used_GB', 'Description': 'D: drive used space in GB', 'Example': '400', 'Required': 'No' },
+    { 'Column': 'server_id', 'Description': 'Leave empty for new servers. Fill with existing ID to update.', 'Required': 'No' },
+    { 'Column': 'name', 'Description': 'Server name (unique identifier)', 'Required': 'Yes' },
+    { 'Column': 'ip_address', 'Description': 'IP Address (used with name for matching)', 'Required': 'Yes' },
+    { 'Column': 'operating_system', 'Description': 'Operating System (see Lookup sheet)', 'Required': 'No' },
+    { 'Column': 'environment', 'Description': 'Environment type (see Lookup sheet)', 'Required': 'No' },
+    { 'Column': 'status', 'Description': 'Server status (see Lookup sheet)', 'Required': 'No' },
+    { 'Column': 'owner', 'Description': 'Server owner/department', 'Required': 'No' },
+    { 'Column': 'responsible_user', 'Description': 'Responsible administrator', 'Required': 'No' },
+    { 'Column': 'network_name', 'Description': 'Network name for auto-linking', 'Required': 'No' },
+    { 'Column': 'cpu', 'Description': 'CPU specifications (e.g., 4 vCPU)', 'Required': 'No' },
+    { 'Column': 'ram', 'Description': 'RAM specifications (e.g., 16 GB)', 'Required': 'No' },
+    { 'Column': 'disk_space', 'Description': 'Disk space (e.g., 500 GB)', 'Required': 'No' },
+    { 'Column': 'notes', 'Description': 'Additional notes', 'Required': 'No' },
+  ];
+
+  const importNotes = [
+    { 'Note': '1. Smart Import: If server_id is provided, that record will be updated.' },
+    { 'Note': '2. If server_id is empty, system matches by name + ip_address to update existing or create new.' },
+    { 'Note': '3. Duplicate prevention: Same name + IP will update instead of creating duplicate.' },
+    { 'Note': '4. Network linking: Use network_name to auto-link servers to networks.' },
+    { 'Note': '5. Case-insensitive: Environment and status values are normalized to lowercase.' },
   ];
 
   const ws1 = XLSX.utils.json_to_sheet(templateData);
-  const ws2 = XLSX.utils.json_to_sheet(instructionsData);
+  const ws2 = XLSX.utils.json_to_sheet(lookupData);
+  const ws3 = XLSX.utils.json_to_sheet(instructionsData);
+  const ws4 = XLSX.utils.json_to_sheet(importNotes);
   
-  // Set column widths
   ws1['!cols'] = [
-    { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 12 }, { wch: 12 },
-    { wch: 15 }, { wch: 15 }, { wch: 30 }, { wch: 12 }, { wch: 15 },
-    { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+    { wch: 36 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 12 },
+    { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 },
+    { wch: 10 }, { wch: 12 }, { wch: 30 },
   ];
   
-  ws2['!cols'] = [
-    { wch: 18 }, { wch: 35 }, { wch: 40 }, { wch: 10 },
-  ];
+  ws2['!cols'] = [{ wch: 18 }, { wch: 80 }];
+  ws3['!cols'] = [{ wch: 18 }, { wch: 55 }, { wch: 10 }];
+  ws4['!cols'] = [{ wch: 80 }];
   
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, 'Servers');
-  XLSX.utils.book_append_sheet(wb, ws2, 'Instructions');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Lookup Values');
+  XLSX.utils.book_append_sheet(wb, ws3, 'Instructions');
+  XLSX.utils.book_append_sheet(wb, ws4, 'Import Notes');
   XLSX.writeFile(wb, 'server-import-template.xlsx');
 };
 
-// Employee Report Template
+// ==================== License Import Template V2 ====================
+export const downloadLicenseTemplate = () => {
+  const templateData = [
+    {
+      'license_id': '',
+      'name': 'Microsoft Office 365',
+      'vendor': 'Microsoft',
+      'license_key': 'XXXXX-XXXXX-XXXXX-XXXXX',
+      'purchase_date': '2024-01-01',
+      'expiry_date': '2025-01-01',
+      'domain_name': 'Main Domain',
+      'assigned_to': 'Server-01',
+      'cost': 299.99,
+      'quantity': 50,
+      'notes': 'Enterprise license for 50 users',
+    },
+    {
+      'license_id': '',
+      'name': 'Windows Server 2022',
+      'vendor': 'Microsoft',
+      'license_key': 'YYYYY-YYYYY-YYYYY-YYYYY',
+      'purchase_date': '2024-01-01',
+      'expiry_date': '2027-01-01',
+      'domain_name': 'Main Domain',
+      'assigned_to': 'Server-02',
+      'cost': 999.99,
+      'quantity': 1,
+      'notes': 'Datacenter edition',
+    },
+  ];
+
+  const lookupData = [
+    { 'Field': 'domain_name', 'Description': 'Enter domain name to auto-link. System will match by name.' },
+    { 'Field': 'assigned_to', 'Description': 'Server name or user name for assignment.' },
+    { 'Field': 'cost', 'Description': 'Numeric value only (no currency symbol).' },
+    { 'Field': 'quantity', 'Description': 'Number of licenses (default: 1).' },
+  ];
+
+  const instructionsData = [
+    { 'Column': 'license_id', 'Description': 'Leave empty for new. Fill to update existing license.', 'Required': 'No' },
+    { 'Column': 'name', 'Description': 'License/Product name', 'Required': 'Yes' },
+    { 'Column': 'vendor', 'Description': 'Vendor/Manufacturer name', 'Required': 'No' },
+    { 'Column': 'license_key', 'Description': 'License key or serial number', 'Required': 'No' },
+    { 'Column': 'purchase_date', 'Description': 'Purchase date (YYYY-MM-DD)', 'Required': 'No' },
+    { 'Column': 'expiry_date', 'Description': 'Expiry date (YYYY-MM-DD)', 'Required': 'Yes' },
+    { 'Column': 'domain_name', 'Description': 'Domain name for auto-linking', 'Required': 'No' },
+    { 'Column': 'assigned_to', 'Description': 'Assigned server or user', 'Required': 'No' },
+    { 'Column': 'cost', 'Description': 'License cost (number only)', 'Required': 'No' },
+    { 'Column': 'quantity', 'Description': 'Number of licenses', 'Required': 'No' },
+    { 'Column': 'notes', 'Description': 'Additional notes', 'Required': 'No' },
+  ];
+
+  const importNotes = [
+    { 'Note': '1. Smart Import: If license_id is provided, that record will be updated.' },
+    { 'Note': '2. If license_id is empty, system matches by name + license_key to update or create.' },
+    { 'Note': '3. Domain linking: Use domain_name to auto-link licenses to domains.' },
+    { 'Note': '4. Date format: Use YYYY-MM-DD format for all dates.' },
+  ];
+
+  const ws1 = XLSX.utils.json_to_sheet(templateData);
+  const ws2 = XLSX.utils.json_to_sheet(lookupData);
+  const ws3 = XLSX.utils.json_to_sheet(instructionsData);
+  const ws4 = XLSX.utils.json_to_sheet(importNotes);
+
+  ws1['!cols'] = [
+    { wch: 36 }, { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 12 },
+    { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 30 },
+  ];
+
+  ws2['!cols'] = [{ wch: 15 }, { wch: 60 }];
+  ws3['!cols'] = [{ wch: 15 }, { wch: 50 }, { wch: 10 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, 'Licenses');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Lookup Values');
+  XLSX.utils.book_append_sheet(wb, ws3, 'Instructions');
+  XLSX.utils.book_append_sheet(wb, ws4, 'Import Notes');
+  XLSX.writeFile(wb, 'license-import-template.xlsx');
+};
+
+// ==================== Employee Report Template ====================
 export const downloadEmployeeReportTemplate = () => {
   const weeklyReportData = [
     {
@@ -146,65 +239,7 @@ export const downloadEmployeeReportTemplate = () => {
   XLSX.writeFile(wb, 'employee-report-template.xlsx');
 };
 
-// License Template
-export const downloadLicenseTemplate = () => {
-  const templateData = [
-    {
-      'Name': 'Microsoft Office 365',
-      'Product': 'Office Suite',
-      'License Key': 'XXXXX-XXXXX-XXXXX-XXXXX',
-      'Start Date': '2024-01-01',
-      'Expiry Date': '2025-01-01',
-      'Server': 'Server-01',
-      'Cost': 299.99,
-      'Currency': 'USD',
-      'Vendor': 'Microsoft',
-      'Notes': 'Enterprise license for 50 users',
-    },
-    {
-      'Name': 'Windows Server 2022',
-      'Product': 'Operating System',
-      'License Key': 'YYYYY-YYYYY-YYYYY-YYYYY',
-      'Start Date': '2024-01-01',
-      'Expiry Date': '2027-01-01',
-      'Server': 'Server-02',
-      'Cost': 999.99,
-      'Currency': 'USD',
-      'Vendor': 'Microsoft',
-      'Notes': 'Datacenter edition',
-    },
-  ];
-
-  const instructionsData = [
-    { 'Column': 'Name', 'Description': 'License name', 'Example': 'Microsoft Office 365', 'Required': 'Yes' },
-    { 'Column': 'Product', 'Description': 'Product name', 'Example': 'Office Suite', 'Required': 'Yes' },
-    { 'Column': 'License Key', 'Description': 'License key/serial', 'Example': 'XXXXX-XXXXX-XXXXX', 'Required': 'Yes' },
-    { 'Column': 'Start Date', 'Description': 'License start date', 'Example': '2024-01-01', 'Required': 'Yes' },
-    { 'Column': 'Expiry Date', 'Description': 'License expiry date', 'Example': '2025-01-01', 'Required': 'Yes' },
-    { 'Column': 'Server', 'Description': 'Assigned server name', 'Example': 'Server-01', 'Required': 'No' },
-    { 'Column': 'Cost', 'Description': 'License cost', 'Example': '299.99', 'Required': 'No' },
-    { 'Column': 'Currency', 'Description': 'Currency code', 'Example': 'USD, SAR, EUR', 'Required': 'No' },
-    { 'Column': 'Vendor', 'Description': 'License vendor', 'Example': 'Microsoft', 'Required': 'No' },
-    { 'Column': 'Notes', 'Description': 'Additional notes', 'Example': 'Enterprise license', 'Required': 'No' },
-  ];
-
-  const ws1 = XLSX.utils.json_to_sheet(templateData);
-  const ws2 = XLSX.utils.json_to_sheet(instructionsData);
-
-  ws1['!cols'] = [
-    { wch: 25 }, { wch: 18 }, { wch: 30 }, { wch: 12 }, { wch: 12 },
-    { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 30 },
-  ];
-
-  ws2['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 30 }, { wch: 10 }];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, 'Licenses');
-  XLSX.utils.book_append_sheet(wb, ws2, 'Instructions');
-  XLSX.writeFile(wb, 'license-import-template.xlsx');
-};
-
-// Network Template
+// ==================== Network Template ====================
 export const downloadNetworkTemplate = () => {
   const templateData = [
     {
@@ -240,62 +275,176 @@ export const downloadNetworkTemplate = () => {
   XLSX.writeFile(wb, 'network-import-template.xlsx');
 };
 
-// Employee Template
+// ==================== Employee Template V2 ====================
 export const downloadEmployeeTemplate = () => {
   const templateData = [
     {
-      'Name': 'Ahmed Mohammed',
-      'Email': 'ahmed@company.com',
-      'Phone': '+966501234567',
-      'Position': 'System Administrator',
-      'Department': 'System Admin',
-      'Hire Date': '2023-01-15',
-      'Status': 'active',
-      'Skills': 'Windows Server, Linux, VMware, Networking',
-      'Certifications': 'MCSA, CCNA, VCP',
-      'Yearly Goals': 'Complete VCP-DCV certification, Implement new backup solution',
+      'profile_id': '',
+      'full_name': 'Ahmed Mohammed',
+      'email': 'ahmed@company.com',
+      'phone': '+966501234567',
+      'position': 'System Administrator',
+      'department': 'IT',
+      'skills': 'Windows Server, Linux, VMware, Networking',
+      'certifications': 'MCSA, CCNA, VCP',
     },
     {
-      'Name': 'Sara Ali',
-      'Email': 'sara@company.com',
-      'Phone': '+966509876543',
-      'Position': 'Network Engineer',
-      'Department': 'Network',
-      'Hire Date': '2022-06-01',
-      'Status': 'active',
-      'Skills': 'Cisco, Juniper, Firewall, SD-WAN',
-      'Certifications': 'CCNP, JNCIA',
-      'Yearly Goals': 'Achieve CCIE certification, Upgrade core network switches',
+      'profile_id': '',
+      'full_name': 'Sara Ali',
+      'email': 'sara@company.com',
+      'phone': '+966509876543',
+      'position': 'Network Engineer',
+      'department': 'Network',
+      'skills': 'Cisco, Juniper, Firewall, SD-WAN',
+      'certifications': 'CCNP, JNCIA',
     },
+  ];
+
+  const lookupData = [
+    { 'Field': 'department', 'Allowed Values': 'IT, Network, Security, DevOps, Support, Development' },
+    { 'Field': 'skills', 'Description': 'Comma-separated list of skills' },
+    { 'Field': 'certifications', 'Description': 'Comma-separated list of certifications' },
   ];
 
   const instructionsData = [
-    { 'Column': 'Name', 'Description': 'Employee full name', 'Example': 'Ahmed Mohammed', 'Required': 'Yes' },
-    { 'Column': 'Email', 'Description': 'Email address', 'Example': 'ahmed@company.com', 'Required': 'Yes' },
-    { 'Column': 'Phone', 'Description': 'Phone number', 'Example': '+966501234567', 'Required': 'No' },
-    { 'Column': 'Position', 'Description': 'Job title', 'Example': 'System Administrator', 'Required': 'No' },
-    { 'Column': 'Department', 'Description': 'Department', 'Example': 'IT, Network, System Admin, Security, DevOps, Support', 'Required': 'No' },
-    { 'Column': 'Hire Date', 'Description': 'Hire date (YYYY-MM-DD)', 'Example': '2023-01-15', 'Required': 'No' },
-    { 'Column': 'Status', 'Description': 'Employee status', 'Example': 'active, inactive', 'Required': 'No' },
-    { 'Column': 'Skills', 'Description': 'Technical skills (comma separated)', 'Example': 'Windows Server, Linux, VMware', 'Required': 'No' },
-    { 'Column': 'Certifications', 'Description': 'Certifications (comma separated)', 'Example': 'MCSA, CCNA, VCP', 'Required': 'No' },
-    { 'Column': 'Yearly Goals', 'Description': 'Yearly goals (comma separated)', 'Example': 'Complete certification, Lead project', 'Required': 'No' },
+    { 'Column': 'profile_id', 'Description': 'Leave empty for reference. Employees are created via system.', 'Required': 'No' },
+    { 'Column': 'full_name', 'Description': 'Employee full name', 'Required': 'Yes' },
+    { 'Column': 'email', 'Description': 'Email address', 'Required': 'Yes' },
+    { 'Column': 'phone', 'Description': 'Phone number with country code', 'Required': 'No' },
+    { 'Column': 'position', 'Description': 'Job title/position', 'Required': 'No' },
+    { 'Column': 'department', 'Description': 'Department name (see Lookup)', 'Required': 'No' },
+    { 'Column': 'skills', 'Description': 'Skills (comma-separated)', 'Required': 'No' },
+    { 'Column': 'certifications', 'Description': 'Certifications (comma-separated)', 'Required': 'No' },
   ];
 
   const ws1 = XLSX.utils.json_to_sheet(templateData);
-  const ws2 = XLSX.utils.json_to_sheet(instructionsData);
+  const ws2 = XLSX.utils.json_to_sheet(lookupData);
+  const ws3 = XLSX.utils.json_to_sheet(instructionsData);
 
   ws1['!cols'] = [
-    { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 },
-    { wch: 12 }, { wch: 10 }, { wch: 40 }, { wch: 25 }, { wch: 50 },
+    { wch: 36 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, 
+    { wch: 20 }, { wch: 15 }, { wch: 40 }, { wch: 25 },
   ];
 
-  ws2['!cols'] = [{ wch: 15 }, { wch: 35 }, { wch: 50 }, { wch: 10 }];
+  ws2['!cols'] = [{ wch: 15 }, { wch: 60 }];
+  ws3['!cols'] = [{ wch: 15 }, { wch: 55 }, { wch: 10 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, 'Employees');
-  XLSX.utils.book_append_sheet(wb, ws2, 'Instructions');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Lookup Values');
+  XLSX.utils.book_append_sheet(wb, ws3, 'Instructions');
   XLSX.writeFile(wb, 'employee-import-template.xlsx');
+};
+
+// ==================== Task Template V2 ====================
+export const downloadTaskTemplate = () => {
+  const templateData = [
+    {
+      'task_id': '',
+      'title': 'Server Maintenance',
+      'description': 'Monthly maintenance for production servers',
+      'server_name': 'Server-01',
+      'assignee_email': 'ahmed@company.com',
+      'priority': 'high',
+      'frequency': 'monthly',
+      'due_date': new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      'status': 'pending',
+    },
+    {
+      'task_id': '',
+      'title': 'Backup Verification',
+      'description': 'Weekly backup verification and testing',
+      'server_name': '',
+      'assignee_email': 'sara@company.com',
+      'priority': 'medium',
+      'frequency': 'weekly',
+      'due_date': new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      'status': 'pending',
+    },
+  ];
+
+  const lookupData = [
+    { 'Field': 'priority', 'Allowed Values': 'low, medium, high' },
+    { 'Field': 'frequency', 'Allowed Values': 'once, daily, weekly, monthly' },
+    { 'Field': 'status', 'Allowed Values': 'pending, completed' },
+  ];
+
+  const instructionsData = [
+    { 'Column': 'task_id', 'Description': 'Leave empty for new. Fill to update existing.', 'Required': 'No' },
+    { 'Column': 'title', 'Description': 'Task title', 'Required': 'Yes' },
+    { 'Column': 'description', 'Description': 'Task description', 'Required': 'No' },
+    { 'Column': 'server_name', 'Description': 'Related server name (for auto-linking)', 'Required': 'No' },
+    { 'Column': 'assignee_email', 'Description': 'Assignee email (for auto-linking)', 'Required': 'No' },
+    { 'Column': 'priority', 'Description': 'Task priority (see Lookup)', 'Required': 'No' },
+    { 'Column': 'frequency', 'Description': 'Task frequency (see Lookup)', 'Required': 'No' },
+    { 'Column': 'due_date', 'Description': 'Due date (YYYY-MM-DD)', 'Required': 'No' },
+    { 'Column': 'status', 'Description': 'Task status (see Lookup)', 'Required': 'No' },
+  ];
+
+  const ws1 = XLSX.utils.json_to_sheet(templateData);
+  const ws2 = XLSX.utils.json_to_sheet(lookupData);
+  const ws3 = XLSX.utils.json_to_sheet(instructionsData);
+
+  ws1['!cols'] = [
+    { wch: 36 }, { wch: 25 }, { wch: 40 }, { wch: 15 },
+    { wch: 25 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 10 },
+  ];
+
+  ws2['!cols'] = [{ wch: 12 }, { wch: 40 }];
+  ws3['!cols'] = [{ wch: 18 }, { wch: 50 }, { wch: 10 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, 'Tasks');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Lookup Values');
+  XLSX.utils.book_append_sheet(wb, ws3, 'Instructions');
+  XLSX.writeFile(wb, 'task-import-template.xlsx');
+};
+
+// ==================== Vacation Template ====================
+export const downloadVacationTemplate = () => {
+  const templateData = [
+    {
+      'employee_email': 'ahmed@company.com',
+      'vacation_type': 'annual',
+      'start_date': new Date().toISOString().split('T')[0],
+      'end_date': new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      'notes': 'Annual family vacation',
+    },
+    {
+      'employee_email': 'sara@company.com',
+      'vacation_type': 'sick',
+      'start_date': new Date().toISOString().split('T')[0],
+      'end_date': new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      'notes': 'Medical appointment',
+    },
+  ];
+
+  const lookupData = [
+    { 'Field': 'vacation_type', 'Allowed Values': 'annual, sick, emergency, unpaid' },
+    { 'Field': 'status', 'Description': 'Vacation status (set by system): pending, approved, rejected' },
+  ];
+
+  const instructionsData = [
+    { 'Column': 'employee_email', 'Description': 'Employee email for auto-linking', 'Required': 'Yes' },
+    { 'Column': 'vacation_type', 'Description': 'Type of vacation (see Lookup)', 'Required': 'Yes' },
+    { 'Column': 'start_date', 'Description': 'Start date (YYYY-MM-DD)', 'Required': 'Yes' },
+    { 'Column': 'end_date', 'Description': 'End date (YYYY-MM-DD)', 'Required': 'Yes' },
+    { 'Column': 'notes', 'Description': 'Additional notes', 'Required': 'No' },
+  ];
+
+  const ws1 = XLSX.utils.json_to_sheet(templateData);
+  const ws2 = XLSX.utils.json_to_sheet(lookupData);
+  const ws3 = XLSX.utils.json_to_sheet(instructionsData);
+
+  ws1['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
+  ws2['!cols'] = [{ wch: 15 }, { wch: 60 }];
+  ws3['!cols'] = [{ wch: 18 }, { wch: 45 }, { wch: 10 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, 'Vacations');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Lookup Values');
+  XLSX.utils.book_append_sheet(wb, ws3, 'Instructions');
+  XLSX.writeFile(wb, 'vacation-import-template.xlsx');
 };
 
 function getWeekNumber(date: Date): number {
