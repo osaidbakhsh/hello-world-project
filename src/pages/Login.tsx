@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Server, Loader2, Eye, EyeOff } from 'lucide-react';
-import loginBackground from '@/assets/login-background.jpg';
+import loginBackground from '@/assets/login-background-dark.jpg';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
