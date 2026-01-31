@@ -1,0 +1,194 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Hex string to Uint8Array
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const encryptionKey = Deno.env.get('VAULT_ENCRYPTION_KEY');
+
+    if (!encryptionKey) {
+      throw new Error('Encryption key not configured');
+    }
+
+    // Verify auth
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Get user from token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { vault_item_id } = await req.json();
+
+    if (!vault_item_id) {
+      return new Response(JSON.stringify({ error: 'Vault item ID is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check if global reveal is disabled
+    const { data: globalSetting } = await supabase
+      .from('vault_settings')
+      .select('value')
+      .eq('key', 'global_reveal_disabled')
+      .single();
+
+    if (globalSetting?.value === true || globalSetting?.value === 'true') {
+      return new Response(JSON.stringify({ error: 'Password reveal is globally disabled' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get user's profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, role, full_name, email')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!profile) {
+      return new Response(JSON.stringify({ error: 'Profile not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get the vault item
+    const { data: vaultItem, error: vaultError } = await supabase
+      .from('vault_items')
+      .select('*')
+      .eq('id', vault_item_id)
+      .single();
+
+    if (vaultError || !vaultItem) {
+      return new Response(JSON.stringify({ error: 'Vault item not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check permissions: admin, owner, or has reveal permission
+    const isAdmin = profile.role === 'admin';
+    const isOwner = vaultItem.owner_id === profile.id;
+    
+    let hasPermission = isAdmin || isOwner;
+
+    if (!hasPermission) {
+      const { data: permission } = await supabase
+        .from('vault_permissions')
+        .select('can_reveal')
+        .eq('vault_item_id', vault_item_id)
+        .eq('profile_id', profile.id)
+        .single();
+
+      hasPermission = permission?.can_reveal === true;
+    }
+
+    if (!hasPermission) {
+      return new Response(JSON.stringify({ error: 'No permission to reveal password' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check if password exists
+    if (!vaultItem.password_encrypted || !vaultItem.password_iv) {
+      return new Response(JSON.stringify({ error: 'No password stored' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Decrypt the password
+    const keyBytes = hexToBytes(encryptionKey);
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyBytes.buffer as ArrayBuffer,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+
+    const encryptedBytes = hexToBytes(vaultItem.password_encrypted);
+    const ivBytes = hexToBytes(vaultItem.password_iv);
+
+    const decryptedData = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: ivBytes.buffer as ArrayBuffer },
+      cryptoKey,
+      encryptedBytes.buffer as ArrayBuffer
+    );
+
+    const decoder = new TextDecoder();
+    const password = decoder.decode(decryptedData);
+
+    // Log the reveal action (NEVER log the password itself)
+    await supabase.from('vault_audit_logs').insert({
+      vault_item_id,
+      user_id: profile.id,
+      user_name: profile.full_name,
+      user_email: profile.email,
+      action: 'reveal_password',
+      ip_address: req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || null,
+      user_agent: req.headers.get('user-agent') || null,
+      details: { item_title: vaultItem.title },
+    });
+
+    // Update reveal count and timestamp
+    await supabase
+      .from('vault_items')
+      .update({
+        last_password_reveal: new Date().toISOString(),
+        password_reveal_count: (vaultItem.password_reveal_count || 0) + 1,
+      })
+      .eq('id', vault_item_id);
+
+    console.log('Password revealed for vault item:', vault_item_id, 'by user:', profile.id);
+
+    return new Response(JSON.stringify({ password }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Decryption error:', message);
+    return new Response(JSON.stringify({ error: 'Decryption failed' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
