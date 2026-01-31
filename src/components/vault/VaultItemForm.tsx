@@ -279,14 +279,14 @@ const VaultItemForm: React.FC<VaultItemFormProps> = ({
           <div className="space-y-2">
             <Label>{t('vault.linkedServer')}</Label>
             <Select
-              value={formData.linked_server_id}
-              onValueChange={(value) => setFormData({ ...formData, linked_server_id: value })}
+              value={formData.linked_server_id || "none"}
+              onValueChange={(value) => setFormData({ ...formData, linked_server_id: value === "none" ? "" : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="—" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">—</SelectItem>
+                <SelectItem value="none">—</SelectItem>
                 {servers?.map((server) => (
                   <SelectItem key={server.id} value={server.id}>
                     {server.name}
@@ -300,14 +300,14 @@ const VaultItemForm: React.FC<VaultItemFormProps> = ({
           <div className="space-y-2">
             <Label>{t('vault.linkedNetwork')}</Label>
             <Select
-              value={formData.linked_network_id}
-              onValueChange={(value) => setFormData({ ...formData, linked_network_id: value })}
+              value={formData.linked_network_id || "none"}
+              onValueChange={(value) => setFormData({ ...formData, linked_network_id: value === "none" ? "" : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="—" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">—</SelectItem>
+                <SelectItem value="none">—</SelectItem>
                 {networks?.map((network) => (
                   <SelectItem key={network.id} value={network.id}>
                     {network.name}
@@ -321,14 +321,14 @@ const VaultItemForm: React.FC<VaultItemFormProps> = ({
           <div className="space-y-2 md:col-span-2">
             <Label>{t('vault.linkedApplication')}</Label>
             <Select
-              value={formData.linked_application_id}
-              onValueChange={(value) => setFormData({ ...formData, linked_application_id: value })}
+              value={formData.linked_application_id || "none"}
+              onValueChange={(value) => setFormData({ ...formData, linked_application_id: value === "none" ? "" : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="—" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">—</SelectItem>
+                <SelectItem value="none">—</SelectItem>
                 {webApps?.map((app) => (
                   <SelectItem key={app.id} value={app.id}>
                     {app.name}
