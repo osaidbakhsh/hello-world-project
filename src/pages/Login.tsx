@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -14,15 +14,22 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { signIn, user, profile, isLoading: authLoading } = useAuth();
   const { t, dir } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Redirect only when both user + profile are ready (ProtectedRoute requires both).
+  useEffect(() => {
+    if (!authLoading && user && profile) {
+      navigate('/', { replace: true });
+    }
+  }, [authLoading, user, profile, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
       const { error } = await signIn(email, password);
@@ -35,20 +42,17 @@ const Login: React.FC = () => {
             : error.message,
           variant: 'destructive',
         });
-        setIsLoading(false);
+        setIsSubmitting(false);
       } else {
         toast({
           title: t('common.success'),
           description: 'تم تسجيل الدخول بنجاح',
         });
-        // Small delay to ensure auth state is updated
-        setTimeout(() => {
-          navigate('/', { replace: true });
-        }, 100);
+        // Do not navigate immediately; wait for AuthContext to finish loading profile.
       }
     } catch (err) {
       console.error('Login error:', err);
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -91,7 +95,7 @@ const Login: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={isLoading}
+                disabled={isSubmitting}
               />
             </div>
             <div className="space-y-2">
@@ -104,7 +108,7 @@ const Login: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  disabled={isLoading}
+                    disabled={isSubmitting}
                   className="pe-10"
                 />
                 <Button
@@ -125,9 +129,9 @@ const Login: React.FC = () => {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 me-2 animate-spin" />
                   جارٍ تسجيل الدخول...
