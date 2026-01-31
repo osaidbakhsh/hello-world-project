@@ -59,7 +59,48 @@ import {
   Cloud,
   Monitor,
   Layers,
-  Link
+  Link,
+  HardDrive,
+  Cpu,
+  Network,
+  Wifi,
+  Router,
+  Lock,
+  Key,
+  Fingerprint,
+  Scan,
+  MessageSquare,
+  Phone,
+  Video,
+  Users,
+  Folder,
+  Archive,
+  Clipboard,
+  Code,
+  Terminal,
+  GitBranch,
+  Box,
+  Activity,
+  BarChart,
+  PieChart,
+  TrendingUp,
+  Settings,
+  Wrench,
+  Calendar,
+  Clock,
+  Home,
+  Bookmark,
+  Star,
+  Zap,
+  Camera,
+  Image,
+  Music,
+  Play,
+  Radio,
+  Smartphone,
+  Tablet,
+  Laptop,
+  Printer,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -86,15 +127,63 @@ const initialFormData: WebAppForm = {
 };
 
 const iconOptions = [
+  // البنية التحتية
   { value: 'globe', label: 'Globe', icon: Globe },
   { value: 'server', label: 'Server', icon: Server },
-  { value: 'mail', label: 'Mail', icon: Mail },
-  { value: 'file', label: 'File', icon: FileText },
   { value: 'database', label: 'Database', icon: Database },
-  { value: 'shield', label: 'Shield', icon: Shield },
   { value: 'cloud', label: 'Cloud', icon: Cloud },
+  { value: 'hard-drive', label: 'Hard Drive', icon: HardDrive },
+  { value: 'cpu', label: 'CPU', icon: Cpu },
+  { value: 'network', label: 'Network', icon: Network },
+  { value: 'wifi', label: 'Wifi', icon: Wifi },
+  { value: 'router', label: 'Router', icon: Router },
+  // الأمان
+  { value: 'shield', label: 'Shield', icon: Shield },
+  { value: 'lock', label: 'Lock', icon: Lock },
+  { value: 'key', label: 'Key', icon: Key },
+  { value: 'fingerprint', label: 'Fingerprint', icon: Fingerprint },
+  { value: 'scan', label: 'Scan', icon: Scan },
+  // التواصل
+  { value: 'mail', label: 'Mail', icon: Mail },
+  { value: 'message-square', label: 'Message', icon: MessageSquare },
+  { value: 'phone', label: 'Phone', icon: Phone },
+  { value: 'video', label: 'Video', icon: Video },
+  { value: 'users', label: 'Users', icon: Users },
+  // الملفات
+  { value: 'file', label: 'File', icon: FileText },
+  { value: 'folder', label: 'Folder', icon: Folder },
+  { value: 'archive', label: 'Archive', icon: Archive },
+  { value: 'clipboard', label: 'Clipboard', icon: Clipboard },
+  // التطوير
+  { value: 'code', label: 'Code', icon: Code },
+  { value: 'terminal', label: 'Terminal', icon: Terminal },
+  { value: 'git-branch', label: 'Git', icon: GitBranch },
+  { value: 'box', label: 'Box', icon: Box },
+  // المراقبة
   { value: 'monitor', label: 'Monitor', icon: Monitor },
+  { value: 'activity', label: 'Activity', icon: Activity },
+  { value: 'bar-chart', label: 'Chart', icon: BarChart },
+  { value: 'pie-chart', label: 'Pie Chart', icon: PieChart },
+  { value: 'trending-up', label: 'Trending', icon: TrendingUp },
+  // أخرى
+  { value: 'settings', label: 'Settings', icon: Settings },
+  { value: 'tool', label: 'Tool', icon: Wrench },
+  { value: 'calendar', label: 'Calendar', icon: Calendar },
+  { value: 'clock', label: 'Clock', icon: Clock },
+  { value: 'home', label: 'Home', icon: Home },
+  { value: 'bookmark', label: 'Bookmark', icon: Bookmark },
+  { value: 'star', label: 'Star', icon: Star },
   { value: 'layers', label: 'Layers', icon: Layers },
+  { value: 'zap', label: 'Zap', icon: Zap },
+  { value: 'camera', label: 'Camera', icon: Camera },
+  { value: 'image', label: 'Image', icon: Image },
+  { value: 'music', label: 'Music', icon: Music },
+  { value: 'play', label: 'Play', icon: Play },
+  { value: 'radio', label: 'Radio', icon: Radio },
+  { value: 'smartphone', label: 'Smartphone', icon: Smartphone },
+  { value: 'tablet', label: 'Tablet', icon: Tablet },
+  { value: 'laptop', label: 'Laptop', icon: Laptop },
+  { value: 'printer', label: 'Printer', icon: Printer },
 ];
 
 const categoryOptions = [
@@ -455,29 +544,31 @@ const WebApps: React.FC = () => {
                   placeholder="مثال: Jira"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>الأيقونة</Label>
-                <Select
-                  value={formData.icon}
-                  onValueChange={(value) => setFormData({ ...formData, icon: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {iconOptions.map((opt) => {
-                      const Icon = opt.icon;
-                      return (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          <div className="flex items-center gap-2">
-                            <Icon className="w-4 h-4" />
-                            {opt.label}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+            </div>
+
+            {/* Icon Grid Selector */}
+            <div className="space-y-2">
+              <Label>الأيقونة</Label>
+              <div className="grid grid-cols-10 gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg bg-muted/20">
+                {iconOptions.map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, icon: opt.value })}
+                      className={cn(
+                        "p-2 rounded-lg border-2 transition-all hover:scale-105",
+                        formData.icon === opt.value
+                          ? "border-primary bg-primary/10"
+                          : "border-transparent hover:border-primary/50 hover:bg-muted"
+                      )}
+                      title={opt.label}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

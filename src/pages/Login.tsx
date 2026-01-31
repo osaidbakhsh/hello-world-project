@@ -144,14 +144,7 @@ const Login: React.FC = () => {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <div className="text-center text-sm text-muted-foreground">
-            ليس لديك حساب؟{' '}
-            <Link to="/register" className="text-primary hover:underline font-medium">
-              إنشاء حساب جديد
-            </Link>
-          </div>
-        </CardFooter>
+        {/* Registration link removed - employees are added by admin only */}
       </Card>
     </div>
   );
