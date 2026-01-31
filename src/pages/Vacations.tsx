@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useEmployees } from '@/hooks/useLocalStorage';
-import { Vacation } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { useVacations, useProfiles } from '@/hooks/useSupabaseData';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -36,7 +37,9 @@ import { useToast } from '@/hooks/use-toast';
 
 const Vacations: React.FC = () => {
   const { t, dir } = useLanguage();
-  const [employees, setEmployees] = useEmployees();
+  const { profile, isAdmin } = useAuth();
+  const { data: vacations, isLoading, refetch } = useVacations();
+  const { data: profiles } = useProfiles();
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,116 +48,139 @@ const Vacations: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   const [formData, setFormData] = useState({
-    employeeId: '',
-    startDate: '',
-    endDate: '',
-    type: 'annual' as Vacation['type'],
-    status: 'pending' as Vacation['status'],
+    profile_id: '',
+    start_date: '',
+    end_date: '',
+    vacation_type: 'annual',
+    status: 'pending',
     notes: '',
   });
 
-  // Flatten all vacations with employee info
-  const allVacations = employees.flatMap((emp) =>
-    emp.vacations.map((vac) => ({
+  // Get profile info for each vacation
+  const vacationsWithProfiles = vacations.map((vac) => {
+    const emp = profiles.find((p) => p.id === vac.profile_id);
+    return {
       ...vac,
-      employeeId: emp.id,
-      employeeName: emp.name,
-      employeePosition: emp.position,
-    }))
-  );
+      employeeName: emp?.full_name || 'Unknown',
+      employeePosition: emp?.position || '',
+    };
+  });
 
   // Filter vacations
-  const filteredVacations = allVacations.filter((vac) => {
+  const filteredVacations = vacationsWithProfiles.filter((vac) => {
     const matchesSearch = vac.employeeName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'all' || vac.status === filterStatus;
-    const matchesType = filterType === 'all' || vac.type === filterType;
+    const matchesType = filterType === 'all' || vac.vacation_type === filterType;
     return matchesSearch && matchesStatus && matchesType;
   });
 
   // Sort by start date (newest first)
   const sortedVacations = [...filteredVacations].sort(
-    (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+    (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
   );
 
-  const handleSubmit = () => {
-    if (!formData.employeeId || !formData.startDate || !formData.endDate) {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.start_date || !formData.end_date) {
       toast({
         title: t('common.error'),
-        description: 'Please fill in required fields',
+        description: 'يرجى ملء جميع الحقول المطلوبة',
         variant: 'destructive',
       });
       return;
     }
 
-    const newVacation: Vacation = {
-      id: crypto.randomUUID(),
-      startDate: formData.startDate,
-      endDate: formData.endDate,
-      type: formData.type,
-      status: formData.status,
-      notes: formData.notes,
-    };
+    try {
+      const vacationData = {
+        profile_id: isAdmin ? formData.profile_id : profile?.id,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        vacation_type: formData.vacation_type,
+        status: isAdmin ? formData.status : 'pending',
+        notes: formData.notes || null,
+        days_count: calculateDays(formData.start_date, formData.end_date),
+      };
 
-    setEmployees(employees.map((emp) =>
-      emp.id === formData.employeeId
-        ? { ...emp, vacations: [...emp.vacations, newVacation] }
-        : emp
-    ));
-
-    toast({ title: t('common.success'), description: 'Vacation added' });
-    resetForm();
-    setIsDialogOpen(false);
+      const { error } = await supabase.from('vacations').insert([vacationData]);
+      
+      if (error) throw error;
+      
+      toast({ title: t('common.success'), description: 'تم إضافة الإجازة بنجاح' });
+      resetForm();
+      setIsDialogOpen(false);
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleStatusChange = (employeeId: string, vacationId: string, newStatus: Vacation['status']) => {
-    setEmployees(employees.map((emp) =>
-      emp.id === employeeId
-        ? {
-            ...emp,
-            vacations: emp.vacations.map((vac) =>
-              vac.id === vacationId ? { ...vac, status: newStatus } : vac
-            ),
-          }
-        : emp
-    ));
-    toast({ title: t('common.success'), description: 'Status updated' });
+  const handleStatusChange = async (vacationId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('vacations')
+        .update({ status: newStatus, approved_by: profile?.id })
+        .eq('id', vacationId);
+      
+      if (error) throw error;
+      toast({ title: t('common.success'), description: 'تم تحديث الحالة' });
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDelete = (employeeId: string, vacationId: string) => {
-    setEmployees(employees.map((emp) =>
-      emp.id === employeeId
-        ? { ...emp, vacations: emp.vacations.filter((vac) => vac.id !== vacationId) }
-        : emp
-    ));
-    toast({ title: t('common.success'), description: 'Vacation deleted' });
+  const handleDelete = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذه الإجازة؟')) return;
+    
+    try {
+      const { error } = await supabase.from('vacations').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: t('common.success'), description: 'تم حذف الإجازة' });
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const resetForm = () => {
     setFormData({
-      employeeId: '',
-      startDate: '',
-      endDate: '',
-      type: 'annual',
+      profile_id: '',
+      start_date: '',
+      end_date: '',
+      vacation_type: 'annual',
       status: 'pending',
       notes: '',
     });
   };
 
-  const getTypeColor = (type: Vacation['type']) => {
+  const getTypeColor = (type: string) => {
     return {
       annual: 'bg-primary/10 text-primary border-primary/20',
       sick: 'bg-destructive/10 text-destructive border-destructive/20',
       emergency: 'bg-warning/10 text-warning border-warning/20',
       unpaid: 'bg-muted text-muted-foreground border-border',
-    }[type];
+    }[type] || 'bg-muted text-muted-foreground border-border';
   };
 
-  const getStatusColor = (status: Vacation['status']) => {
+  const getStatusColor = (status: string) => {
     return {
       pending: 'bg-warning/10 text-warning border-warning/20',
       approved: 'bg-success/10 text-success border-success/20',
       rejected: 'bg-destructive/10 text-destructive border-destructive/20',
-    }[status];
+    }[status] || 'bg-muted text-muted-foreground border-border';
   };
 
   const calculateDays = (start: string, end: string) => {
@@ -164,18 +190,23 @@ const Vacations: React.FC = () => {
   };
 
   // Stats
-  const pendingCount = allVacations.filter((v) => v.status === 'pending').length;
-  const approvedCount = allVacations.filter((v) => v.status === 'approved').length;
+  const pendingCount = vacations.filter((v) => v.status === 'pending').length;
+  const approvedCount = vacations.filter((v) => v.status === 'approved').length;
 
   return (
     <div className="space-y-6" dir={dir}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">{t('vacations.title')}</h1>
-          <p className="text-muted-foreground mt-1">
-            {pendingCount} {t('vacations.pending')} • {approvedCount} {t('vacations.approved')}
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-primary/10">
+            <Calendar className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">{t('vacations.title')}</h1>
+            <p className="text-muted-foreground">
+              {pendingCount} {t('vacations.pending')} • {approvedCount} {t('vacations.approved')}
+            </p>
+          </div>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
@@ -191,40 +222,44 @@ const Vacations: React.FC = () => {
             <DialogHeader>
               <DialogTitle>{t('employees.addVacation')}</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label>{t('vacations.employee')} *</Label>
-                <Select
-                  value={formData.employeeId}
-                  onValueChange={(value) => setFormData({ ...formData, employeeId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('vacations.employee')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.name} - {emp.position}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+              {isAdmin && (
+                <div className="space-y-2">
+                  <Label>{t('vacations.employee')} *</Label>
+                  <Select
+                    value={formData.profile_id}
+                    onValueChange={(value) => setFormData({ ...formData, profile_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('vacations.employee')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profiles.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.full_name} - {p.position}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t('vacations.startDate')} *</Label>
                   <Input
                     type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('vacations.endDate')} *</Label>
                   <Input
                     type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    value={formData.end_date}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    required
                   />
                 </div>
               </div>
@@ -232,8 +267,8 @@ const Vacations: React.FC = () => {
                 <div className="space-y-2">
                   <Label>{t('vacations.type')}</Label>
                   <Select
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value as Vacation['type'] })}
+                    value={formData.vacation_type}
+                    onValueChange={(value) => setFormData({ ...formData, vacation_type: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -246,22 +281,24 @@ const Vacations: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t('vacations.status')}</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value as Vacation['status'] })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">{t('vacations.pending')}</SelectItem>
-                      <SelectItem value="approved">{t('vacations.approved')}</SelectItem>
-                      <SelectItem value="rejected">{t('vacations.rejected')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {isAdmin && (
+                  <div className="space-y-2">
+                    <Label>{t('vacations.status')}</Label>
+                    <Select
+                      value={formData.status}
+                      onValueChange={(value) => setFormData({ ...formData, status: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">{t('vacations.pending')}</SelectItem>
+                        <SelectItem value="approved">{t('vacations.approved')}</SelectItem>
+                        <SelectItem value="rejected">{t('vacations.rejected')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>{t('employeeReports.notes')}</Label>
@@ -271,15 +308,15 @@ const Vacations: React.FC = () => {
                   rows={2}
                 />
               </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={handleSubmit}>
-                {t('common.save')}
-              </Button>
-            </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit">
+                  {t('common.save')}
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -336,7 +373,13 @@ const Vacations: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedVacations.length > 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-12">
+                    جارٍ التحميل...
+                  </TableCell>
+                </TableRow>
+              ) : sortedVacations.length > 0 ? (
                 sortedVacations.map((vacation) => (
                   <TableRow key={vacation.id}>
                     <TableCell>
@@ -351,19 +394,19 @@ const Vacations: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={cn('border', getTypeColor(vacation.type))}>
-                        {t(`vacations.${vacation.type}`)}
+                      <Badge className={cn('border', getTypeColor(vacation.vacation_type))}>
+                        {t(`vacations.${vacation.vacation_type}`)}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {new Date(vacation.startDate).toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US')}
+                      {new Date(vacation.start_date).toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US')}
                     </TableCell>
                     <TableCell>
-                      {new Date(vacation.endDate).toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US')}
+                      {new Date(vacation.end_date).toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US')}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {calculateDays(vacation.startDate, vacation.endDate)} {t('common.days')}
+                        {vacation.days_count || calculateDays(vacation.start_date, vacation.end_date)} {t('common.days')}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -376,13 +419,13 @@ const Vacations: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {vacation.status === 'pending' && (
+                        {isAdmin && vacation.status === 'pending' && (
                           <>
                             <Button
                               size="icon"
                               variant="ghost"
                               className="text-success h-8 w-8"
-                              onClick={() => handleStatusChange(vacation.employeeId, vacation.id, 'approved')}
+                              onClick={() => handleStatusChange(vacation.id, 'approved')}
                             >
                               <Check className="w-4 h-4" />
                             </Button>
@@ -390,20 +433,22 @@ const Vacations: React.FC = () => {
                               size="icon"
                               variant="ghost"
                               className="text-destructive h-8 w-8"
-                              onClick={() => handleStatusChange(vacation.employeeId, vacation.id, 'rejected')}
+                              onClick={() => handleStatusChange(vacation.id, 'rejected')}
                             >
                               <X className="w-4 h-4" />
                             </Button>
                           </>
                         )}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-destructive h-8 w-8"
-                          onClick={() => handleDelete(vacation.employeeId, vacation.id)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-destructive h-8 w-8"
+                            onClick={() => handleDelete(vacation.id)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
