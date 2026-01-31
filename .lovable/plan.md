@@ -1,268 +1,353 @@
 
 
-# خطة التطوير الشاملة: Website Applications + ربط النطاقات + تحسينات متعددة
+# خطة التطوير: تحسين الإجازات والتقارير والتصدير والفرز
 
-## ملخص الطلبات
+## ملخص المتطلبات
 
-### ✅ التوضيحات المهمة:
-
-1. **"النطاقات" (Domains) وليس مجرد تحديث الترجمة** - الدومين هو الأساس:
-   - كل سيرفر مرتبط بـ Network → والـ Network مرتبط بـ Domain
-   - التراخيص مرتبطة مباشرة بـ Domain
-   - الفلترة في Dashboard و Servers و Licenses تكون حسب الدومين
-   - إدارة كل دومين بشكل منفصل
-
-2. **Website Applications** - ميزة جديدة:
-   - إضافة روابط مواقع (اسم + URL + أيقونة)
-   - الموظف يضغط على الرابط ويفتح في تبويب جديد
-   - صلاحيات: تحديد من يرى كل تطبيق حسب الدومين
-
-3. **مهام الموظفين للمدير**:
-   - في Dashboard يرى المدير جميع مهام الفريق
-   - تصفية حسب الموظف أو القسم
-   - تقارير بالمهام لكل موظف
-
-4. **إصلاح إضافة الموظف**:
-   - الخطأ: "Signups not allowed"
-   - الحل: Edge Function مع Admin API
-
-5. **رقم الهاتف**: يبدأ بـ `05` مباشرة (10 أرقام)
+| # | المتطلب | الوصف |
+|---|---------|-------|
+| 1 | تصدير الإجازات | تصدير إجازات كل موظف بشكل منفصل (Excel + PDF) |
+| 2 | تحسين القوالب | قوالب محسنة تتوافق مع النظام للتصدير والاستيراد |
+| 3 | رفع ذكي (Upsert) | عند الرفع: تحديث الموجود + إضافة الجديد بدون تكرار |
+| 4 | فرز متعدد | خيارات متعددة لترتيب وفرز البيانات |
 
 ---
 
-## التنفيذ التفصيلي
+## 1. تصدير الإجازات لكل موظف
 
-### 1️⃣ Website Applications Widget
+### الملف: `src/pages/Vacations.tsx`
 
-```
-src/components/dashboard/WebAppsWidget.tsx
+**الميزات الجديدة:**
+- فلتر لاختيار موظف معين
+- زر "تصدير" يظهر قائمة منسدلة:
+  - تصدير Excel (للموظف المحدد أو الكل)
+  - تصدير PDF (للموظف المحدد أو الكل)
 
-الوظائف:
-- عرض التطبيقات كـ Tiles (6-8 تطبيقات)
-- كل Tile: أيقونة + اسم + وصف مختصر
-- عند الضغط: window.open(url, '_blank')
-- زر "إدارة" للأدمن
-
-الصلاحيات:
-- إضافة حقل visible_domains[] لجدول website_applications
-- إذا null = متاح للجميع
-- إذا array = متاح فقط للموظفين الذين لديهم صلاحية على هذه الدومينات
-```
-
-**Database Migration:**
-```sql
-ALTER TABLE website_applications 
-ADD COLUMN IF NOT EXISTS visible_domains uuid[] DEFAULT NULL;
-```
-
----
-
-### 2️⃣ تحديث الترجمات (Networks → Domains/النطاقات)
+**هيكل التصدير:**
 
 ```typescript
-// src/contexts/LanguageContext.tsx
-ar: {
-  'nav.networks': 'النطاقات',
-  'nav.domains': 'النطاقات', 
-  'nav.webApps': 'تطبيقات الويب',
-  'dashboard.networks': 'النطاقات',
-  'dashboard.allNetworks': 'جميع النطاقات',
-  'dashboard.domains': 'النطاقات',
-  'dashboard.allDomains': 'جميع النطاقات',
-  'dashboard.myTasks': 'مهامي',
-  'dashboard.teamTasks': 'مهام الفريق',
-  'webApps.title': 'تطبيقات الويب',
-  'webApps.add': 'إضافة تطبيق',
-  'webApps.manage': 'إدارة التطبيقات',
-  'webApps.openLink': 'فتح الرابط',
-}
+// Excel Export
+const exportVacationsExcel = (profileId?: string) => {
+  const data = profileId 
+    ? vacations.filter(v => v.profile_id === profileId)
+    : vacations;
+    
+  const exportData = data.map(v => ({
+    'اسم الموظف': getEmployeeName(v.profile_id),
+    'المنصب': getEmployeePosition(v.profile_id),
+    'نوع الإجازة': t(`vacations.${v.vacation_type}`),
+    'تاريخ البداية': v.start_date,
+    'تاريخ النهاية': v.end_date,
+    'عدد الأيام': v.days_count,
+    'الحالة': t(`vacations.${v.status}`),
+    'ملاحظات': v.notes || '',
+  }));
+  
+  // Create workbook with summary sheet
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportData), 'الإجازات');
+  
+  // Add summary sheet
+  const summary = calculateVacationSummary(data);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), 'ملخص');
+  
+  XLSX.writeFile(wb, `vacations-${profileId ? 'employee' : 'all'}-${Date.now()}.xlsx`);
+};
 
-en: {
-  'nav.networks': 'Domains',
-  'nav.domains': 'Domains',
-  'nav.webApps': 'Web Apps',
-  'dashboard.networks': 'Domains',
-  'dashboard.allNetworks': 'All Domains',
-  'dashboard.domains': 'Domains',
-  'dashboard.allDomains': 'All Domains',
-  'dashboard.myTasks': 'My Tasks',
-  'dashboard.teamTasks': 'Team Tasks',
-  'webApps.title': 'Web Applications',
-  'webApps.add': 'Add Application',
-  'webApps.manage': 'Manage Apps',
-  'webApps.openLink': 'Open Link',
-}
+// PDF Export using jsPDF
+const exportVacationsPDF = async (profileId?: string) => {
+  // Generate professional PDF with header, logo, and formatted table
+};
+```
+
+**واجهة المستخدم:**
+
+```
++--------------------------------------------------+
+| الإجازات                      [تصدير ▼] [إضافة]  |
++--------------------------------------------------+
+| الموظف: [جميع الموظفين ▼]                        |
+|                                                  |
+| تصدير ▼                                          |
+|   ├─ Excel - الموظف المحدد                       |
+|   ├─ Excel - جميع الموظفين                       |
+|   ├─ PDF - الموظف المحدد                         |
+|   └─ PDF - جميع الموظفين                         |
++--------------------------------------------------+
 ```
 
 ---
 
-### 3️⃣ ربط السيرفرات والتراخيص بالدومين
+## 2. تحسين القوالب (Templates)
 
-**الوضع الحالي (صحيح في Database):**
+### الملف: `src/utils/excelTemplates.ts`
+
+**التحسينات:**
+
+### أ. قالب السيرفرات المحسن
+```typescript
+export const downloadServerTemplateV2 = () => {
+  // Sheet 1: Data Template (with system field names)
+  const templateData = [
+    {
+      'server_id': '',  // فارغ للسجلات الجديدة، يحتوي ID للتحديث
+      'name': 'Server-01',  // اسم الحقل في الـ DB
+      'ip_address': '192.168.1.10',
+      'operating_system': 'Windows Server 2022',
+      'environment': 'production',  // قيم محددة
+      'status': 'active',
+      'owner': 'Ahmed',
+      'responsible_user': 'Mohammed',
+      'network_name': 'Main Network',  // للربط بالشبكة
+      'cpu': '4 vCPU',
+      'ram': '16 GB',
+      'disk_space': '500 GB',
+      'notes': 'Main DB Server',
+    },
+  ];
+
+  // Sheet 2: Lookup Values (للقيم المسموحة)
+  const lookupData = [
+    { 'Field': 'environment', 'Allowed Values': 'production, testing, development, staging' },
+    { 'Field': 'status', 'Allowed Values': 'active, inactive, maintenance' },
+    { 'Field': 'operating_system', 'Allowed Values': 'Windows Server 2022, Windows Server 2019, Ubuntu 22.04 LTS, CentOS, Red Hat Enterprise, Debian' },
+  ];
+
+  // Sheet 3: Current Data (للتعديل على البيانات الموجودة)
+  // يتم تعبئتها تلقائياً بالبيانات الحالية من الـ DB
+  
+  // Sheet 4: Instructions (بالعربي والإنجليزي)
+};
 ```
-Domain → Networks → Servers
-Domain → Licenses
+
+### ب. قالب التراخيص المحسن
+```typescript
+export const downloadLicenseTemplateV2 = () => {
+  // تضمين license_id للتحديث
+  // تضمين domain_name للربط التلقائي
+  // تضمين القيم المسموحة
+};
 ```
 
-**التحسين المطلوب في الواجهة:**
+### ج. قالب الموظفين المحسن
+```typescript
+export const downloadEmployeeTemplateV2 = () => {
+  // تضمين profile_id للتحديث
+  // تضمين المهارات والشهادات كـ comma-separated
+};
+```
 
-**صفحة Servers.tsx:**
-- فلتر Domain أولاً (الرئيسي)
-- فلتر Network ثانياً (يعتمد على الدومين المختار)
-- عند اختيار Domain → يظهر فقط سيرفرات هذا الدومين
-
-**صفحة Licenses.tsx:**
-- إضافة فلتر Domain 
-- عند الاختيار → يظهر فقط تراخيص هذا الدومين
-
-**صفحة Dashboard.tsx:**
-- فلتر Domain يؤثر على جميع الإحصائيات
-- السيرفرات، التراخيص، المهام كلها مفلترة حسب الدومين
-
----
-
-### 4️⃣ مهام الفريق للمدير في Dashboard
-
-```tsx
-// src/pages/Dashboard.tsx - إضافات
-
-// فلتر نوع المهام
-const [taskViewMode, setTaskViewMode] = useState<'my' | 'team' | 'all'>('my');
-
-// جلب المهام مع اسم الموظف
-const { data: tasks } = useTasks();
-const { data: profiles } = useProfiles();
-
-// عرض المهام حسب الفلتر
-const displayedTasks = useMemo(() => {
-  if (taskViewMode === 'my') {
-    return tasks.filter(t => t.assigned_to === profile?.id);
-  }
-  if (taskViewMode === 'team' && isAdmin) {
-    return tasks; // المدير يرى كل المهام
-  }
-  return tasks;
-}, [tasks, taskViewMode, profile, isAdmin]);
-
-// إظهار اسم الموظف في كل مهمة
-const getEmployeeName = (profileId: string) => {
-  return profiles.find(p => p.id === profileId)?.full_name || 'غير محدد';
+### د. قالب المهام المحسن
+```typescript
+export const downloadTaskTemplateV2 = () => {
+  // تضمين task_id للتحديث
+  // تضمين server_name و assignee_email للربط
+  // تضمين القيم المسموحة للـ frequency و priority
 };
 ```
 
 ---
 
-### 5️⃣ Edge Function لإضافة الموظفين
+## 3. رفع ذكي (Smart Upsert)
+
+### الملف: `src/hooks/useSmartImport.ts` (جديد)
+
+**المنطق:**
 
 ```typescript
-// supabase/functions/create-employee/index.ts
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-Deno.serve(async (req) => {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  }
-
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
-
-  try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
-
-    // Verify caller is admin
-    const authHeader = req.headers.get('Authorization')!
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
+export function useSmartImport() {
+  /**
+   * Smart Import Logic:
+   * 1. إذا server_id موجود → تحديث السجل
+   * 2. إذا server_id فارغ + (name + ip_address) موجود → تحديث السجل
+   * 3. إذا server_id فارغ + (name + ip_address) غير موجود → إضافة جديد
+   */
+  
+  const importServers = async (data: any[]) => {
+    const results = { created: 0, updated: 0, skipped: 0, errors: [] };
     
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401, headers: corsHeaders 
-      })
+    for (const row of data) {
+      try {
+        // Check if record exists
+        const existingServer = row.server_id 
+          ? await findById('servers', row.server_id)
+          : await findByNameAndIP(row.name, row.ip_address);
+        
+        if (existingServer) {
+          // Update existing
+          await updateServer(existingServer.id, mapRowToServer(row));
+          results.updated++;
+        } else {
+          // Create new
+          await createServer(mapRowToServer(row));
+          results.created++;
+        }
+      } catch (error) {
+        results.errors.push({ row, error: error.message });
+      }
     }
-
-    // Check if caller is admin
-    const { data: callerProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
     
-    if (callerProfile?.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { 
-        status: 403, headers: corsHeaders 
-      })
-    }
+    return results;
+  };
 
-    const { email, password, full_name, department, position, phone, role } = await req.json()
+  const importLicenses = async (data: any[]) => {
+    // Similar logic for licenses
+    // Match by license_id OR (name + license_key)
+  };
 
-    // Create user with admin privileges
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: { full_name, role }
-    })
+  const importTasks = async (data: any[]) => {
+    // Similar logic for tasks
+    // Match by task_id OR (title + due_date + assigned_to)
+  };
 
-    if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), { 
-        status: 400, headers: corsHeaders 
-      })
-    }
+  return { importServers, importLicenses, importTasks };
+}
+```
 
-    // Update profile with additional info
-    if (newUser.user) {
-      await supabaseAdmin.from('profiles').update({
-        department, 
-        position, 
-        phone
-      }).eq('user_id', newUser.user.id)
-    }
+### تحديث واجهة الاستيراد:
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      user_id: newUser.user?.id 
-    }), { headers: corsHeaders })
+```typescript
+// src/pages/Servers.tsx - تحديث handleImport
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { 
-      status: 500, headers: corsHeaders 
-    })
+const handleSmartImport = async (file: File) => {
+  const { importServers } = useSmartImport();
+  
+  // Parse Excel
+  const data = parseExcel(file);
+  
+  // Show confirmation dialog
+  const preview = await analyzeImport(data);
+  // preview = { toCreate: 5, toUpdate: 3, unchanged: 2 }
+  
+  if (confirmImport(preview)) {
+    const results = await importServers(data);
+    
+    toast({
+      title: 'تم الاستيراد بنجاح',
+      description: `إضافة: ${results.created} | تحديث: ${results.updated} | أخطاء: ${results.errors.length}`,
+    });
   }
-})
+};
+```
+
+**Dialog تأكيد الاستيراد:**
+
+```
++------------------------------------------+
+|         معاينة الاستيراد                  |
++------------------------------------------+
+|                                          |
+|  📊 ملخص التغييرات:                      |
+|                                          |
+|  ✅ سجلات جديدة:     5                   |
+|  ✏️  سجلات للتحديث:   3                   |
+|  ⏭️  بدون تغيير:     2                   |
+|  ⚠️  أخطاء محتملة:   0                   |
+|                                          |
+|  [إلغاء]         [استيراد الآن]          |
++------------------------------------------+
 ```
 
 ---
 
-### 6️⃣ تعديل حقل رقم الهاتف
+## 4. خيارات فرز متعددة
 
-```tsx
-// src/pages/EmployeePermissions.tsx
+### الملف: `src/components/DataTableHeader.tsx` (جديد)
 
-<div className="space-y-2">
-  <Label>رقم الهاتف</Label>
-  <Input
-    value={newEmployeeForm.phone}
-    onChange={(e) => {
-      // Accept only numbers, max 10 digits, must start with 05
-      let value = e.target.value.replace(/\D/g, '');
-      if (value.length > 10) value = value.slice(0, 10);
-      setNewEmployeeForm({ ...newEmployeeForm, phone: value });
-    }}
-    placeholder="05x xxx xxxx"
-    dir="ltr"
-    className="text-left font-mono"
-    maxLength={10}
-  />
-  <p className="text-xs text-muted-foreground">مثال: 0512345678</p>
-</div>
+**المكون:**
+
+```typescript
+interface SortOption {
+  field: string;
+  label: string;
+  direction: 'asc' | 'desc';
+}
+
+interface DataTableHeaderProps {
+  sortOptions: SortOption[];
+  currentSort: SortOption;
+  onSortChange: (sort: SortOption) => void;
+  viewMode: 'table' | 'grid' | 'cards';
+  onViewModeChange: (mode: 'table' | 'grid' | 'cards') => void;
+}
+
+const DataTableHeader: React.FC<DataTableHeaderProps> = ({...}) => {
+  return (
+    <div className="flex items-center gap-4">
+      {/* Sort Dropdown */}
+      <Select value={currentSort.field} onValueChange={...}>
+        <SelectTrigger className="w-48">
+          <ArrowUpDown className="w-4 h-4 me-2" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="name-asc">الاسم (أ-ي)</SelectItem>
+          <SelectItem value="name-desc">الاسم (ي-أ)</SelectItem>
+          <SelectItem value="date-asc">التاريخ (الأقدم)</SelectItem>
+          <SelectItem value="date-desc">التاريخ (الأحدث)</SelectItem>
+          <SelectItem value="status-asc">الحالة</SelectItem>
+          <SelectItem value="environment-asc">البيئة</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      {/* View Mode Toggle */}
+      <ToggleGroup type="single" value={viewMode} onValueChange={onViewModeChange}>
+        <ToggleGroupItem value="table">
+          <List className="w-4 h-4" />
+        </ToggleGroupItem>
+        <ToggleGroupItem value="grid">
+          <LayoutGrid className="w-4 h-4" />
+        </ToggleGroupItem>
+        <ToggleGroupItem value="cards">
+          <Layers className="w-4 h-4" />
+        </ToggleGroupItem>
+      </ToggleGroup>
+    </div>
+  );
+};
 ```
+
+### تطبيق الفرز في الصفحات:
+
+**صفحة السيرفرات:**
+```typescript
+const [sortConfig, setSortConfig] = useState({ field: 'name', direction: 'asc' });
+
+const sortedServers = useMemo(() => {
+  return [...filteredServers].sort((a, b) => {
+    switch (sortConfig.field) {
+      case 'name':
+        return sortConfig.direction === 'asc' 
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      case 'ip':
+        return sortConfig.direction === 'asc'
+          ? (a.ip_address || '').localeCompare(b.ip_address || '')
+          : (b.ip_address || '').localeCompare(a.ip_address || '');
+      case 'environment':
+        return sortConfig.direction === 'asc'
+          ? a.environment.localeCompare(b.environment)
+          : b.environment.localeCompare(a.environment);
+      case 'created_at':
+        return sortConfig.direction === 'asc'
+          ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          : new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      default:
+        return 0;
+    }
+  });
+}, [filteredServers, sortConfig]);
+```
+
+**خيارات الفرز لكل صفحة:**
+
+| الصفحة | خيارات الفرز |
+|--------|-------------|
+| السيرفرات | الاسم، IP، البيئة، الحالة، تاريخ الإنشاء، آخر تحديث |
+| التراخيص | الاسم، المورد، تاريخ الانتهاء، الأيام المتبقية، التكلفة |
+| الموظفين | الاسم، القسم، المنصب، تاريخ التعيين، الحالة |
+| المهام | العنوان، تاريخ الاستحقاق، الأولوية، الحالة، التكرار |
+| الإجازات | الموظف، تاريخ البداية، النوع، الحالة، عدد الأيام |
 
 ---
 
@@ -270,64 +355,28 @@ Deno.serve(async (req) => {
 
 ```
 إنشاء ملفات جديدة:
-├── supabase/functions/create-employee/index.ts
-├── src/components/dashboard/WebAppsWidget.tsx
-├── src/pages/WebApps.tsx (صفحة إدارة التطبيقات)
+├── src/hooks/useSmartImport.ts          → منطق الرفع الذكي
+├── src/components/DataTableHeader.tsx   → مكون الفرز وعرض البيانات
+├── src/utils/pdfExport.ts              → تصدير PDF
 
 تعديل ملفات موجودة:
-├── src/contexts/LanguageContext.tsx (الترجمات)
-├── src/pages/Dashboard.tsx (WebApps Widget + Team Tasks)
-├── src/pages/Servers.tsx (فلتر Domain أولاً)
-├── src/pages/Licenses.tsx (فلتر Domain)
-├── src/pages/EmployeePermissions.tsx (Edge Function + Phone)
-├── src/components/layout/Sidebar.tsx (رابط Web Apps)
-├── src/App.tsx (مسار Web Apps)
-├── src/hooks/useSupabaseData.ts (hooks جديدة)
-
-Database Migration:
-└── visible_domains column for website_applications
+├── src/pages/Vacations.tsx             → تصدير Excel/PDF + فلتر موظف
+├── src/pages/Servers.tsx               → رفع ذكي + فرز متعدد
+├── src/pages/Licenses.tsx              → رفع ذكي + فرز متعدد
+├── src/pages/Tasks.tsx                 → فرز متعدد
+├── src/utils/excelTemplates.ts         → قوالب محسنة
 ```
 
 ---
 
-## التحسينات الإضافية المقترحة
+## Dependencies المطلوبة
 
-### 🎨 تحسينات الواجهة:
-1. **Dark Mode Toggle** - زر تبديل في Header/Settings
-2. **Skeleton Screens** - تحميل سلس للجداول
-3. **Empty States** - رسائل واضحة عند عدم وجود بيانات
-4. **Toast Notifications** - إشعارات للعمليات الناجحة/الفاشلة
-
-### 📊 تحسينات Dashboard:
-1. **Recharts Integration** - رسوم بيانية تفاعلية:
-   - Tasks by Status (Pie Chart)
-   - Servers by Domain (Bar Chart)
-   - Licenses Expiry Timeline (Area Chart)
-2. **Recent Activity Widget** - آخر التغييرات من Audit Log
-3. **Server Health Summary** - Online/Offline/Unknown
-4. **Quick Actions** - أزرار سريعة للإضافة
-
-### 🔔 نظام الإشعارات:
-1. **License Expiry Alerts** - 30/14/7 أيام قبل الانتهاء
-2. **Overdue Tasks** - المهام المتأخرة
-3. **Notification Badge** - في Sidebar
-4. **Notification Center** - قائمة الإشعارات
-
-### 📑 التقارير:
-1. **PDF Export** - تقارير للطباعة
-2. **Server Inventory Report** - حسب Domain
-3. **License Status Report** - المنتهية والقريبة
-4. **Employee Performance** - المهام المنجزة/المتأخرة
-
-### 💾 Backup & Restore:
-1. **Full Data Export** - JSON/Excel
-2. **Data Restore** - استعادة من نسخة
-3. **Admin-only Access** - في Settings
-
-### 🔐 أمان إضافي:
-1. **Session Timeout** - انتهاء الجلسة بعد فترة
-2. **Activity Logging** - تسجيل كل العمليات
-3. **IP Tracking** - في Audit Log
+```json
+{
+  "jspdf": "^2.5.1",
+  "jspdf-autotable": "^3.8.1"
+}
+```
 
 ---
 
@@ -335,28 +384,20 @@ Database Migration:
 
 | الخطوة | المهمة | الأولوية |
 |--------|--------|----------|
-| 1 | Edge Function لإضافة الموظفين | 🔴 Critical |
-| 2 | تحديث EmployeePermissions لاستخدام Edge Function | 🔴 Critical |
-| 3 | تحديث الترجمات (Networks → Domains) | 🟡 High |
-| 4 | إضافة فلتر Domain في Licenses | 🟡 High |
-| 5 | WebAppsWidget للـ Dashboard | 🟡 High |
-| 6 | صفحة إدارة Web Apps | 🟢 Medium |
-| 7 | Team Tasks في Dashboard | 🟢 Medium |
-| 8 | تعديل رقم الهاتف | 🟢 Medium |
-| 9 | Recharts في Dashboard | 🔵 Optional |
-| 10 | PDF Reports | 🔵 Optional |
+| 1 | إضافة فلتر موظف + تصدير Excel في Vacations | High |
+| 2 | تحسين القوالب (excelTemplates.ts) | High |
+| 3 | إنشاء useSmartImport للرفع الذكي | High |
+| 4 | تطبيق الرفع الذكي في Servers.tsx | Medium |
+| 5 | إنشاء DataTableHeader للفرز | Medium |
+| 6 | تطبيق الفرز في جميع الصفحات | Medium |
+| 7 | إضافة تصدير PDF (jspdf) | Low |
 
 ---
 
 ## النتيجة المتوقعة
 
-بعد التنفيذ:
-
-✅ **إضافة موظف تعمل** - عبر Edge Function مع Admin API
-✅ **Website Applications** - روابط سريعة مع صلاحيات
-✅ **النطاقات كأساس** - كل شيء مفلتر حسب Domain
-✅ **مهام الفريق** - المدير يرى كل المهام
-✅ **رقم الهاتف** - صيغة 05xxxxxxxx
-✅ **الترجمات محدثة** - Networks → Domains
-✅ **Dashboard محسّن** - charts + widgets
+- **تصدير الإجازات**: Excel/PDF لموظف محدد أو الكل مع ملخص
+- **قوالب محسنة**: تتضمن ID للتحديث + قيم مسموحة + بيانات حالية
+- **رفع ذكي**: تحديث الموجود + إضافة الجديد بدون تكرار
+- **فرز متعدد**: خيارات فرز متنوعة مع طرق عرض مختلفة (جدول/شبكة/بطاقات)
 
