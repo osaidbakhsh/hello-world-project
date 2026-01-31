@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppName } from '@/hooks/useSupabaseData';
+import { useTheme } from 'next-themes';
 import {
   LayoutDashboard,
   Server,
@@ -23,6 +24,8 @@ import {
   User,
   Shield,
   History,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -38,6 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { t, language, setLanguage, dir } = useLanguage();
   const { profile, signOut, isAdmin } = useAuth();
   const { appName } = useAppName();
+  const { theme, setTheme } = useTheme();
   const location = useLocation();
 
   const menuItems = [
@@ -169,6 +173,20 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
       {/* Footer */}
       <div className="p-4 border-t border-sidebar-border space-y-2">
+        {/* Theme Toggle */}
+        <Button
+          variant="ghost"
+          size={collapsed ? 'icon' : 'default'}
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className={cn(
+            'w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+            collapsed ? 'justify-center' : 'justify-start gap-2'
+          )}
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          {!collapsed && (theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن')}
+        </Button>
+
         {/* Language Toggle */}
         <Button
           variant="ghost"

@@ -172,6 +172,28 @@ const translations: Record<Language, Record<string, string>> = {
     'common.active': 'نشط',
     'common.inactive': 'غير نشط',
     'common.offlineMode': 'وضع بدون اتصال',
+    'common.export': 'تصدير',
+    'common.import': 'استيراد',
+    'common.refresh': 'تحديث',
+
+    // Settings
+    'settings.general': 'عام',
+    'settings.mail': 'البريد',
+    'settings.ldap': 'LDAP',
+    'settings.ntp': 'NTP',
+    'settings.templates': 'القوالب',
+    'settings.appearance': 'المظهر',
+    'settings.darkMode': 'الوضع الداكن',
+    'settings.lightMode': 'الوضع الفاتح',
+    'settings.appNameAr': 'اسم التطبيق (عربي)',
+    'settings.appNameEn': 'اسم التطبيق (English)',
+
+    // Audit Log
+    'auditLog.title': 'سجل العمليات',
+    'auditLog.unknownUser': 'مستخدم غير معروف',
+    'auditLog.create': 'إنشاء',
+    'auditLog.update': 'تحديث',
+    'auditLog.delete': 'حذف',
   },
   en: {
     // Navigation
@@ -335,6 +357,28 @@ const translations: Record<Language, Record<string, string>> = {
     'common.active': 'Active',
     'common.inactive': 'Inactive',
     'common.offlineMode': 'Offline Mode',
+    'common.export': 'Export',
+    'common.import': 'Import',
+    'common.refresh': 'Refresh',
+
+    // Settings
+    'settings.general': 'General',
+    'settings.mail': 'Mail',
+    'settings.ldap': 'LDAP',
+    'settings.ntp': 'NTP',
+    'settings.templates': 'Templates',
+    'settings.appearance': 'Appearance',
+    'settings.darkMode': 'Dark Mode',
+    'settings.lightMode': 'Light Mode',
+    'settings.appNameAr': 'App Name (Arabic)',
+    'settings.appNameEn': 'App Name (English)',
+
+    // Audit Log
+    'auditLog.title': 'Audit Log',
+    'auditLog.unknownUser': 'Unknown User',
+    'auditLog.create': 'Create',
+    'auditLog.update': 'Update',
+    'auditLog.delete': 'Delete',
   },
 };
 

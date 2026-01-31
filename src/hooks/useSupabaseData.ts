@@ -354,15 +354,47 @@ export function useDashboardStats(selectedDomainId?: string) {
   const fetch = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch servers
-      let serversQuery = supabase.from('servers').select('*');
-      const { data: servers } = await serversQuery;
+      // Fetch networks for domain filtering
+      let networkIds: string[] = [];
+      if (selectedDomainId) {
+        const { data: domainNetworks } = await supabase
+          .from('networks')
+          .select('id')
+          .eq('domain_id', selectedDomainId);
+        networkIds = domainNetworks?.map(n => n.id) || [];
+      }
+
+      // Fetch servers - filter by network_id if domain selected
+      let serversData: any[] = [];
+      if (selectedDomainId) {
+        if (networkIds.length > 0) {
+          const { data } = await supabase
+            .from('servers')
+            .select('*')
+            .in('network_id', networkIds);
+          serversData = data || [];
+        }
+        // If domain has no networks, serversData stays empty
+      } else {
+        const { data } = await supabase.from('servers').select('*');
+        serversData = data || [];
+      }
 
       // Fetch tasks
       const { data: tasks } = await supabase.from('tasks').select('*');
 
-      // Fetch licenses
-      const { data: licenses } = await supabase.from('licenses').select('*');
+      // Fetch licenses - filter by domain_id if selected
+      let licensesData: any[] = [];
+      if (selectedDomainId) {
+        const { data } = await supabase
+          .from('licenses')
+          .select('*')
+          .eq('domain_id', selectedDomainId);
+        licensesData = data || [];
+      } else {
+        const { data } = await supabase.from('licenses').select('*');
+        licensesData = data || [];
+      }
 
       // Fetch profiles
       const { data: profiles } = await supabase.from('profiles').select('*');
@@ -378,14 +410,14 @@ export function useDashboardStats(selectedDomainId?: string) {
       const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       setStats({
-        totalServers: servers?.length || 0,
-        activeServers: servers?.filter(s => s.status === 'active').length || 0,
+        totalServers: serversData.length,
+        activeServers: serversData.filter(s => s.status === 'active').length,
         totalTasks: tasks?.length || 0,
         completedTasks: tasks?.filter(t => t.status === 'completed').length || 0,
         pendingTasks: tasks?.filter(t => t.status === 'pending').length || 0,
         overdueTasks: tasks?.filter(t => t.status === 'overdue' || (t.due_date && new Date(t.due_date) < now && t.status !== 'completed')).length || 0,
-        totalLicenses: licenses?.length || 0,
-        expiringLicenses: licenses?.filter(l => l.expiry_date && new Date(l.expiry_date) <= thirtyDaysFromNow).length || 0,
+        totalLicenses: licensesData.length,
+        expiringLicenses: licensesData.filter(l => l.expiry_date && new Date(l.expiry_date) <= thirtyDaysFromNow).length,
         totalEmployees: profiles?.length || 0,
         totalNetworks: networks?.length || 0,
       });
@@ -522,6 +554,7 @@ export function useAuditLogs(limit = 100) {
 
 // Log an action to audit_logs
 export async function logAuditAction(
+  userId: string | undefined,
   action: string,
   tableName?: string,
   recordId?: string,
@@ -530,6 +563,7 @@ export async function logAuditAction(
 ) {
   try {
     await supabase.from('audit_logs').insert({
+      user_id: userId,
       action,
       table_name: tableName,
       record_id: recordId,
@@ -543,7 +577,7 @@ export async function logAuditAction(
 }
 
 // CRUD operations for Servers
-export function useServerMutations() {
+export function useServerMutations(profileId?: string) {
   const createServer = async (serverData: Record<string, any>) => {
     try {
       const { data, error } = await supabase
@@ -552,7 +586,7 @@ export function useServerMutations() {
         .select()
         .single();
       if (error) throw error;
-      await logAuditAction('create', 'servers', data.id, undefined, serverData);
+      await logAuditAction(profileId, 'create', 'servers', data.id, undefined, serverData);
       return { data, error: null };
     } catch (e) {
       return { data: null, error: e as Error };
@@ -569,7 +603,7 @@ export function useServerMutations() {
         .select()
         .single();
       if (error) throw error;
-      await logAuditAction('update', 'servers', id, old, serverData);
+      await logAuditAction(profileId, 'update', 'servers', id, old, serverData);
       return { data, error: null };
     } catch (e) {
       return { data: null, error: e as Error };
@@ -581,7 +615,7 @@ export function useServerMutations() {
       const { data: old } = await supabase.from('servers').select('*').eq('id', id).single();
       const { error } = await supabase.from('servers').delete().eq('id', id);
       if (error) throw error;
-      await logAuditAction('delete', 'servers', id, old, undefined);
+      await logAuditAction(profileId, 'delete', 'servers', id, old, undefined);
       return { error: null };
     } catch (e) {
       return { error: e as Error };
@@ -592,7 +626,7 @@ export function useServerMutations() {
 }
 
 // CRUD operations for Licenses
-export function useLicenseMutations() {
+export function useLicenseMutations(profileId?: string) {
   const createLicense = async (licenseData: Record<string, any>) => {
     try {
       const { data, error } = await supabase
@@ -601,7 +635,7 @@ export function useLicenseMutations() {
         .select()
         .single();
       if (error) throw error;
-      await logAuditAction('create', 'licenses', data.id, undefined, licenseData);
+      await logAuditAction(profileId, 'create', 'licenses', data.id, undefined, licenseData);
       return { data, error: null };
     } catch (e) {
       return { data: null, error: e as Error };
@@ -618,7 +652,7 @@ export function useLicenseMutations() {
         .select()
         .single();
       if (error) throw error;
-      await logAuditAction('update', 'licenses', id, old, licenseData);
+      await logAuditAction(profileId, 'update', 'licenses', id, old, licenseData);
       return { data, error: null };
     } catch (e) {
       return { data: null, error: e as Error };
@@ -630,7 +664,7 @@ export function useLicenseMutations() {
       const { data: old } = await supabase.from('licenses').select('*').eq('id', id).single();
       const { error } = await supabase.from('licenses').delete().eq('id', id);
       if (error) throw error;
-      await logAuditAction('delete', 'licenses', id, old, undefined);
+      await logAuditAction(profileId, 'delete', 'licenses', id, old, undefined);
       return { error: null };
     } catch (e) {
       return { error: e as Error };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks, useServers, useProfiles } from '@/hooks/useSupabaseData';
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -26,11 +27,17 @@ import {
   AlertTriangle,
   Trash2,
   Edit,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import * as XLSX from 'xlsx';
+import { exportToPDF } from '@/utils/pdfExport';
 
 const Tasks: React.FC = () => {
-  const { t, dir } = useLanguage();
+  const { t, dir, language } = useLanguage();
   const { profile, isAdmin } = useAuth();
   const { toast } = useToast();
   const { data: tasks, isLoading, refetch } = useTasks();
@@ -39,6 +46,9 @@ const Tasks: React.FC = () => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [frequencyFilter, setFrequencyFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'my' | 'team'>('my');
+  const [employeeFilter, setEmployeeFilter] = useState<string>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   
@@ -74,12 +84,102 @@ const Tasks: React.FC = () => {
     return 'pending';
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (task.description?.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesFrequency = frequencyFilter === 'all' || task.frequency === frequencyFilter;
-    return matchesSearch && matchesFrequency;
-  });
+  // Get unique departments
+  const departments = useMemo(() => {
+    const depts = new Set(profiles.map(p => p.department).filter(Boolean));
+    return Array.from(depts) as string[];
+  }, [profiles]);
+
+  // Get employee name
+  const getEmployeeName = (profileId: string | null) => {
+    if (!profileId) return 'غير محدد';
+    const found = profiles.find(p => p.id === profileId);
+    return found?.full_name || 'غير محدد';
+  };
+
+  // Get employee department
+  const getEmployeeDepartment = (profileId: string | null) => {
+    if (!profileId) return '';
+    const found = profiles.find(p => p.id === profileId);
+    return found?.department || '';
+  };
+
+  // Filter tasks based on view mode and filters
+  const filteredTasks = useMemo(() => {
+    let result = tasks;
+
+    // View mode filter
+    if (viewMode === 'my') {
+      result = result.filter(t => t.assigned_to === profile?.id);
+    }
+
+    // Employee filter (for team view)
+    if (viewMode === 'team' && employeeFilter !== 'all') {
+      result = result.filter(t => t.assigned_to === employeeFilter);
+    }
+
+    // Department filter (for team view)
+    if (viewMode === 'team' && departmentFilter !== 'all') {
+      result = result.filter(t => getEmployeeDepartment(t.assigned_to) === departmentFilter);
+    }
+
+    // Search filter
+    if (searchQuery) {
+      result = result.filter(task => 
+        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (task.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    // Frequency filter
+    if (frequencyFilter !== 'all') {
+      result = result.filter(t => t.frequency === frequencyFilter);
+    }
+
+    return result;
+  }, [tasks, viewMode, profile, employeeFilter, departmentFilter, searchQuery, frequencyFilter]);
+
+  // Export tasks to Excel
+  const exportTasksExcel = () => {
+    const exportData = filteredTasks.map(task => ({
+      'عنوان المهمة': task.title,
+      'الوصف': task.description || '',
+      'الموظف المسؤول': getEmployeeName(task.assigned_to),
+      'القسم': getEmployeeDepartment(task.assigned_to),
+      'التكرار': task.frequency === 'once' ? 'مرة واحدة' : t(`tasks.${task.frequency}`),
+      'تاريخ الاستحقاق': task.due_date || '',
+      'الحالة': getTaskStatus(task) === 'completed' ? 'مكتملة' : getTaskStatus(task) === 'overdue' ? 'متأخرة' : 'قيد التنفيذ',
+      'تاريخ الإنشاء': new Date(task.created_at).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US'),
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    XLSX.utils.book_append_sheet(wb, ws, 'المهام');
+    XLSX.writeFile(wb, `tasks-${viewMode}-${Date.now()}.xlsx`);
+    
+    toast({ title: t('common.success'), description: 'تم تصدير المهام بنجاح' });
+  };
+
+  // Export tasks to PDF
+  const exportTasksPDF = () => {
+    const headers = ['المهمة', 'الموظف', 'القسم', 'التكرار', 'الحالة'];
+    const rows = filteredTasks.map(task => [
+      task.title,
+      getEmployeeName(task.assigned_to),
+      getEmployeeDepartment(task.assigned_to),
+      task.frequency === 'once' ? 'مرة واحدة' : t(`tasks.${task.frequency}`),
+      getTaskStatus(task) === 'completed' ? 'مكتملة' : getTaskStatus(task) === 'overdue' ? 'متأخرة' : 'قيد التنفيذ',
+    ]);
+
+    exportToPDF({
+      title: viewMode === 'team' ? 'تقرير مهام الفريق' : 'تقرير مهامي',
+      headers,
+      rows,
+      filename: `tasks-${viewMode}-${Date.now()}.pdf`,
+    });
+
+    toast({ title: t('common.success'), description: 'تم تصدير المهام بنجاح' });
+  };
 
   const tasksByStatus = {
     pending: filteredTasks.filter((t) => getTaskStatus(t) === 'pending'),
@@ -310,17 +410,38 @@ const Tasks: React.FC = () => {
           </div>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 me-2" />
-              {t('tasks.add')}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
+        <div className="flex items-center gap-2">
+          {/* Export Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="w-4 h-4 me-2" />
+                {t('common.export')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportTasksExcel}>
+                <FileSpreadsheet className="w-4 h-4 me-2" />
+                Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportTasksPDF}>
+                <FileText className="w-4 h-4 me-2" />
+                PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 me-2" />
+                {t('tasks.add')}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>
                 {editingTask ? t('common.edit') : t('tasks.add')}
@@ -421,7 +542,53 @@ const Tasks: React.FC = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* View Mode Tabs for Admin */}
+      {isAdmin && (
+        <div className="flex items-center gap-4">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my' | 'team')}>
+            <TabsList>
+              <TabsTrigger value="my" className="gap-2">
+                <User className="w-4 h-4" />
+                {t('dashboard.myTasks')}
+              </TabsTrigger>
+              <TabsTrigger value="team" className="gap-2">
+                <Users className="w-4 h-4" />
+                {t('dashboard.teamTasks')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {viewMode === 'team' && (
+            <div className="flex gap-2">
+              <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="الموظف" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">جميع الموظفين</SelectItem>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="القسم" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">جميع الأقسام</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
