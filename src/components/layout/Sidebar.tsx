@@ -26,6 +26,7 @@ import {
   History,
   Sun,
   Moon,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -53,6 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { path: '/vacations', icon: Calendar, label: 'nav.vacations' },
     { path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
     { path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
+    { path: '/vault', icon: Lock, label: 'nav.vault' },
     { path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
     { path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
     { path: '/web-apps', icon: Globe, label: 'nav.webApps', adminOnly: true },
