@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, Domain, Network, Server, Task, Vacation, EmployeeReport, License, Profile, YearlyGoal, DomainMembership } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Domain, Network, Server, Task, Vacation, EmployeeReport, License, Profile, YearlyGoal, DomainMembership } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Generic fetch hook
@@ -18,7 +19,7 @@ function useSupabaseQuery<T>(
   const fetch = useCallback(async () => {
     setIsLoading(true);
     try {
-      let query = supabase.from(tableName).select('*');
+      let query = supabase.from(tableName as any).select('*');
       
       if (options?.orderBy) {
         query = query.order(options.orderBy, { ascending: options.ascending ?? false });
