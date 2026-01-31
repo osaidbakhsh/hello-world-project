@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useServers, useEmployees, useLicenses, useTasks, useNetworks } from '@/hooks/useLocalStorage';
 import StatCard from '@/components/dashboard/StatCard';
 import { Server, Users, KeyRound, ListTodo, Network, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 const Dashboard: React.FC = () => {
@@ -14,13 +15,29 @@ const Dashboard: React.FC = () => {
   const [licenses] = useLicenses();
   const [tasks] = useTasks();
   const [networks] = useNetworks();
+  
+  const [selectedNetworkId, setSelectedNetworkId] = useState<string>('all');
 
-  // Calculate statistics
-  const activeServers = servers.filter((s) => s.status === 'active').length;
+  // Filter servers by network
+  const filteredServers = selectedNetworkId === 'all' 
+    ? servers 
+    : servers.filter(s => s.networkId === selectedNetworkId);
+
+  // Calculate statistics based on filtered servers
+  const activeServers = filteredServers.filter((s) => s.status === 'active').length;
   
   const now = new Date();
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  const expiringLicenses = licenses.filter((l) => {
+  
+  // Filter licenses for selected network's servers
+  const filteredLicenses = selectedNetworkId === 'all'
+    ? licenses
+    : licenses.filter(l => {
+        const server = servers.find(s => s.id === l.serverId);
+        return server?.networkId === selectedNetworkId;
+      });
+
+  const expiringLicenses = filteredLicenses.filter((l) => {
     const expiry = new Date(l.expiryDate);
     return expiry <= thirtyDaysFromNow && expiry >= now;
   });
@@ -29,31 +46,56 @@ const Dashboard: React.FC = () => {
   const overdueTasks = tasks.filter((t) => t.status === 'overdue').length;
 
   // Server distribution by environment
-  const serversByEnv = servers.reduce((acc, server) => {
+  const serversByEnv = filteredServers.reduce((acc, server) => {
     acc[server.environment] = (acc[server.environment] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
+  const selectedNetwork = networks.find(n => n.id === selectedNetworkId);
+
   return (
     <div className="space-y-6" dir={dir}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">{t('dashboard.title')}</h1>
-        <Badge variant="outline" className="text-sm">
-          {new Date().toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}
-        </Badge>
+      {/* Header with Network Filter */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">{t('dashboard.title')}</h1>
+          {selectedNetwork && (
+            <p className="text-muted-foreground mt-1">
+              {selectedNetwork.domain} • {selectedNetwork.ipRange}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <Select value={selectedNetworkId} onValueChange={setSelectedNetworkId}>
+            <SelectTrigger className="w-[200px]">
+              <Network className="w-4 h-4 me-2 text-primary" />
+              <SelectValue placeholder={t('dashboard.selectNetwork')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('dashboard.allNetworks')}</SelectItem>
+              {networks.map((network) => (
+                <SelectItem key={network.id} value={network.id}>
+                  {network.name} ({network.domain})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Badge variant="outline" className="text-sm">
+            {new Date().toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </Badge>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
           title={t('dashboard.totalServers')}
-          value={servers.length}
+          value={filteredServers.length}
           icon={Server}
           variant="primary"
         />
@@ -150,7 +192,7 @@ const Dashboard: React.FC = () => {
             <div className="space-y-4">
               {Object.entries(serversByEnv).length > 0 ? (
                 Object.entries(serversByEnv).map(([env, count]) => {
-                  const total = servers.length;
+                  const total = filteredServers.length;
                   const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
                   
                   const envBadgeClass = {
