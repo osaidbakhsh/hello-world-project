@@ -12,13 +12,13 @@ export function useLoginBackground() {
   useEffect(() => {
     (async () => {
       try {
-        // Check if a custom background exists
-        const { data } = supabase.storage.from(BUCKET).getPublicUrl(PATH);
-        if (data?.publicUrl) {
-          // Validate if the file actually exists by trying to fetch headers
-          const res = await fetch(data.publicUrl, { method: 'HEAD' });
-          if (res.ok) {
-            setUrl(data.publicUrl);
+        // Check if a custom background exists by looking at list (HEAD fails on missing files)
+        const { data: files } = await supabase.storage.from(BUCKET).list('', { limit: 10 });
+        const exists = files?.some((f) => f.name === PATH || f.name === PATH.split('/').pop());
+        if (exists) {
+          const { data } = supabase.storage.from(BUCKET).getPublicUrl(PATH);
+          if (data?.publicUrl) {
+            setUrl(`${data.publicUrl}?t=${Date.now()}`);
           }
         }
       } catch (e) {

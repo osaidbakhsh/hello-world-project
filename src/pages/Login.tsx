@@ -68,9 +68,9 @@ const Login: React.FC = () => {
         backgroundRepeat: 'no-repeat',
       }}
     >
-      {/* Deep dark overlay with gradient for IT Infrastructure mood */}
-      <div className="absolute inset-0 bg-background/65" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-background/50 to-background/80" />
+      {/* Lighter overlay to let the dark server room show through */}
+      <div className="absolute inset-0 bg-black/30" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/60" />
       
       <Card className="w-full max-w-md shadow-2xl relative z-10 border-primary/20 bg-card/95 backdrop-blur-md">
         <CardHeader className="text-center space-y-4">
