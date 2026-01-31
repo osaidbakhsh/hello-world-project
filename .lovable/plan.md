@@ -1,384 +1,662 @@
 
-# خطة إصلاح الترجمة الشاملة للصفحات المتبقية
+# خطة التنفيذ الشاملة لنظام إدارة البنية التحتية
 
-## ملخص المشاكل المكتشفة
+## ملخص تنفيذي
 
-بعد فحص الكود، وجدت أن **4 صفحات رئيسية** تحتوي على نصوص عربية ثابتة (hardcoded) لا تتغير عند تحويل اللغة إلى الإنجليزية:
+بناءً على تحليل الكود الحالي، هذه خطة شاملة لتنفيذ جميع الأهداف المطلوبة:
 
-| # | الصفحة | عدد النصوص المطلوب ترجمتها | الأولوية |
-|---|--------|---------------------------|----------|
-| 1 | `AuditLog.tsx` | ~25 نص | 🔴 High |
-| 2 | `EmployeeReports.tsx` | ~15 نص | 🔴 High |
-| 3 | `WebApps.tsx` | ~20 نص | 🔴 High |
-| 4 | `Networks.tsx` | ~25 نص | 🔴 High |
-
----
-
-## 1️⃣ إصلاح صفحة سجل العمليات (AuditLog.tsx)
-
-### النصوص الثابتة التي تحتاج ترجمة:
-
-| النص الحالي | مفتاح الترجمة الجديد |
-|------------|---------------------|
-| `سجل التغييرات` | `auditLog.pageTitle` |
-| `تتبع جميع العمليات والتغييرات في النظام` | `auditLog.subtitle` |
-| `تحديث` | `common.refresh` |
-| `إجمالي السجلات` | `auditLog.totalRecords` |
-| `إنشاء` (في الإحصائيات) | `auditLog.created` |
-| `تحديث` (في الإحصائيات) | `auditLog.updated` |
-| `حذف` (في الإحصائيات) | `auditLog.deleted` |
-| `تسجيل دخول` | `auditLog.login` |
-| `تسجيل خروج` | `auditLog.logout` |
-| `بحث في السجلات...` | `auditLog.searchPlaceholder` |
-| `جميع العمليات` | `auditLog.allActions` |
-| `جميع الجداول` | `auditLog.allTables` |
-| `التاريخ والوقت` | `auditLog.dateTime` |
-| `المستخدم` | `auditLog.user` |
-| `العملية` | `auditLog.action` |
-| `الجدول` | `auditLog.table` |
-| `التفاصيل` | `auditLog.details` |
-| `مستخدم غير معروف` | `auditLog.unknownUser` |
-| `لا توجد سجلات` | `auditLog.noRecords` |
-| أسماء الجداول (السيرفرات، الشبكات، ...) | `table.servers`, `table.networks`, etc. |
+| # | الهدف | الحالة الحالية | المطلوب |
+|---|-------|----------------|---------|
+| 1 | توحيد مصدر البيانات | ✅ معظم الصفحات تستخدم Supabase | تنظيف `useLocalStorage.ts` |
+| 2 | إصلاح الجلسات والمصادقة | ⚠️ لا يوجد "تذكرني" | إضافة Remember Me + تحسينات |
+| 3 | تطوير السيرفرات | ⚠️ ناقص | حقول Veeam + المستفيد + فلاتر |
+| 4 | Network Scan | ❌ غير موجود | ميزة جديدة كاملة |
+| 5 | نظام المهام Pro | ⚠️ بسيط | دورة حياة + SLA + Kanban |
+| 6 | Audit Log | ✅ موجود | تحسينات طفيفة |
+| 7 | الواجهة RTL/LTR | ✅ موجود | تحسينات |
 
 ---
 
-## 2️⃣ إصلاح صفحة تقارير الموظفين (EmployeeReports.tsx)
+## 1️⃣ توحيد مصدر البيانات (Critical)
 
-### النصوص الثابتة:
-
-| النص الحالي | مفتاح الترجمة |
-|------------|--------------|
-| `نوع التقرير` | `employeeReports.reportType` |
-| `يومي` | `employeeReports.daily` |
-| `أسبوعي` | `employeeReports.weekly` |
-| `شهري` | `employeeReports.monthly` |
-| `معاينة (أول 5 صفوف)` | `employeeReports.preview` |
-| `فشل في قراءة ملف Excel` | `employeeReports.readError` |
-| `يرجى اختيار الموظف والملف` | `employeeReports.selectRequired` |
-| `تم رفع التقرير بنجاح` | `employeeReports.uploadSuccess` |
-| `هل أنت متأكد من حذف هذا التقرير؟` | `employeeReports.deleteConfirm` |
-| `تم حذف التقرير` | `employeeReports.deleteSuccess` |
-| `جارٍ التحميل...` | `common.loading` |
-| `تقرير` (للملف) | `employeeReports.report` |
-
----
-
-## 3️⃣ إصلاح صفحة تطبيقات الويب (WebApps.tsx)
-
-### النصوص الثابتة:
-
-| النص الحالي | مفتاح الترجمة |
-|------------|--------------|
-| `إدارة روابط تطبيقات الويب` | `webApps.subtitle` |
-| `إجمالي التطبيقات` | `webApps.totalApps` |
-| `نشط` (في الإحصائيات) | `webApps.active` |
-| `البحث عن تطبيق...` | `webApps.searchPlaceholder` |
-| `التطبيق` | `webApps.app` |
-| `الرابط` | `webApps.url` |
-| `التصنيف` | `webApps.category` |
-| `النطاق` | `webApps.domain` |
-| `الحالة` | `webApps.status` |
-| `الإجراءات` | `common.actions` |
-| `عام` (بدون دومين) | `webApps.public` |
-| `نشط` / `معطل` | `webApps.active` / `webApps.disabled` |
-| `لا توجد تطبيقات` | `webApps.noApps` |
-| `خطأ` / `يرجى ملء الحقول المطلوبة` | `common.error` / `validation.fillRequired` |
-| `تم بنجاح` / `تم تحديث التطبيق` | `common.success` / `webApps.updateSuccess` |
-| `تم إضافة التطبيق` | `webApps.addSuccess` |
-| `تم حذف التطبيق` | `webApps.deleteSuccess` |
-| `فشل في حفظ/حذف التطبيق` | `webApps.saveFailed` / `webApps.deleteFailed` |
-| `ليس لديك صلاحية للوصول لهذه الصفحة` | `permissions.noAccess` |
-| أسماء التصنيفات | `category.infrastructure`, `category.security`, etc. |
-
-### تصنيفات التطبيقات (categoryOptions):
+### الحالة الحالية
 ```
-البنية التحتية → category.infrastructure
-الأمان → category.security
-المراقبة → category.monitoring
-التواصل → category.communication
-التطوير → category.development
-أخرى → category.other
+الملفات التي تستخدم localStorage:
+✅ useAppSettings.ts - للتفضيلات (مسموح)
+✅ LanguageContext.tsx - للغة (مسموح)
+✅ supabase/client.ts - لجلسة Auth (مطلوب)
+⚠️ useLocalStorage.ts - exports قديمة (تحتاج حذف)
+```
+
+**أخبار جيدة:** جميع الصفحات الرئيسية تستخدم `useSupabaseData` بالفعل!
+
+### الإجراء المطلوب
+```text
+- حذف أو إهمال الـ exports في useLocalStorage.ts:
+  - useServers, useNetworks, useEmployees, useLicenses, useTasks
+  (هذه لم تعد مستخدمة في أي صفحة)
 ```
 
 ---
 
-## 4️⃣ إصلاح صفحة الشبكات والدومينات (Networks.tsx)
+## 2️⃣ إصلاح المصادقة والجلسات (High Priority)
 
-### النصوص الثابتة:
+### المشاكل المكتشفة
+1. **لا يوجد خيار "تذكرني"** في صفحة Login
+2. **Safety timeout قصير** (8 ثوان) قد يسبب logout مبكر
+3. **لا يوجد رسالة واضحة** عند انتهاء الجلسة
 
-| النص الحالي | مفتاح الترجمة |
-|------------|--------------|
-| `الدومينات (X)` | `networks.domainsTab` |
-| `الشبكات (X)` | `networks.networksTab` |
-| `إضافة دومين` | `networks.addDomain` |
-| `إضافة شبكة` | `networks.addNetwork` |
-| `اسم الدومين مطلوب` | `networks.domainRequired` |
-| `تم تحديث الدومين` | `networks.domainUpdated` |
-| `تم إضافة الدومين` | `networks.domainAdded` |
-| `اسم الشبكة والدومين مطلوبين` | `networks.networkRequired` |
-| `تم تحديث الشبكة` | `networks.networkUpdated` |
-| `تم إضافة الشبكة` | `networks.networkAdded` |
-| `تم حذف الدومين` | `networks.domainDeleted` |
-| `تم حذف الشبكة` | `networks.networkDeleted` |
-| `إضافة دومين جديد` | `networks.addNewDomain` |
-| `إضافة شبكة جديدة` | `networks.addNewNetwork` |
-| `اسم الدومين *` | `networks.domainName` |
-| `اسم الشبكة *` | `networks.networkName` |
-| `الدومين *` | `networks.domain` |
-| `الوصف` | `common.description` |
-| `اختر الدومين` | `networks.selectDomain` |
-| `DNS Servers (مفصولة بفواصل)` | `networks.dnsServers` |
-| `X شبكات` | `networks.networksCount` |
-| `X سيرفرات` | `networks.serversCount` |
-| `غير محدد` | `common.notSpecified` |
+### التعديلات المطلوبة
 
----
-
-## 5️⃣ الترجمات الجديدة المطلوب إضافتها
-
-### في LanguageContext.tsx - العربية:
+#### أ. إضافة "تذكرني" في Login.tsx
 ```typescript
+// إضافة state
+const [rememberMe, setRememberMe] = useState(false);
+
+// تعديل signIn لتمرير الخيار
+const { error } = await signIn(email, password, rememberMe);
+
+// إضافة UI
+<div className="flex items-center gap-2">
+  <Checkbox 
+    id="remember" 
+    checked={rememberMe} 
+    onCheckedChange={setRememberMe} 
+  />
+  <Label htmlFor="remember">{t('auth.rememberMe')}</Label>
+</div>
+```
+
+#### ب. تعديل AuthContext.tsx
+```typescript
+// تحديث signIn function
+const signIn = async (email: string, password: string, rememberMe = false) => {
+  // تعيين مدة الجلسة حسب rememberMe
+  // Supabase يدير هذا تلقائياً عبر persistSession
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  
+  // إذا كان rememberMe = false، نستخدم session storage بدلاً من localStorage
+  if (!rememberMe && !error) {
+    // Set a flag to clear on tab close
+    sessionStorage.setItem('session-only', 'true');
+  }
+  
+  return { error };
+};
+```
+
+#### ج. تحسين إدارة الجلسات
+```typescript
+// زيادة timeout الأمان
+const safetyTimeout = window.setTimeout(() => {
+  console.error('Auth init safety timeout hit');
+  setIsLoading(false);
+}, 15000); // زيادة من 8 ثوان إلى 15 ثانية
+
+// إضافة رسالة انتهاء الجلسة
+if (event === 'TOKEN_REFRESHED') {
+  console.log('Session refreshed successfully');
+} else if (event === 'SIGNED_OUT') {
+  toast({
+    title: t('auth.sessionExpired'),
+    description: t('auth.pleaseLoginAgain'),
+  });
+}
+```
+
+---
+
+## 3️⃣ تطوير السيرفرات (Medium Priority)
+
+### تغييرات قاعدة البيانات
+```sql
+-- Migration: Add Veeam and Beneficiary fields to servers
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS beneficiary_department TEXT;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS primary_application TEXT;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS business_owner TEXT;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS is_backed_up_by_veeam BOOLEAN DEFAULT FALSE;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS backup_frequency TEXT DEFAULT 'none';
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS backup_job_name TEXT;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS last_backup_status TEXT;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS last_backup_date TIMESTAMP WITH TIME ZONE;
+
+-- Check constraint for backup validation
+ALTER TABLE servers ADD CONSTRAINT check_backup_frequency 
+  CHECK (
+    (is_backed_up_by_veeam = FALSE) OR 
+    (is_backed_up_by_veeam = TRUE AND backup_frequency != 'none')
+  );
+```
+
+### تحديث ServerFormData في Servers.tsx
+```typescript
+interface ServerFormData {
+  // الحقول الحالية...
+  
+  // حقول جديدة - المستفيد
+  beneficiary_department: string;
+  primary_application: string;
+  business_owner: string;
+  
+  // حقول جديدة - Veeam
+  is_backed_up_by_veeam: boolean;
+  backup_frequency: 'none' | 'daily' | 'weekly';
+  backup_job_name: string;
+  last_backup_status: string;
+  last_backup_date: string;
+}
+```
+
+### إضافة فلاتر جديدة
+```typescript
+// في Servers.tsx
+const [backupFilter, setBackupFilter] = useState<string>('all');
+const [beneficiaryFilter, setBeneficiaryFilter] = useState<string>('all');
+
+// تطبيق الفلاتر
+const filteredServers = useMemo(() => {
+  let filtered = servers;
+  
+  // Veeam filter
+  if (backupFilter === 'yes') {
+    filtered = filtered.filter(s => s.is_backed_up_by_veeam);
+  } else if (backupFilter === 'no') {
+    filtered = filtered.filter(s => !s.is_backed_up_by_veeam);
+  }
+  
+  // Beneficiary filter
+  if (beneficiaryFilter !== 'all') {
+    filtered = filtered.filter(s => s.beneficiary_department === beneficiaryFilter);
+  }
+  
+  return filtered;
+}, [servers, backupFilter, beneficiaryFilter, /* existing filters */]);
+```
+
+---
+
+## 4️⃣ ميزة Network Scan (New Feature)
+
+### نظرة عامة
+ميزة لاكتشاف الأجهزة في الشبكة وإضافتها للنظام بشكل اختياري.
+
+### هيكل قاعدة البيانات
+```sql
+-- جدول وظائف الفحص
+CREATE TABLE scan_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  domain_id UUID REFERENCES domains(id),
+  network_id UUID REFERENCES networks(id),
+  ip_range TEXT NOT NULL,
+  scan_mode TEXT DEFAULT 'basic', -- 'basic' or 'credentialed'
+  status TEXT DEFAULT 'pending', -- pending, running, completed, failed
+  started_at TIMESTAMP WITH TIME ZONE,
+  finished_at TIMESTAMP WITH TIME ZONE,
+  created_by UUID REFERENCES profiles(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  summary JSONB
+);
+
+-- جدول نتائج الفحص
+CREATE TABLE scan_results (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  scan_job_id UUID REFERENCES scan_jobs(id) ON DELETE CASCADE,
+  ip_address TEXT NOT NULL,
+  hostname TEXT,
+  os_type TEXT,
+  os_version TEXT,
+  device_type TEXT, -- Server, Workstation, Network, Printer, Unknown
+  open_ports TEXT[],
+  vendor TEXT,
+  mac_address TEXT,
+  last_seen TIMESTAMP WITH TIME ZONE,
+  is_imported BOOLEAN DEFAULT FALSE,
+  raw_data JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS Policies
+ALTER TABLE scan_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE scan_results ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admins can manage scan jobs"
+  ON scan_jobs FOR ALL USING (is_admin());
+
+CREATE POLICY "Admins can manage scan results"
+  ON scan_results FOR ALL USING (is_admin());
+```
+
+### Edge Function للفحص
+```typescript
+// supabase/functions/network-scan/index.ts
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+
+serve(async (req) => {
+  const { ipRange, scanMode, jobId } = await req.json();
+  
+  // Parse CIDR or range
+  const ips = parseCIDR(ipRange);
+  
+  const results = [];
+  
+  for (const ip of ips) {
+    // Basic mode: ping + port scan
+    const result = await scanIP(ip, scanMode);
+    results.push(result);
+  }
+  
+  // Save results to database
+  await saveResults(jobId, results);
+  
+  return new Response(JSON.stringify({ success: true, count: results.length }));
+});
+
+async function scanIP(ip: string, mode: string) {
+  // Ping check
+  const isAlive = await ping(ip);
+  if (!isAlive) return null;
+  
+  // Port scan for device detection
+  const openPorts = await scanPorts(ip, [22, 80, 443, 3389, 445, 5985, 135]);
+  
+  // Detect device type based on ports
+  const deviceType = detectDeviceType(openPorts);
+  
+  // DNS reverse lookup
+  const hostname = await reverseDNS(ip);
+  
+  return {
+    ip_address: ip,
+    hostname,
+    device_type: deviceType,
+    open_ports: openPorts,
+    os_type: guessOS(openPorts),
+  };
+}
+```
+
+### واجهة المستخدم
+```text
+صفحة جديدة: /network-scan
+
+1. نموذج بدء الفحص:
+   - اسم الفحص
+   - اختيار الدومين/الشبكة
+   - CIDR أو مدى IP (e.g., 192.168.1.0/24)
+   - وضع الفحص (Basic بدون credentials)
+
+2. عرض التقدم:
+   - شريط تقدم
+   - عداد الأجهزة المكتشفة
+
+3. جدول النتائج:
+   - Checkbox لكل صف
+   - IP, Hostname, OS, Device Type, Ports
+   - زر "استيراد المحدد"
+
+4. خطوة التأكيد:
+   - تعبئة الحقول الناقصة (Environment, Owner, Network)
+   - مراجعة نهائية
+   - زر "إضافة للنظام"
+```
+
+---
+
+## 5️⃣ نظام المهام الاحترافي (Major Feature)
+
+### تغييرات قاعدة البيانات
+```sql
+-- توسيع جدول المهام
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_status TEXT DEFAULT 'draft';
+-- draft, assigned, in_progress, blocked, in_review, done, closed, cancelled
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sla_response_hours INTEGER;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sla_resolve_hours INTEGER;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sla_breached BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS requester_id UUID REFERENCES profiles(id);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reviewer_id UUID REFERENCES profiles(id);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS watchers UUID[];
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_task_id UUID REFERENCES tasks(id);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS linked_server_id UUID REFERENCES servers(id);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS linked_network_id UUID REFERENCES networks(id);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS linked_license_id UUID REFERENCES licenses(id);
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS checklist JSONB DEFAULT '[]';
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS evidence JSONB DEFAULT '[]';
+
+-- جدول قوالب المهام
+CREATE TABLE task_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  checklist JSONB DEFAULT '[]',
+  frequency TEXT, -- daily, weekly, monthly
+  priority TEXT DEFAULT 'medium',
+  default_assignee_id UUID REFERENCES profiles(id),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_by UUID REFERENCES profiles(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- جدول التعليقات على المهام
+CREATE TABLE task_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
+  author_id UUID REFERENCES profiles(id),
+  content TEXT NOT NULL,
+  attachments JSONB DEFAULT '[]',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- جدول المناوبات
+CREATE TABLE on_call_schedules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  rotation_type TEXT DEFAULT 'round_robin', -- round_robin, manual
+  team_members UUID[],
+  current_index INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### SLA حسب الأولوية
+```typescript
+const SLA_CONFIG = {
+  P1: { response: 1, resolve: 4 },   // Critical: 1h response, 4h resolve
+  P2: { response: 4, resolve: 24 },  // High: 4h response, 24h resolve
+  P3: { response: 8, resolve: 72 },  // Medium: 8h response, 72h resolve
+  P4: { response: 24, resolve: 168 }, // Low: 24h response, 1 week resolve
+};
+```
+
+### واجهات جديدة
+
+#### أ. صفحة "مهامي" (My Tasks)
+```text
+┌─────────────────────────────────────────────────────────┐
+│ 📋 مهامي اليوم                                          │
+├─────────────────────────────────────────────────────────┤
+│ 🔴 متأخرة (3)                                           │
+│ ├─ ✓ فحص Backup يومي                    ⏰ 08:00       │
+│ ├─ ✓ مراجعة صلاحيات AD                  ⏰ أمس         │
+│ └─ ✓ تحديث السيرفر DC01                 ⏰ منذ 3 أيام  │
+├─────────────────────────────────────────────────────────┤
+│ 🟡 قيد التنفيذ (2)                                      │
+│ ├─ ○ تثبيت تحديثات Windows              ⏱️ 2:30:00     │
+│ └─ ○ إعداد VM جديد للقسم المالي          ⏱️ 0:45:00     │
+├─────────────────────────────────────────────────────────┤
+│ 🔵 القادمة (5)                                          │
+│ └─ المزيد...                                             │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### ب. Kanban Board
+```text
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│ Draft   │ │Assigned │ │Progress │ │ Review  │ │  Done   │
+│   (2)   │ │   (5)   │ │   (3)   │ │   (1)   │ │  (12)   │
+├─────────┤ ├─────────┤ ├─────────┤ ├─────────┤ ├─────────┤
+│ Card 1  │ │ Card 3  │ │ Card 6  │ │ Card 9  │ │ Card 10 │
+│ Card 2  │ │ Card 4  │ │ Card 7  │ │         │ │ Card 11 │
+│         │ │ Card 5  │ │ Card 8  │ │         │ │   ...   │
+└─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
+```
+
+#### ج. Calendar View
+```text
+┌────────────────────────────────────────────────────────────┐
+│        يناير 2026                    ◀ ▶                  │
+├─────┬─────┬─────┬─────┬─────┬─────┬─────┤
+│ أحد │ إثن │ ثلا │ أرب │ خمي │ جمع │ سبت │
+├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
+│     │     │     │ 1   │ 2   │ 3   │ 4   │
+│     │     │     │ 🔴2 │     │     │     │
+├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
+│ 5   │ 6   │ 7   │ 8   │ 9   │ 10  │ 11  │
+│     │ 🟡3 │ 🟢1 │     │ 🔴1 │     │     │
+└─────┴─────┴─────┴─────┴─────┴─────┴─────┘
+```
+
+### المهام المتكررة
+```typescript
+// Edge Function لتوليد المهام المتكررة
+// يعمل كـ Cron Job يومياً
+
+async function generateRecurringTasks() {
+  const templates = await getActiveTemplates();
+  
+  for (const template of templates) {
+    if (shouldGenerate(template.frequency)) {
+      const assignee = await getNextAssignee(template);
+      
+      await createTask({
+        title: template.name,
+        description: template.description,
+        checklist: template.checklist,
+        assigned_to: assignee,
+        priority: template.priority,
+        due_date: calculateDueDate(template.frequency),
+        frequency: template.frequency,
+      });
+    }
+  }
+}
+```
+
+---
+
+## 6️⃣ تحسينات Audit Log
+
+### الحالة الحالية
+- ✅ جدول `audit_logs` موجود
+- ✅ دالة `logAuditAction` موجودة
+- ✅ صفحة عرض موجودة
+
+### التحسينات المطلوبة
+```sql
+-- إضافة indexes للأداء
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_table_name ON audit_logs(table_name);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+
+-- إضافة عمود للكيان المرتبط
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS entity_name TEXT;
+```
+
+### تحسين واجهة العرض
+```text
+إضافات للفلترة:
+- فلتر بتاريخ (من - إلى)
+- فلتر بالمستخدم
+- فلتر بنوع العملية
+- تصدير إلى Excel/PDF
+```
+
+---
+
+## 7️⃣ نظام الإشعارات (In-App Notifications)
+
+### الإشعارات التلقائية
+```typescript
+// Triggers للإشعارات
+
+// 1. عند إسناد مهمة
+async function onTaskAssigned(task: Task) {
+  await createNotification({
+    user_id: task.assigned_to,
+    title: 'مهمة جديدة',
+    message: `تم إسنادك لمهمة: ${task.title}`,
+    type: 'task',
+    link: `/tasks?id=${task.id}`,
+  });
+}
+
+// 2. عند اقتراب SLA
+async function checkSLABreaches() {
+  const tasks = await getTasksNearingSLA();
+  for (const task of tasks) {
+    await createNotification({
+      user_id: task.assigned_to,
+      title: 'تنبيه SLA',
+      message: `المهمة "${task.title}" قاربت على انتهاء المهلة`,
+      type: 'warning',
+    });
+  }
+}
+
+// 3. عند انتهاء ترخيص
+async function checkExpiringLicenses() {
+  const licenses = await getLicensesExpiringSoon(30); // 30 يوم
+  for (const license of licenses) {
+    await createNotification({
+      user_id: null, // للجميع
+      title: 'ترخيص قارب على الانتهاء',
+      message: `الترخيص "${license.name}" ينتهي في ${license.expiry_date}`,
+      type: 'license',
+    });
+  }
+}
+```
+
+---
+
+## ترتيب التنفيذ
+
+### المرحلة 1: Critical (أسبوع 1)
+```text
+□ 1.1 تنظيف useLocalStorage.ts
+□ 1.2 إضافة "تذكرني" في Login
+□ 1.3 تحسين إدارة الجلسات
+□ 1.4 إضافة حقول Veeam/المستفيد للسيرفرات (DB + UI)
+```
+
+### المرحلة 2: High Priority (أسبوع 2)
+```text
+□ 2.1 إضافة فلاتر السيرفرات الجديدة
+□ 2.2 تحديث Excel Import/Export للحقول الجديدة
+□ 2.3 بداية نظام المهام Pro (دورة الحياة + SLA)
+```
+
+### المرحلة 3: Network Scan (أسبوع 3)
+```text
+□ 3.1 إنشاء جداول scan_jobs و scan_results
+□ 3.2 إنشاء Edge Function للفحص
+□ 3.3 صفحة Network Scan UI
+□ 3.4 خطوة المراجعة والاستيراد
+```
+
+### المرحلة 4: Task System Pro (أسبوع 4-5)
+```text
+□ 4.1 Kanban Board
+□ 4.2 صفحة My Tasks
+□ 4.3 قوالب المهام
+□ 4.4 المهام المتكررة (Cron)
+□ 4.5 التعليقات والمرفقات
+□ 4.6 Calendar View
+```
+
+### المرحلة 5: Polish (أسبوع 6)
+```text
+□ 5.1 نظام الإشعارات
+□ 5.2 تحسينات Audit Log
+□ 5.3 اختبار شامل
+□ 5.4 تحسينات الأداء
+```
+
+---
+
+## الملفات المتأثرة
+
+| الملف | التغيير |
+|-------|---------|
+| `src/hooks/useLocalStorage.ts` | حذف أو إهمال exports |
+| `src/pages/Login.tsx` | إضافة Remember Me |
+| `src/contexts/AuthContext.tsx` | تحسين إدارة الجلسات |
+| `src/pages/Servers.tsx` | حقول + فلاتر جديدة |
+| `src/pages/Tasks.tsx` | إعادة بناء كاملة |
+| `src/pages/NetworkScan.tsx` | ملف جديد |
+| `supabase/functions/network-scan/` | Edge Function جديدة |
+| `supabase/functions/recurring-tasks/` | Edge Function جديدة |
+| `src/components/tasks/KanbanBoard.tsx` | مكون جديد |
+| `src/components/tasks/TaskCalendar.tsx` | مكون جديد |
+| `src/components/tasks/MyTasks.tsx` | مكون جديد |
+
+---
+
+## القسم التقني
+
+### Database Migrations Summary
+```sql
+-- 1. Servers enhancements
+ALTER TABLE servers ADD COLUMN beneficiary_department TEXT;
+ALTER TABLE servers ADD COLUMN primary_application TEXT;
+ALTER TABLE servers ADD COLUMN business_owner TEXT;
+ALTER TABLE servers ADD COLUMN is_backed_up_by_veeam BOOLEAN DEFAULT FALSE;
+ALTER TABLE servers ADD COLUMN backup_frequency TEXT DEFAULT 'none';
+ALTER TABLE servers ADD COLUMN backup_job_name TEXT;
+ALTER TABLE servers ADD COLUMN last_backup_status TEXT;
+ALTER TABLE servers ADD COLUMN last_backup_date TIMESTAMPTZ;
+
+-- 2. Tasks enhancements
+ALTER TABLE tasks ADD COLUMN task_status TEXT DEFAULT 'draft';
+ALTER TABLE tasks ADD COLUMN sla_response_hours INTEGER;
+ALTER TABLE tasks ADD COLUMN sla_resolve_hours INTEGER;
+ALTER TABLE tasks ADD COLUMN sla_breached BOOLEAN DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN requester_id UUID;
+ALTER TABLE tasks ADD COLUMN reviewer_id UUID;
+ALTER TABLE tasks ADD COLUMN watchers UUID[];
+ALTER TABLE tasks ADD COLUMN parent_task_id UUID;
+ALTER TABLE tasks ADD COLUMN linked_server_id UUID;
+ALTER TABLE tasks ADD COLUMN linked_network_id UUID;
+ALTER TABLE tasks ADD COLUMN linked_license_id UUID;
+ALTER TABLE tasks ADD COLUMN checklist JSONB DEFAULT '[]';
+ALTER TABLE tasks ADD COLUMN evidence JSONB DEFAULT '[]';
+
+-- 3. New tables
+CREATE TABLE scan_jobs (...);
+CREATE TABLE scan_results (...);
+CREATE TABLE task_templates (...);
+CREATE TABLE task_comments (...);
+CREATE TABLE on_call_schedules (...);
+```
+
+### New Translations Required
+```typescript
+// LanguageContext.tsx additions
 ar: {
-  // Audit Log (جديد)
-  'auditLog.pageTitle': 'سجل التغييرات',
-  'auditLog.subtitle': 'تتبع جميع العمليات والتغييرات في النظام',
-  'auditLog.totalRecords': 'إجمالي السجلات',
-  'auditLog.created': 'إنشاء',
-  'auditLog.updated': 'تحديث',
-  'auditLog.deleted': 'حذف',
-  'auditLog.login': 'تسجيل دخول',
-  'auditLog.logout': 'تسجيل خروج',
-  'auditLog.searchPlaceholder': 'بحث في السجلات...',
-  'auditLog.allActions': 'جميع العمليات',
-  'auditLog.allTables': 'جميع الجداول',
-  'auditLog.dateTime': 'التاريخ والوقت',
-  'auditLog.user': 'المستخدم',
-  'auditLog.action': 'العملية',
-  'auditLog.table': 'الجدول',
-  'auditLog.details': 'التفاصيل',
-  'auditLog.noRecords': 'لا توجد سجلات',
-
-  // Table Names
-  'table.servers': 'السيرفرات',
-  'table.networks': 'الشبكات',
-  'table.domains': 'الدومينات',
-  'table.licenses': 'التراخيص',
-  'table.tasks': 'المهام',
-  'table.profiles': 'الموظفين',
-  'table.vacations': 'الإجازات',
-  'table.domain_memberships': 'صلاحيات الدومين',
-
-  // Employee Reports (جديد)
-  'employeeReports.reportType': 'نوع التقرير',
-  'employeeReports.daily': 'يومي',
-  'employeeReports.weekly': 'أسبوعي',
-  'employeeReports.monthly': 'شهري',
-  'employeeReports.preview': 'معاينة (أول 5 صفوف)',
-  'employeeReports.readError': 'فشل في قراءة ملف Excel',
-  'employeeReports.selectRequired': 'يرجى اختيار الموظف والملف',
-  'employeeReports.uploadSuccess': 'تم رفع التقرير بنجاح',
-  'employeeReports.deleteConfirm': 'هل أنت متأكد من حذف هذا التقرير؟',
-  'employeeReports.deleteSuccess': 'تم حذف التقرير',
-  'employeeReports.report': 'تقرير',
-
-  // Web Apps (جديد)
-  'webApps.subtitle': 'إدارة روابط تطبيقات الويب',
-  'webApps.totalApps': 'إجمالي التطبيقات',
-  'webApps.active': 'نشط',
-  'webApps.disabled': 'معطل',
-  'webApps.searchPlaceholder': 'البحث عن تطبيق...',
-  'webApps.app': 'التطبيق',
-  'webApps.url': 'الرابط',
-  'webApps.category': 'التصنيف',
-  'webApps.domain': 'النطاق',
-  'webApps.status': 'الحالة',
-  'webApps.public': 'عام',
-  'webApps.noApps': 'لا توجد تطبيقات',
-  'webApps.updateSuccess': 'تم تحديث التطبيق',
-  'webApps.addSuccess': 'تم إضافة التطبيق',
-  'webApps.deleteSuccess': 'تم حذف التطبيق',
-  'webApps.saveFailed': 'فشل في حفظ التطبيق',
-  'webApps.deleteFailed': 'فشل في حذف التطبيق',
-
-  // Categories
-  'category.infrastructure': 'البنية التحتية',
-  'category.security': 'الأمان',
-  'category.monitoring': 'المراقبة',
-  'category.communication': 'التواصل',
-  'category.development': 'التطوير',
-  'category.other': 'أخرى',
-
-  // Networks (جديد)
-  'networks.domainsTab': 'الدومينات',
-  'networks.networksTab': 'الشبكات',
-  'networks.addDomain': 'إضافة دومين',
-  'networks.addNetwork': 'إضافة شبكة',
-  'networks.domainRequired': 'اسم الدومين مطلوب',
-  'networks.domainUpdated': 'تم تحديث الدومين',
-  'networks.domainAdded': 'تم إضافة الدومين',
-  'networks.networkRequired': 'اسم الشبكة والدومين مطلوبين',
-  'networks.networkUpdated': 'تم تحديث الشبكة',
-  'networks.networkAdded': 'تم إضافة الشبكة',
-  'networks.domainDeleted': 'تم حذف الدومين',
-  'networks.networkDeleted': 'تم حذف الشبكة',
-  'networks.addNewDomain': 'إضافة دومين جديد',
-  'networks.addNewNetwork': 'إضافة شبكة جديدة',
-  'networks.domainName': 'اسم الدومين',
-  'networks.networkName': 'اسم الشبكة',
-  'networks.domain': 'الدومين',
-  'networks.selectDomain': 'اختر الدومين',
-  'networks.dnsServers': 'خوادم DNS (مفصولة بفواصل)',
-  'networks.networksCount': 'شبكات',
-  'networks.serversCount': 'سيرفرات',
+  'auth.rememberMe': 'تذكرني',
+  'auth.sessionExpired': 'انتهت الجلسة',
+  'auth.pleaseLoginAgain': 'يرجى تسجيل الدخول مجدداً',
   
-  // Common additions
-  'common.description': 'الوصف',
-  'common.notSpecified': 'غير محدد',
+  'servers.beneficiary': 'المستفيد/القسم',
+  'servers.primaryApp': 'التطبيق الأساسي',
+  'servers.businessOwner': 'مالك الخدمة',
+  'servers.veeamBackup': 'نسخ Veeam',
+  'servers.isBackedUp': 'يأخذ نسخة؟',
+  'servers.backupFrequency': 'تكرار النسخ',
+  'servers.backupJobName': 'اسم Job',
+  
+  'scan.title': 'فحص الشبكة',
+  'scan.startScan': 'بدء الفحص',
+  'scan.ipRange': 'نطاق IP',
+  'scan.scanMode': 'وضع الفحص',
+  'scan.basic': 'أساسي',
+  'scan.results': 'النتائج',
+  'scan.importSelected': 'استيراد المحدد',
+  
+  'tasks.kanban': 'لوحة Kanban',
+  'tasks.myTasks': 'مهامي',
+  'tasks.calendar': 'التقويم',
+  'tasks.sla': 'مستوى الخدمة',
+  'tasks.templates': 'القوالب',
+  'tasks.checklist': 'قائمة التحقق',
+  'tasks.comments': 'التعليقات',
+  'tasks.attachments': 'المرفقات',
 }
 ```
-
-### في LanguageContext.tsx - الإنجليزية:
-```typescript
-en: {
-  // Audit Log
-  'auditLog.pageTitle': 'Change Log',
-  'auditLog.subtitle': 'Track all operations and changes in the system',
-  'auditLog.totalRecords': 'Total Records',
-  'auditLog.created': 'Created',
-  'auditLog.updated': 'Updated',
-  'auditLog.deleted': 'Deleted',
-  'auditLog.login': 'Login',
-  'auditLog.logout': 'Logout',
-  'auditLog.searchPlaceholder': 'Search logs...',
-  'auditLog.allActions': 'All Actions',
-  'auditLog.allTables': 'All Tables',
-  'auditLog.dateTime': 'Date & Time',
-  'auditLog.user': 'User',
-  'auditLog.action': 'Action',
-  'auditLog.table': 'Table',
-  'auditLog.details': 'Details',
-  'auditLog.noRecords': 'No records found',
-
-  // Table Names
-  'table.servers': 'Servers',
-  'table.networks': 'Networks',
-  'table.domains': 'Domains',
-  'table.licenses': 'Licenses',
-  'table.tasks': 'Tasks',
-  'table.profiles': 'Employees',
-  'table.vacations': 'Vacations',
-  'table.domain_memberships': 'Domain Permissions',
-
-  // Employee Reports
-  'employeeReports.reportType': 'Report Type',
-  'employeeReports.daily': 'Daily',
-  'employeeReports.weekly': 'Weekly',
-  'employeeReports.monthly': 'Monthly',
-  'employeeReports.preview': 'Preview (first 5 rows)',
-  'employeeReports.readError': 'Failed to read Excel file',
-  'employeeReports.selectRequired': 'Please select employee and file',
-  'employeeReports.uploadSuccess': 'Report uploaded successfully',
-  'employeeReports.deleteConfirm': 'Are you sure you want to delete this report?',
-  'employeeReports.deleteSuccess': 'Report deleted',
-  'employeeReports.report': 'Report',
-
-  // Web Apps
-  'webApps.subtitle': 'Manage web application links',
-  'webApps.totalApps': 'Total Applications',
-  'webApps.active': 'Active',
-  'webApps.disabled': 'Disabled',
-  'webApps.searchPlaceholder': 'Search application...',
-  'webApps.app': 'Application',
-  'webApps.url': 'URL',
-  'webApps.category': 'Category',
-  'webApps.domain': 'Domain',
-  'webApps.status': 'Status',
-  'webApps.public': 'Public',
-  'webApps.noApps': 'No applications found',
-  'webApps.updateSuccess': 'Application updated',
-  'webApps.addSuccess': 'Application added',
-  'webApps.deleteSuccess': 'Application deleted',
-  'webApps.saveFailed': 'Failed to save application',
-  'webApps.deleteFailed': 'Failed to delete application',
-
-  // Categories
-  'category.infrastructure': 'Infrastructure',
-  'category.security': 'Security',
-  'category.monitoring': 'Monitoring',
-  'category.communication': 'Communication',
-  'category.development': 'Development',
-  'category.other': 'Other',
-
-  // Networks
-  'networks.domainsTab': 'Domains',
-  'networks.networksTab': 'Networks',
-  'networks.addDomain': 'Add Domain',
-  'networks.addNetwork': 'Add Network',
-  'networks.domainRequired': 'Domain name is required',
-  'networks.domainUpdated': 'Domain updated',
-  'networks.domainAdded': 'Domain added',
-  'networks.networkRequired': 'Network name and domain are required',
-  'networks.networkUpdated': 'Network updated',
-  'networks.networkAdded': 'Network added',
-  'networks.domainDeleted': 'Domain deleted',
-  'networks.networkDeleted': 'Network deleted',
-  'networks.addNewDomain': 'Add New Domain',
-  'networks.addNewNetwork': 'Add New Network',
-  'networks.domainName': 'Domain Name',
-  'networks.networkName': 'Network Name',
-  'networks.domain': 'Domain',
-  'networks.selectDomain': 'Select Domain',
-  'networks.dnsServers': 'DNS Servers (comma separated)',
-  'networks.networksCount': 'networks',
-  'networks.serversCount': 'servers',
-  
-  // Common additions
-  'common.description': 'Description',
-  'common.notSpecified': 'Not specified',
-}
-```
-
----
-
-## 6️⃣ التغييرات المطلوبة في كل ملف
-
-### AuditLog.tsx:
-- استبدال ~25 نص عربي بـ `t('key')`
-- تعديل دوال `getActionLabel` و `getTableLabel` لاستخدام الترجمات
-
-### EmployeeReports.tsx:
-- استبدال ~15 نص عربي بـ `t('key')`
-- تعديل عرض نوع التقرير ليستخدم الترجمات
-
-### WebApps.tsx:
-- استبدال ~20 نص عربي بـ `t('key')`
-- تعديل `categoryOptions` ليستخدم مفاتيح الترجمة
-
-### Networks.tsx:
-- استبدال ~25 نص عربي بـ `t('key')`
-- تعديل labels الأزرار والنماذج
-
----
-
-## 7️⃣ ترتيب التنفيذ
-
-| # | المهمة | الملف |
-|---|--------|-------|
-| 1 | إضافة جميع الترجمات الجديدة | `LanguageContext.tsx` |
-| 2 | تحديث صفحة سجل العمليات | `AuditLog.tsx` |
-| 3 | تحديث صفحة تقارير الموظفين | `EmployeeReports.tsx` |
-| 4 | تحديث صفحة تطبيقات الويب | `WebApps.tsx` |
-| 5 | تحديث صفحة الشبكات | `Networks.tsx` |
-
----
-
-## 8️⃣ النتيجة المتوقعة
-
-بعد التنفيذ:
-- ✅ **جميع الصفحات** تتغير بالكامل عند تحويل اللغة
-- ✅ **سجل العمليات** يظهر بالإنجليزية بالكامل
-- ✅ **تقارير الموظفين** يظهر بالإنجليزية بالكامل
-- ✅ **تطبيقات الويب** يظهر بالإنجليزية بالكامل
-- ✅ **الشبكات والدومينات** يظهر بالإنجليزية بالكامل
-- ✅ **التصنيفات وأسماء الجداول** تتغير حسب اللغة
