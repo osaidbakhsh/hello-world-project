@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Server, Loader2, Eye, EyeOff } from 'lucide-react';
+import loginBackground from '@/assets/login-background.jpg';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -44,15 +45,27 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/30 to-background p-4" dir={dir}>
-      <Card className="w-full max-w-md shadow-xl">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative" 
+      dir={dir}
+      style={{
+        backgroundImage: `url(${loginBackground})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Overlay for better readability */}
+      <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" />
+      
+      <Card className="w-full max-w-md shadow-2xl relative z-10 border-primary/20 bg-card/95 backdrop-blur-md">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-2xl stat-primary flex items-center justify-center">
+          <div className="mx-auto w-16 h-16 rounded-2xl stat-primary flex items-center justify-center shadow-lg">
             <Server className="w-8 h-8 text-primary-foreground" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">
-              IT <span className="text-accent">CMDB</span>
+              IT <span className="text-accent">Infrastructure</span>
             </CardTitle>
             <CardDescription className="mt-2">
               تسجيل الدخول إلى نظام إدارة البنية التحتية
