@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Server } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicenseTemplate, downloadNetworkTemplate, downloadEmployeeTemplate } from '@/utils/excelTemplates';
 
@@ -45,6 +45,14 @@ const Settings: React.FC = () => {
     ldap_enabled: false,
   });
 
+  // NTP Settings State
+  const [ntpSettings, setNtpSettings] = React.useState({
+    ntp_server_primary: '',
+    ntp_server_secondary: '',
+    ntp_sync_interval: '3600',
+    ntp_enabled: false,
+  });
+
   React.useEffect(() => {
     setLocalAppName(appName);
   }, [appName]);
@@ -67,6 +75,15 @@ const Settings: React.FC = () => {
           setLdapSettings(JSON.parse(savedLdapSettings));
         } catch (e) {
           console.error('Failed to parse LDAP settings');
+        }
+      }
+
+      const savedNtpSettings = await getSetting('ntp_settings');
+      if (savedNtpSettings) {
+        try {
+          setNtpSettings(JSON.parse(savedNtpSettings));
+        } catch (e) {
+          console.error('Failed to parse NTP settings');
         }
       }
     };
@@ -112,6 +129,19 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleSaveNtpSettings = async () => {
+    const success = await updateSetting('ntp_settings', JSON.stringify(ntpSettings));
+    if (success) {
+      toast({ title: t('common.success'), description: 'تم حفظ إعدادات NTP' });
+    } else {
+      toast({ 
+        title: t('common.error'), 
+        description: 'فشل في حفظ الإعدادات',
+        variant: 'destructive' 
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto" dir={dir}>
       {/* Header */}
@@ -126,22 +156,26 @@ const Settings: React.FC = () => {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general" className="gap-2">
             <SettingsIcon className="w-4 h-4" />
-            عام
+            <span className="hidden sm:inline">عام</span>
           </TabsTrigger>
           <TabsTrigger value="mail" className="gap-2">
             <Mail className="w-4 h-4" />
-            البريد
+            <span className="hidden sm:inline">البريد</span>
           </TabsTrigger>
           <TabsTrigger value="ldap" className="gap-2">
             <Shield className="w-4 h-4" />
-            LDAP
+            <span className="hidden sm:inline">LDAP</span>
+          </TabsTrigger>
+          <TabsTrigger value="ntp" className="gap-2">
+            <Clock className="w-4 h-4" />
+            <span className="hidden sm:inline">NTP</span>
           </TabsTrigger>
           <TabsTrigger value="templates" className="gap-2">
             <FileSpreadsheet className="w-4 h-4" />
-            القوالب
+            <span className="hidden sm:inline">القوالب</span>
           </TabsTrigger>
         </TabsList>
 
@@ -476,6 +510,98 @@ const Settings: React.FC = () => {
                     <p className="text-muted-foreground">
                       تأكد من أن حساب الربط لديه صلاحيات القراءة على OU المستخدمين في Active Directory.
                       لا يتم تخزين كلمات المرور محلياً - يتم التحقق منها مباشرة مع DC.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* NTP Settings Tab */}
+        <TabsContent value="ntp" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                إعدادات NTP (مزامنة الوقت)
+              </CardTitle>
+              <CardDescription>
+                تكوين خوادم NTP لمزامنة الوقت عبر جميع السيرفرات
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                <div>
+                  <Label className="text-base">تفعيل NTP</Label>
+                  <p className="text-sm text-muted-foreground">تفعيل مزامنة الوقت التلقائية</p>
+                </div>
+                <Switch
+                  checked={ntpSettings.ntp_enabled}
+                  onCheckedChange={(checked) => setNtpSettings(prev => ({ ...prev, ntp_enabled: checked }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>خادم NTP الأساسي</Label>
+                  <Input
+                    placeholder="time.windows.com أو pool.ntp.org"
+                    value={ntpSettings.ntp_server_primary}
+                    onChange={(e) => setNtpSettings(prev => ({ ...prev, ntp_server_primary: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>خادم NTP الاحتياطي</Label>
+                  <Input
+                    placeholder="time.google.com"
+                    value={ntpSettings.ntp_server_secondary}
+                    onChange={(e) => setNtpSettings(prev => ({ ...prev, ntp_server_secondary: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>فترة المزامنة (بالثواني)</Label>
+                  <Input
+                    type="number"
+                    placeholder="3600"
+                    value={ntpSettings.ntp_sync_interval}
+                    onChange={(e) => setNtpSettings(prev => ({ ...prev, ntp_sync_interval: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    الافتراضي: 3600 ثانية (ساعة واحدة)
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <h4 className="font-medium mb-2">خوادم NTP شائعة:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
+                  <div>• time.windows.com (Microsoft)</div>
+                  <div>• time.google.com (Google)</div>
+                  <div>• pool.ntp.org (عام)</div>
+                  <div>• time.apple.com (Apple)</div>
+                  <div>• ntp.ubuntu.com (Ubuntu)</div>
+                  <div>• time.cloudflare.com (Cloudflare)</div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button onClick={handleSaveNtpSettings} className="flex-1">
+                  حفظ الإعدادات
+                </Button>
+                <Button variant="outline">
+                  اختبار المزامنة
+                </Button>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-warning/10 border-warning/20">
+                <div className="flex gap-2 items-start">
+                  <Info className="w-5 h-5 text-warning mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-warning">نصيحة</p>
+                    <p className="text-muted-foreground">
+                      للبيئات الإنتاجية، يُفضل استخدام خادم NTP داخلي (مثل Domain Controller) لضمان تزامن الوقت
+                      بين جميع الأجهزة في الشبكة المحلية.
                     </p>
                   </div>
                 </div>
