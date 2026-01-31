@@ -102,29 +102,27 @@ const AuditLog: React.FC = () => {
   };
 
   const getActionLabel = (action: string) => {
-    const labels: Record<string, string> = {
-      create: 'إنشاء',
-      update: 'تحديث',
-      delete: 'حذف',
-      login: 'تسجيل دخول',
-      logout: 'تسجيل خروج',
-    };
-    return labels[action] || action;
+    switch (action) {
+      case 'create':
+        return t('auditLog.created');
+      case 'update':
+        return t('auditLog.updated');
+      case 'delete':
+        return t('auditLog.deleted');
+      case 'login':
+        return t('auditLog.login');
+      case 'logout':
+        return t('auditLog.logout');
+      default:
+        return action;
+    }
   };
 
   const getTableLabel = (table: string | null) => {
     if (!table) return '-';
-    const labels: Record<string, string> = {
-      servers: 'السيرفرات',
-      networks: 'الشبكات',
-      domains: 'الدومينات',
-      licenses: 'التراخيص',
-      tasks: 'المهام',
-      profiles: 'الموظفين',
-      vacations: 'الإجازات',
-      domain_memberships: 'صلاحيات الدومين',
-    };
-    return labels[table] || table;
+    const key = `table.${table}`;
+    const translated = t(key);
+    return translated !== key ? translated : table;
   };
 
   return (
@@ -132,12 +130,12 @@ const AuditLog: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">سجل التغييرات</h1>
-          <p className="text-muted-foreground">تتبع جميع العمليات والتغييرات في النظام</p>
+          <h1 className="text-3xl font-bold">{t('auditLog.pageTitle')}</h1>
+          <p className="text-muted-foreground">{t('auditLog.subtitle')}</p>
         </div>
-        <Button variant="outline" onClick={refetch}>
+        <Button variant="outline" onClick={() => refetch()}>
           <RefreshCw className="w-4 h-4 me-2" />
-          تحديث
+          {t('common.refresh')}
         </Button>
       </div>
 
@@ -151,7 +149,7 @@ const AuditLog: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{logs.length}</p>
-                <p className="text-xs text-muted-foreground">إجمالي السجلات</p>
+                <p className="text-xs text-muted-foreground">{t('auditLog.totalRecords')}</p>
               </div>
             </div>
           </CardContent>
@@ -164,7 +162,7 @@ const AuditLog: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{logs.filter(l => l.action === 'create').length}</p>
-                <p className="text-xs text-muted-foreground">إنشاء</p>
+                <p className="text-xs text-muted-foreground">{t('auditLog.created')}</p>
               </div>
             </div>
           </CardContent>
@@ -177,7 +175,7 @@ const AuditLog: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{logs.filter(l => l.action === 'update').length}</p>
-                <p className="text-xs text-muted-foreground">تحديث</p>
+                <p className="text-xs text-muted-foreground">{t('auditLog.updated')}</p>
               </div>
             </div>
           </CardContent>
@@ -190,7 +188,7 @@ const AuditLog: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{logs.filter(l => l.action === 'delete').length}</p>
-                <p className="text-xs text-muted-foreground">حذف</p>
+                <p className="text-xs text-muted-foreground">{t('auditLog.deleted')}</p>
               </div>
             </div>
           </CardContent>
@@ -203,7 +201,7 @@ const AuditLog: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{logs.filter(l => l.action === 'login').length}</p>
-                <p className="text-xs text-muted-foreground">تسجيل دخول</p>
+                <p className="text-xs text-muted-foreground">{t('auditLog.login')}</p>
               </div>
             </div>
           </CardContent>
@@ -219,29 +217,29 @@ const AuditLog: React.FC = () => {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="بحث في السجلات..."
+                placeholder={t('auditLog.searchPlaceholder')}
                 className="ps-10"
               />
             </div>
             <Select value={actionFilter} onValueChange={setActionFilter}>
               <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="نوع العملية" />
+                <SelectValue placeholder={t('auditLog.allActions')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">جميع العمليات</SelectItem>
-                <SelectItem value="create">إنشاء</SelectItem>
-                <SelectItem value="update">تحديث</SelectItem>
-                <SelectItem value="delete">حذف</SelectItem>
-                <SelectItem value="login">تسجيل دخول</SelectItem>
-                <SelectItem value="logout">تسجيل خروج</SelectItem>
+                <SelectItem value="all">{t('auditLog.allActions')}</SelectItem>
+                <SelectItem value="create">{t('auditLog.created')}</SelectItem>
+                <SelectItem value="update">{t('auditLog.updated')}</SelectItem>
+                <SelectItem value="delete">{t('auditLog.deleted')}</SelectItem>
+                <SelectItem value="login">{t('auditLog.login')}</SelectItem>
+                <SelectItem value="logout">{t('auditLog.logout')}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={tableFilter} onValueChange={setTableFilter}>
               <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="الجدول" />
+                <SelectValue placeholder={t('auditLog.allTables')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">جميع الجداول</SelectItem>
+                <SelectItem value="all">{t('auditLog.allTables')}</SelectItem>
                 {uniqueTables.map(table => (
                   <SelectItem key={table} value={table}>{getTableLabel(table)}</SelectItem>
                 ))}
@@ -258,11 +256,11 @@ const AuditLog: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>التاريخ والوقت</TableHead>
-                  <TableHead>المستخدم</TableHead>
-                  <TableHead>العملية</TableHead>
-                  <TableHead>الجدول</TableHead>
-                  <TableHead>التفاصيل</TableHead>
+                  <TableHead>{t('auditLog.dateTime')}</TableHead>
+                  <TableHead>{t('auditLog.user')}</TableHead>
+                  <TableHead>{t('auditLog.action')}</TableHead>
+                  <TableHead>{t('auditLog.table')}</TableHead>
+                  <TableHead>{t('auditLog.details')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -290,7 +288,7 @@ const AuditLog: React.FC = () => {
                                 {user?.full_name?.charAt(0) || '?'}
                               </span>
                             </div>
-                            <span className="text-sm">{user?.full_name || 'مستخدم غير معروف'}</span>
+                            <span className="text-sm">{user?.full_name || t('auditLog.unknownUser')}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -326,7 +324,7 @@ const AuditLog: React.FC = () => {
                     <TableCell colSpan={5} className="text-center py-12">
                       <div className="flex flex-col items-center gap-2">
                         <Activity className="w-12 h-12 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">لا توجد سجلات</p>
+                        <p className="text-muted-foreground">{t('auditLog.noRecords')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
