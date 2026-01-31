@@ -23,13 +23,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 7000): Promise<T> => {
+    let timeoutId: number | undefined;
+    const timeout = new Promise<T>((_, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error('Auth request timeout')), ms);
+    });
+
+    try {
+      // supabase-js query builders are PromiseLike (thenable), not always typed as Promise.
+      return await Promise.race([Promise.resolve(promiseLike as any), timeout]);
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    }
+  };
+
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const { data, error } = await withTimeout(
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle()
+      );
       
       if (error) {
         console.error('Error fetching profile:', error);
@@ -52,12 +68,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (u.email ? u.email.split('@')[0] : 'User');
 
       // If profile doesn't exist (e.g., no trigger created it), create it on first login.
-      const { error } = await supabase.from('profiles').insert({
+      const { error } = await withTimeout(
+        supabase.from('profiles').insert({
         user_id: u.id,
         email: u.email ?? '',
         full_name: fullName,
         // Keep defaults for department/position/role if DB has defaults.
-      });
+        })
+      );
 
       if (error) {
         console.error('Error creating profile:', error);
@@ -83,8 +101,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check initial session first
     const initializeAuth = async () => {
+      // Never allow infinite loading on first paint.
+      const safetyTimeout = window.setTimeout(() => {
+        if (isMounted) {
+          console.error('Auth init safety timeout hit — forcing isLoading=false');
+          setIsLoading(false);
+        }
+      }, 8000);
+
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        const { data: { session: initialSession } } = await withTimeout(supabase.auth.getSession(), 7000);
         
         if (!isMounted) return;
         
@@ -100,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
+        window.clearTimeout(safetyTimeout);
         if (isMounted) {
           setIsLoading(false);
         }
@@ -123,16 +150,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
-        if (currentSession?.user) {
-          const profileData = await ensureProfile(currentSession.user);
-          if (isMounted) {
-            setProfile(profileData);
+        try {
+          if (currentSession?.user) {
+            const profileData = await ensureProfile(currentSession.user);
+            if (isMounted) {
+              setProfile(profileData);
+            }
+          } else {
+            setProfile(null);
           }
-        } else {
-          setProfile(null);
+        } catch (e) {
+          console.error('Auth state handler error:', e);
+        } finally {
+          if (isMounted) setIsLoading(false);
         }
-        
-        if (isMounted) setIsLoading(false);
       }
     );
 
