@@ -133,42 +133,48 @@ export const exportServersExcel = (
   });
 };
 
-// Export tasks with professional formatting
+// Export tasks with professional formatting - UNIFIED with import template
 export const exportTasksExcel = (
   tasks: any[],
   profiles: any[],
   t: (key: string) => string,
   isArabic: boolean
 ): void => {
+  // Unified columns matching import template for round-trip compatibility
   const columns: ExportColumn[] = [
-    { key: 'title', label: t('tasks.title'), width: 30 },
-    { key: 'description', label: t('tasks.description'), width: 40 },
-    { key: 'assignee_name', label: t('tasks.assignee'), width: 20 },
-    { key: 'priority', label: t('tasks.priority'), width: 12 },
-    { key: 'status_label', label: t('tasks.status'), width: 12 },
-    { key: 'due_date', label: t('tasks.dueDate'), width: 12 },
-    { key: 'frequency', label: t('tasks.frequency'), width: 12 },
+    { key: 'task_id', label: 'task_id', width: 36 },
+    { key: 'title', label: 'title', width: 30 },
+    { key: 'description', label: 'description', width: 40 },
+    { key: 'assignee_email', label: 'assignee_email', width: 25 },
+    { key: 'task_status', label: 'task_status', width: 15 },
+    { key: 'priority', label: 'priority', width: 12 },
+    { key: 'frequency', label: 'frequency', width: 12 },
+    { key: 'due_date', label: 'due_date', width: 12 },
   ];
 
-  // Transform data
+  // Transform data with unified keys
   const exportData = tasks.map(task => {
     const assignee = profiles.find(p => p.id === task.assigned_to);
-    const status = task.task_status || task.status || 'pending';
+    const taskStatus = task.task_status || 
+      (task.status === 'completed' ? 'done' : 
+       task.status === 'pending' ? 'in_progress' : 'draft');
     
     return {
-      ...task,
-      assignee_name: assignee?.full_name || '',
-      status_label: t(`tasks.${status}`) || status,
-      frequency: task.frequency === 'once' ? 
-        (isArabic ? 'مرة واحدة' : 'Once') : 
-        t(`tasks.${task.frequency}`),
+      task_id: task.id,
+      title: task.title || '',
+      description: task.description || '',
+      assignee_email: assignee?.email || '',
+      task_status: taskStatus,
+      priority: task.priority || 'medium',
+      frequency: task.frequency || 'once',
+      due_date: task.due_date || '',
     };
   });
 
   exportProfessionalExcel({
     data: exportData,
-    filename: `tasks-report-${Date.now()}.xlsx`,
-    sheetName: t('nav.tasks'),
+    filename: `tasks-export-${Date.now()}.xlsx`,
+    sheetName: 'Tasks',
     columns,
     includeStats: true,
     isArabic,

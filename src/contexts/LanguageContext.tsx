@@ -503,6 +503,11 @@ const translations: Record<Language, Record<string, string>> = {
     'tasks.overdueTasks': 'المهام المتأخرة',
     'tasks.todayTasks': 'مهام اليوم',
     'tasks.upcomingTasks': 'المهام القادمة',
+    'tasks.cloneTask': 'نسخ المهمة',
+    'tasks.taskId': 'رقم المهمة',
+    'tasks.dropHere': 'أفلت هنا',
+    'tasks.markComplete': 'تحديد كمكتملة',
+    'tasks.backToProgress': 'إرجاع للتنفيذ',
 
     // Priorities
     'priority.p1': 'حرجة',
@@ -1044,6 +1049,11 @@ const translations: Record<Language, Record<string, string>> = {
     'tasks.overdueTasks': 'Overdue Tasks',
     'tasks.todayTasks': 'Today\'s Tasks',
     'tasks.upcomingTasks': 'Upcoming Tasks',
+    'tasks.cloneTask': 'Clone Task',
+    'tasks.taskId': 'Task ID',
+    'tasks.dropHere': 'Drop here',
+    'tasks.markComplete': 'Mark Complete',
+    'tasks.backToProgress': 'Back to Progress',
 
     // Priorities
     'priority.p1': 'Critical',
