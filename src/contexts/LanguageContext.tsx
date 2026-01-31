@@ -541,6 +541,15 @@ const translations: Record<Language, Record<string, string>> = {
     'servers.selectDomain': 'اختر النطاق',
     'servers.selectNetwork': 'اختر الشبكة',
     'servers.filterByDomain': 'الفلترة حسب النطاق',
+    
+    // Notifications
+    'notifications.title': 'الإشعارات',
+    'notifications.empty': 'لا توجد إشعارات',
+    'notifications.markAllRead': 'تحديد الكل كمقروء',
+    'notifications.viewAll': 'عرض الكل',
+    
+    // Expiry Center
+    'dashboard.expiryCenter': 'مركز انتهاء الصلاحية',
   },
   en: {
     // Navigation
@@ -1073,6 +1082,15 @@ const translations: Record<Language, Record<string, string>> = {
     'servers.selectDomain': 'Select Domain',
     'servers.selectNetwork': 'Select Network',
     'servers.filterByDomain': 'Filter by Domain',
+    
+    // Notifications
+    'notifications.title': 'Notifications',
+    'notifications.empty': 'No notifications',
+    'notifications.markAllRead': 'Mark all as read',
+    'notifications.viewAll': 'View all',
+    
+    // Expiry Center
+    'dashboard.expiryCenter': 'Expiry Center',
   },
 };
 

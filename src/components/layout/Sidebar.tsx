@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import NotificationBell from './NotificationBell';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -122,7 +123,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                 {isAdmin ? t('employees.admin') : t('employees.employee')}
               </Badge>
             </div>
+            {/* Notification Bell */}
+            <NotificationBell />
           </div>
+        </div>
+      )}
+
+      {/* Notification Bell for collapsed sidebar */}
+      {profile && collapsed && (
+        <div className="px-2 py-2 border-b border-sidebar-border flex justify-center">
+          <NotificationBell />
         </div>
       )}
 

@@ -23,7 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 12000): Promise<T> => {
+  const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 20000): Promise<T> => {
     let timeoutId: number | undefined;
     const timeout = new Promise<T>((_, reject) => {
       timeoutId = window.setTimeout(() => reject(new Error('Auth request timeout')), ms);
@@ -107,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error('Auth init safety timeout hit — forcing isLoading=false');
           setIsLoading(false);
         }
-      }, 15000); // Increased from 8s to 15s for more stability
+      }, 20000); // Increased to 20s for better stability on slow connections
 
       try {
         const { data: { session: initialSession } } = await withTimeout(supabase.auth.getSession(), 12000);

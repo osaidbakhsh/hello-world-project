@@ -616,10 +616,10 @@ const Servers: React.FC = () => {
               setSelectedNetworkId('all');
             }}>
               <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="All Domains" />
+                <SelectValue placeholder={t('servers.selectDomain')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Domains</SelectItem>
+                <SelectItem value="all">{t('dashboard.allDomains')}</SelectItem>
                 {domains.map((d) => (
                   <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                 ))}
@@ -629,10 +629,10 @@ const Servers: React.FC = () => {
             {/* Network Filter */}
             <Select value={selectedNetworkId} onValueChange={setSelectedNetworkId}>
               <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="All Networks" />
+                <SelectValue placeholder={t('servers.selectNetwork')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Networks</SelectItem>
+                <SelectItem value="all">{t('dashboard.allNetworks')}</SelectItem>
                 {networks.map((n) => (
                   <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
                 ))}
