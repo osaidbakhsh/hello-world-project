@@ -524,14 +524,14 @@ const WebApps: React.FC = () => {
               <div className="space-y-2">
                 <Label>النطاق</Label>
                 <Select
-                  value={formData.domain_id}
-                  onValueChange={(value) => setFormData({ ...formData, domain_id: value })}
+                  value={formData.domain_id || "all"}
+                  onValueChange={(value) => setFormData({ ...formData, domain_id: value === "all" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="عام للجميع" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">عام للجميع</SelectItem>
+                    <SelectItem value="all">عام للجميع</SelectItem>
                     {domains.map((domain) => (
                       <SelectItem key={domain.id} value={domain.id}>
                         {domain.name}
