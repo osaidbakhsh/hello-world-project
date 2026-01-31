@@ -47,7 +47,9 @@ export type Database = {
           record_id: string | null
           table_name: string | null
           user_agent: string | null
+          user_email: string | null
           user_id: string | null
+          user_name: string | null
         }
         Insert: {
           action: string
@@ -60,7 +62,9 @@ export type Database = {
           record_id?: string | null
           table_name?: string | null
           user_agent?: string | null
+          user_email?: string | null
           user_id?: string | null
+          user_name?: string | null
         }
         Update: {
           action?: string
@@ -73,7 +77,9 @@ export type Database = {
           record_id?: string | null
           table_name?: string | null
           user_agent?: string | null
+          user_email?: string | null
           user_id?: string | null
+          user_name?: string | null
         }
         Relationships: [
           {
@@ -190,6 +196,57 @@ export type Database = {
           {
             foreignKeyName: "employee_reports_uploaded_by_fkey"
             columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_batches: {
+        Row: {
+          created_at: string | null
+          created_count: number | null
+          employee_id: string | null
+          entity_type: string
+          failed_count: number | null
+          id: string
+          import_data: Json | null
+          imported_by: string | null
+          updated_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_count?: number | null
+          employee_id?: string | null
+          entity_type: string
+          failed_count?: number | null
+          id?: string
+          import_data?: Json | null
+          imported_by?: string | null
+          updated_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_count?: number | null
+          employee_id?: string | null
+          entity_type?: string
+          failed_count?: number | null
+          id?: string
+          import_data?: Json | null
+          imported_by?: string | null
+          updated_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_batches_imported_by_fkey"
+            columns: ["imported_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

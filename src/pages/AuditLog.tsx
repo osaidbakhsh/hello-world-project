@@ -274,7 +274,13 @@ const AuditLog: React.FC = () => {
                   ))
                 ) : filteredLogs.length > 0 ? (
                   filteredLogs.map((log) => {
+                    // First check if the log has stored user_name/user_email, otherwise lookup from profiles
+                    const storedUserName = (log as any).user_name;
+                    const storedUserEmail = (log as any).user_email;
                     const user = profiles.find(p => p.id === log.user_id);
+                    const displayName = storedUserName || user?.full_name || t('auditLog.unknownUser');
+                    const displayEmail = storedUserEmail || user?.email || '';
+                    const initial = displayName?.charAt(0) || '?';
                     
                     return (
                       <TableRow key={log.id} className="stagger-item">
@@ -285,10 +291,15 @@ const AuditLog: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                               <span className="text-xs font-medium text-primary">
-                                {user?.full_name?.charAt(0) || '?'}
+                                {initial}
                               </span>
                             </div>
-                            <span className="text-sm">{user?.full_name || t('auditLog.unknownUser')}</span>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{displayName}</span>
+                              {displayEmail && (
+                                <span className="text-xs text-muted-foreground">{displayEmail}</span>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
