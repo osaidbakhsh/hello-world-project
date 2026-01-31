@@ -21,6 +21,7 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import AuditLog from "./pages/AuditLog";
 import WebApps from "./pages/WebApps";
+import NetworkScan from "./pages/NetworkScan";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
@@ -59,6 +60,7 @@ const App = () => (
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/audit-log" element={<AuditLog />} />
                 <Route path="/web-apps" element={<WebApps />} />
+                <Route path="/network-scan" element={<NetworkScan />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               
