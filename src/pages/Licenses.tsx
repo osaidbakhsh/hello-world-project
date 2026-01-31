@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLicenses, useDomains, useServers, useLicenseMutations } from '@/hooks/useSupabaseData';
 import type { License } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -70,7 +71,8 @@ const Licenses: React.FC = () => {
   const { data: licenses, isLoading, refetch: refetchLicenses } = useLicenses();
   const { data: domains } = useDomains();
   const { data: servers } = useServers();
-  const { createLicense, updateLicense, deleteLicense } = useLicenseMutations();
+  const { profile } = useAuth();
+  const { createLicense, updateLicense, deleteLicense } = useLicenseMutations(profile?.id);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');

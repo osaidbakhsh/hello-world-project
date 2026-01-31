@@ -38,7 +38,8 @@ import {
 } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Calendar, User, Check, X, Clock, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { Plus, Search, Calendar, User, Check, X, Clock, Download, FileSpreadsheet, FileText, List, CalendarDays } from 'lucide-react';
+import VacationCalendar from '@/components/vacations/VacationCalendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { DataTableHeader, vacationSortOptions, applySortToData } from '@/components/DataTableHeader';
@@ -57,6 +58,7 @@ const Vacations: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [sortValue, setSortValue] = useState<string>('start_date-desc');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -476,6 +478,34 @@ const Vacations: React.FC = () => {
         </div>
       </div>
 
+      {/* View Mode Toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 bg-secondary/50 rounded-lg p-1">
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+            className="gap-2"
+          >
+            <List className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('vacations.listView') || (dir === 'rtl' ? 'عرض القائمة' : 'List View')}</span>
+          </Button>
+          <Button
+            variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('calendar')}
+            className="gap-2"
+          >
+            <CalendarDays className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('vacations.calendarView') || (dir === 'rtl' ? 'عرض التقويم' : 'Calendar View')}</span>
+          </Button>
+        </div>
+        
+        <Badge variant="secondary" className="text-sm">
+          {sortedVacations.length} {t('reports.records')}
+        </Badge>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -529,15 +559,24 @@ const Vacations: React.FC = () => {
           </Select>
         </div>
         
-        {/* Sort Controls */}
-        <DataTableHeader
-          sortOptions={vacationSortOptions}
-          currentSort={sortValue}
-          onSortChange={setSortValue}
-        />
+        {/* Sort Controls - only show in list mode */}
+        {viewMode === 'list' && (
+          <DataTableHeader
+            sortOptions={vacationSortOptions}
+            currentSort={sortValue}
+            onSortChange={setSortValue}
+          />
+        )}
       </div>
 
-      {/* Vacations Table */}
+      {/* Conditional Display Based on Mode */}
+      {viewMode === 'calendar' ? (
+        <VacationCalendar
+          vacations={sortedVacations}
+          profiles={profiles}
+        />
+      ) : (
+      /* Vacations Table */
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -644,6 +683,7 @@ const Vacations: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };

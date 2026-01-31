@@ -671,13 +671,46 @@ const Tasks: React.FC = () => {
           onTaskClick={(task) => openEditDialog(task)}
           onStatusChange={async (taskId, newStatus) => {
             try {
-              await supabase
+              // Get old data for audit
+              const task = filteredTasks.find(t => t.id === taskId);
+              const oldStatus = (task as any)?.task_status || task?.status || 'draft';
+              
+              // Update task status
+              const { error } = await supabase
                 .from('tasks')
-                .update({ task_status: newStatus })
+                .update({ 
+                  task_status: newStatus,
+                  completed_at: newStatus === 'done' ? new Date().toISOString() : null
+                })
                 .eq('id', taskId);
+              
+              if (error) throw error;
+              
+              // Log to audit with profile ID
+              await supabase.from('audit_logs').insert({
+                user_id: profile?.id,
+                action: 'update',
+                table_name: 'tasks',
+                record_id: taskId,
+                old_data: { task_status: oldStatus },
+                new_data: { task_status: newStatus },
+                entity_name: task?.title,
+                user_agent: navigator.userAgent,
+              });
+              
+              toast({
+                title: t('common.success'),
+                description: language === 'ar' ? 'تم تغيير حالة المهمة' : 'Task status updated',
+              });
+              
               refetch();
             } catch (error) {
               console.error('Error updating status:', error);
+              toast({
+                title: t('common.error'),
+                description: String(error),
+                variant: 'destructive',
+              });
             }
           }}
         />
