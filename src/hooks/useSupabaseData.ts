@@ -1,6 +1,45 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Domain, Network, Server, Task, Vacation, EmployeeReport, License, Profile, YearlyGoal, DomainMembership } from '@/lib/supabase';
+
+// Types for new tables
+export interface WebsiteApplication {
+  id: string;
+  name: string;
+  url: string;
+  category: string | null;
+  icon: string | null;
+  description: string | null;
+  domain_id: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string | null;
+  title: string;
+  message: string | null;
+  type: string;
+  is_read: boolean;
+  link: string | null;
+  related_id: string | null;
+  created_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string | null;
+  action: string;
+  table_name: string | null;
+  record_id: string | null;
+  old_data: Record<string, any> | null;
+  new_data: Record<string, any> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
 import { useAuth } from '@/contexts/AuthContext';
 
 // Generic fetch hook
@@ -362,4 +401,241 @@ export function useDashboardStats(selectedDomainId?: string) {
   }, [fetch]);
 
   return { stats, isLoading, refetch: fetch };
+}
+
+// Website Applications hooks
+export function useWebsiteApplications() {
+  const [data, setData] = useState<WebsiteApplication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data: result, error } = await supabase
+        .from('website_applications')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      setData((result as WebsiteApplication[]) || []);
+    } catch (e) {
+      console.error('Error fetching website applications:', e);
+      setData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
+}
+
+// Notifications hooks
+export function useNotifications() {
+  const [data, setData] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data: result, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      const notifications = (result as Notification[]) || [];
+      setData(notifications);
+      setUnreadCount(notifications.filter(n => !n.is_read).length);
+    } catch (e) {
+      console.error('Error fetching notifications:', e);
+      setData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+      fetch();
+    } catch (e) {
+      console.error('Error marking notification as read:', e);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('is_read', false);
+      fetch();
+    } catch (e) {
+      console.error('Error marking all notifications as read:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, unreadCount, isLoading, refetch: fetch, markAsRead, markAllAsRead };
+}
+
+// Audit Logs hooks
+export function useAuditLogs(limit = 100) {
+  const [data, setData] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data: result, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      setData((result as AuditLog[]) || []);
+    } catch (e) {
+      console.error('Error fetching audit logs:', e);
+      setData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [limit]);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, isLoading, refetch: fetch };
+}
+
+// Log an action to audit_logs
+export async function logAuditAction(
+  action: string,
+  tableName?: string,
+  recordId?: string,
+  oldData?: Record<string, any>,
+  newData?: Record<string, any>
+) {
+  try {
+    await supabase.from('audit_logs').insert({
+      action,
+      table_name: tableName,
+      record_id: recordId,
+      old_data: oldData,
+      new_data: newData,
+      user_agent: navigator.userAgent,
+    });
+  } catch (e) {
+    console.error('Error logging audit action:', e);
+  }
+}
+
+// CRUD operations for Servers
+export function useServerMutations() {
+  const createServer = async (serverData: Record<string, any>) => {
+    try {
+      const { data, error } = await supabase
+        .from('servers')
+        .insert(serverData as any)
+        .select()
+        .single();
+      if (error) throw error;
+      await logAuditAction('create', 'servers', data.id, undefined, serverData);
+      return { data, error: null };
+    } catch (e) {
+      return { data: null, error: e as Error };
+    }
+  };
+
+  const updateServer = async (id: string, serverData: Record<string, any>) => {
+    try {
+      const { data: old } = await supabase.from('servers').select('*').eq('id', id).single();
+      const { data, error } = await supabase
+        .from('servers')
+        .update({ ...serverData, updated_at: new Date().toISOString() } as any)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      await logAuditAction('update', 'servers', id, old, serverData);
+      return { data, error: null };
+    } catch (e) {
+      return { data: null, error: e as Error };
+    }
+  };
+
+  const deleteServer = async (id: string) => {
+    try {
+      const { data: old } = await supabase.from('servers').select('*').eq('id', id).single();
+      const { error } = await supabase.from('servers').delete().eq('id', id);
+      if (error) throw error;
+      await logAuditAction('delete', 'servers', id, old, undefined);
+      return { error: null };
+    } catch (e) {
+      return { error: e as Error };
+    }
+  };
+
+  return { createServer, updateServer, deleteServer };
+}
+
+// CRUD operations for Licenses
+export function useLicenseMutations() {
+  const createLicense = async (licenseData: Record<string, any>) => {
+    try {
+      const { data, error } = await supabase
+        .from('licenses')
+        .insert(licenseData as any)
+        .select()
+        .single();
+      if (error) throw error;
+      await logAuditAction('create', 'licenses', data.id, undefined, licenseData);
+      return { data, error: null };
+    } catch (e) {
+      return { data: null, error: e as Error };
+    }
+  };
+
+  const updateLicense = async (id: string, licenseData: Record<string, any>) => {
+    try {
+      const { data: old } = await supabase.from('licenses').select('*').eq('id', id).single();
+      const { data, error } = await supabase
+        .from('licenses')
+        .update(licenseData as any)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      await logAuditAction('update', 'licenses', id, old, licenseData);
+      return { data, error: null };
+    } catch (e) {
+      return { data: null, error: e as Error };
+    }
+  };
+
+  const deleteLicense = async (id: string) => {
+    try {
+      const { data: old } = await supabase.from('licenses').select('*').eq('id', id).single();
+      const { error } = await supabase.from('licenses').delete().eq('id', id);
+      if (error) throw error;
+      await logAuditAction('delete', 'licenses', id, old, undefined);
+      return { error: null };
+    } catch (e) {
+      return { error: e as Error };
+    }
+  };
+
+  return { createLicense, updateLicense, deleteLicense };
 }

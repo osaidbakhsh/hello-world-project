@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useServers, useNetworks, useEmployees } from '@/hooks/useLocalStorage';
-import { Server, ServerEnvironment, ServerStatus, DiskInfo, ServerUser } from '@/types';
+import { useServers, useNetworks, useDomains, useServerMutations, useProfiles } from '@/hooks/useSupabaseData';
+import type { Server } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,52 +30,96 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Upload, Download, Edit, Trash2, HardDrive, Users, Server as ServerIcon } from 'lucide-react';
+import { Plus, Search, Upload, Download, Edit, Trash2, HardDrive, Server as ServerIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface ServerFormData {
+  name: string;
+  ip_address: string;
+  operating_system: string;
+  environment: string;
+  owner: string;
+  responsible_user: string;
+  notes: string;
+  network_id: string;
+  status: string;
+  cpu: string;
+  ram: string;
+  disk_space: string;
+}
+
+const initialFormData: ServerFormData = {
+  name: '',
+  ip_address: '',
+  operating_system: 'Windows Server 2022',
+  environment: 'production',
+  owner: '',
+  responsible_user: '',
+  notes: '',
+  network_id: '',
+  status: 'active',
+  cpu: '',
+  ram: '',
+  disk_space: '',
+};
 
 const Servers: React.FC = () => {
   const { t, dir } = useLanguage();
-  const [servers, setServers] = useServers();
-  const [networks] = useNetworks();
-  const [employees] = useEmployees();
   const { toast } = useToast();
+  
+  // Supabase data
+  const { data: domains } = useDomains();
+  const [selectedDomainId, setSelectedDomainId] = useState<string>('all');
+  const { data: allNetworks, isLoading: networksLoading } = useNetworks();
+  const { data: profiles } = useProfiles();
+  const { createServer, updateServer, deleteServer } = useServerMutations();
+  
+  // Filter networks based on selected domain
+  const networks = useMemo(() => {
+    if (selectedDomainId === 'all') return allNetworks;
+    return allNetworks.filter(n => n.domain_id === selectedDomainId);
+  }, [allNetworks, selectedDomainId]);
+
+  const [selectedNetworkId, setSelectedNetworkId] = useState<string>('all');
+  const { data: servers, isLoading: serversLoading, refetch: refetchServers } = useServers(
+    selectedNetworkId !== 'all' ? selectedNetworkId : undefined
+  );
   
   const [searchQuery, setSearchQuery] = useState('');
   const [envFilter, setEnvFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<Server | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Form state
-  const [formData, setFormData] = useState<Partial<Server>>({
-    name: '',
-    ipAddress: '',
-    os: 'Windows Server',
-    osVersion: '2022',
-    environment: 'production',
-    owner: '',
-    responsible: '',
-    description: '',
-    disks: [{ drive: 'C:', totalGB: 100, usedGB: 50, freeGB: 50 }],
-    users: [],
-    networkId: '',
-    status: 'active',
-  });
+  const [formData, setFormData] = useState<ServerFormData>(initialFormData);
 
-  const filteredServers = servers.filter((server) => {
-    const matchesSearch =
-      server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      server.ipAddress.includes(searchQuery) ||
-      server.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesEnv = envFilter === 'all' || server.environment === envFilter;
-    const matchesStatus = statusFilter === 'all' || server.status === statusFilter;
-    return matchesSearch && matchesEnv && matchesStatus;
-  });
+  // Filter servers based on domain if network is 'all'
+  const filteredServers = useMemo(() => {
+    let filtered = servers;
+    
+    // If domain selected but network is 'all', filter by domain's networks
+    if (selectedDomainId !== 'all' && selectedNetworkId === 'all') {
+      const domainNetworkIds = networks.map(n => n.id);
+      filtered = servers.filter(s => s.network_id && domainNetworkIds.includes(s.network_id));
+    }
+    
+    return filtered.filter((server) => {
+      const matchesSearch =
+        server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (server.ip_address || '').includes(searchQuery) ||
+        (server.notes || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesEnv = envFilter === 'all' || server.environment === envFilter;
+      const matchesStatus = statusFilter === 'all' || server.status === statusFilter;
+      return matchesSearch && matchesEnv && matchesStatus;
+    });
+  }, [servers, networks, selectedDomainId, selectedNetworkId, searchQuery, envFilter, statusFilter]);
 
-  const handleSubmit = () => {
-    if (!formData.name || !formData.ipAddress) {
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.ip_address) {
       toast({
         title: t('common.error'),
         description: 'Please fill in required fields',
@@ -84,85 +128,108 @@ const Servers: React.FC = () => {
       return;
     }
 
-    const now = new Date().toISOString();
+    setIsSubmitting(true);
     
-    if (editingServer) {
-      setServers(servers.map((s) =>
-        s.id === editingServer.id
-          ? { ...s, ...formData, lastUpdate: now } as Server
-          : s
-      ));
-      toast({ title: t('common.success'), description: 'Server updated' });
-    } else {
-      const newServer: Server = {
-        id: crypto.randomUUID(),
-        name: formData.name || '',
-        ipAddress: formData.ipAddress || '',
-        os: formData.os || 'Windows Server',
-        osVersion: formData.osVersion || '2022',
-        environment: formData.environment as ServerEnvironment || 'production',
-        owner: formData.owner || '',
-        responsible: formData.responsible || '',
-        description: formData.description || '',
-        disks: formData.disks || [],
-        users: formData.users || [],
-        networkId: formData.networkId || '',
-        status: formData.status as ServerStatus || 'active',
-        lastUpdate: now,
-        createdAt: now,
-      };
-      setServers([...servers, newServer]);
-      toast({ title: t('common.success'), description: 'Server added' });
-    }
+    try {
+      if (editingServer) {
+        const { error } = await updateServer(editingServer.id, {
+          name: formData.name,
+          ip_address: formData.ip_address,
+          operating_system: formData.operating_system,
+          environment: formData.environment,
+          owner: formData.owner,
+          responsible_user: formData.responsible_user,
+          notes: formData.notes,
+          network_id: formData.network_id || null,
+          status: formData.status,
+          cpu: formData.cpu,
+          ram: formData.ram,
+          disk_space: formData.disk_space,
+        });
+        if (error) throw error;
+        toast({ title: t('common.success'), description: 'Server updated' });
+      } else {
+        const { error } = await createServer({
+          name: formData.name,
+          ip_address: formData.ip_address,
+          operating_system: formData.operating_system,
+          environment: formData.environment,
+          owner: formData.owner,
+          responsible_user: formData.responsible_user,
+          notes: formData.notes,
+          network_id: formData.network_id || null,
+          status: formData.status,
+          cpu: formData.cpu,
+          ram: formData.ram,
+          disk_space: formData.disk_space,
+        });
+        if (error) throw error;
+        toast({ title: t('common.success'), description: 'Server added' });
+      }
 
-    resetForm();
-    setIsDialogOpen(false);
+      resetForm();
+      setIsDialogOpen(false);
+      refetchServers();
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: 'Failed to save server',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEdit = (server: Server) => {
     setEditingServer(server);
-    setFormData(server);
+    setFormData({
+      name: server.name,
+      ip_address: server.ip_address || '',
+      operating_system: server.operating_system || 'Windows Server 2022',
+      environment: server.environment,
+      owner: server.owner || '',
+      responsible_user: server.responsible_user || '',
+      notes: server.notes || '',
+      network_id: server.network_id || '',
+      status: server.status,
+      cpu: server.cpu || '',
+      ram: server.ram || '',
+      disk_space: server.disk_space || '',
+    });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setServers(servers.filter((s) => s.id !== id));
-    toast({ title: t('common.success'), description: 'Server deleted' });
+  const handleDelete = async (id: string) => {
+    const { error } = await deleteServer(id);
+    if (error) {
+      toast({ title: t('common.error'), description: 'Failed to delete server', variant: 'destructive' });
+    } else {
+      toast({ title: t('common.success'), description: 'Server deleted' });
+      refetchServers();
+    }
   };
 
   const resetForm = () => {
     setEditingServer(null);
-    setFormData({
-      name: '',
-      ipAddress: '',
-      os: 'Windows Server',
-      osVersion: '2022',
-      environment: 'production',
-      owner: '',
-      responsible: '',
-      description: '',
-      disks: [{ drive: 'C:', totalGB: 100, usedGB: 50, freeGB: 50 }],
-      users: [],
-      networkId: '',
-      status: 'active',
-    });
+    setFormData(initialFormData);
   };
 
   const handleExport = () => {
-    const exportData = servers.map((s) => ({
+    const exportData = filteredServers.map((s) => ({
       Name: s.name,
-      IP: s.ipAddress,
-      OS: s.os,
-      Version: s.osVersion,
+      IP: s.ip_address,
+      OS: s.operating_system,
       Environment: s.environment,
       Owner: s.owner,
-      Responsible: s.responsible,
-      Description: s.description,
+      Responsible: s.responsible_user,
+      Notes: s.notes,
       Status: s.status,
-      Network: networks.find((n) => n.id === s.networkId)?.name || '',
-      'Total Disk (GB)': s.disks.reduce((acc, d) => acc + d.totalGB, 0),
-      'Used Disk (GB)': s.disks.reduce((acc, d) => acc + d.usedGB, 0),
-      'Last Update': s.lastUpdate,
+      Network: allNetworks.find((n) => n.id === s.network_id)?.name || '',
+      CPU: s.cpu,
+      RAM: s.ram,
+      'Disk Space': s.disk_space,
+      'Created At': s.created_at,
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -172,12 +239,12 @@ const Servers: React.FC = () => {
     toast({ title: t('common.success'), description: 'Exported successfully' });
   };
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
@@ -185,30 +252,30 @@ const Servers: React.FC = () => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        const now = new Date().toISOString();
-        const importedServers: Server[] = jsonData.map((row: any) => ({
-          id: crypto.randomUUID(),
-          name: row.Name || row.name || '',
-          ipAddress: row.IP || row.ipAddress || row['IP Address'] || '',
-          os: row.OS || row.os || 'Windows Server',
-          osVersion: row.Version || row.osVersion || '2022',
-          environment: (row.Environment || row.environment || 'production').toLowerCase() as ServerEnvironment,
-          owner: row.Owner || row.owner || '',
-          responsible: row.Responsible || row.responsible || '',
-          description: row.Description || row.description || '',
-          disks: [],
-          users: [],
-          networkId: '',
-          status: (row.Status || row.status || 'active').toLowerCase() as ServerStatus,
-          lastUpdate: now,
-          createdAt: now,
-        }));
+        let imported = 0;
+        for (const row of jsonData as any[]) {
+          const { error } = await createServer({
+            name: row.Name || row.name || '',
+            ip_address: row.IP || row.ipAddress || row['IP Address'] || '',
+            operating_system: row.OS || row.os || 'Windows Server',
+            environment: (row.Environment || row.environment || 'production').toLowerCase(),
+            owner: row.Owner || row.owner || '',
+            responsible_user: row.Responsible || row.responsible || '',
+            notes: row.Notes || row.notes || '',
+            network_id: null,
+            status: (row.Status || row.status || 'active').toLowerCase(),
+            cpu: row.CPU || '',
+            ram: row.RAM || '',
+            disk_space: row['Disk Space'] || '',
+          });
+          if (!error) imported++;
+        }
 
-        setServers([...servers, ...importedServers]);
         toast({
           title: t('common.success'),
-          description: `Imported ${importedServers.length} servers`,
+          description: `Imported ${imported} servers`,
         });
+        refetchServers();
       } catch (error) {
         toast({
           title: t('common.error'),
@@ -221,22 +288,24 @@ const Servers: React.FC = () => {
     event.target.value = '';
   };
 
-  const getEnvBadgeClass = (env: ServerEnvironment) => {
+  const getEnvBadgeClass = (env: string) => {
     return {
       production: 'badge-production',
       testing: 'badge-testing',
       development: 'badge-development',
       staging: 'badge-staging',
-    }[env];
+    }[env] || 'badge-development';
   };
 
-  const getStatusColor = (status: ServerStatus) => {
+  const getStatusColor = (status: string) => {
     return {
       active: 'bg-success',
       inactive: 'bg-destructive',
       maintenance: 'bg-warning',
-    }[status];
+    }[status] || 'bg-muted';
   };
+
+  const isLoading = serversLoading || networksLoading;
 
   return (
     <div className="space-y-6" dir={dir}>
@@ -287,45 +356,28 @@ const Servers: React.FC = () => {
                 <div className="space-y-2">
                   <Label>{t('servers.ip')} *</Label>
                   <Input
-                    value={formData.ipAddress}
-                    onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
+                    value={formData.ip_address}
+                    onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
                     placeholder="192.168.1.1"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('servers.os')}</Label>
                   <Select
-                    value={formData.os}
-                    onValueChange={(value) => setFormData({ ...formData, os: value })}
+                    value={formData.operating_system}
+                    onValueChange={(value) => setFormData({ ...formData, operating_system: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Windows Server">Windows Server</SelectItem>
-                      <SelectItem value="Ubuntu Server">Ubuntu Server</SelectItem>
+                      <SelectItem value="Windows Server 2022">Windows Server 2022</SelectItem>
+                      <SelectItem value="Windows Server 2019">Windows Server 2019</SelectItem>
+                      <SelectItem value="Ubuntu 22.04 LTS">Ubuntu 22.04 LTS</SelectItem>
+                      <SelectItem value="Ubuntu 20.04 LTS">Ubuntu 20.04 LTS</SelectItem>
                       <SelectItem value="CentOS">CentOS</SelectItem>
-                      <SelectItem value="Red Hat">Red Hat Enterprise</SelectItem>
+                      <SelectItem value="Red Hat Enterprise">Red Hat Enterprise</SelectItem>
                       <SelectItem value="Debian">Debian</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('servers.osVersion')}</Label>
-                  <Select
-                    value={formData.osVersion}
-                    onValueChange={(value) => setFormData({ ...formData, osVersion: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2022">2022</SelectItem>
-                      <SelectItem value="2019">2019</SelectItem>
-                      <SelectItem value="2016">2016</SelectItem>
-                      <SelectItem value="2012 R2">2012 R2</SelectItem>
-                      <SelectItem value="22.04 LTS">22.04 LTS</SelectItem>
-                      <SelectItem value="20.04 LTS">20.04 LTS</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -333,7 +385,7 @@ const Servers: React.FC = () => {
                   <Label>{t('servers.environment')}</Label>
                   <Select
                     value={formData.environment}
-                    onValueChange={(value) => setFormData({ ...formData, environment: value as ServerEnvironment })}
+                    onValueChange={(value) => setFormData({ ...formData, environment: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -350,7 +402,7 @@ const Servers: React.FC = () => {
                   <Label>{t('servers.status')}</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value as ServerStatus })}
+                    onValueChange={(value) => setFormData({ ...formData, status: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -364,57 +416,65 @@ const Servers: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>{t('servers.owner')}</Label>
-                  <Select
+                  <Input
                     value={formData.owner}
-                    onValueChange={(value) => setFormData({ ...formData, owner: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select owner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+                    placeholder="IT Department"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('servers.responsible')}</Label>
-                  <Select
-                    value={formData.responsible}
-                    onValueChange={(value) => setFormData({ ...formData, responsible: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select responsible" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    value={formData.responsible_user}
+                    onChange={(e) => setFormData({ ...formData, responsible_user: e.target.value })}
+                    placeholder="Admin Name"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('servers.network')}</Label>
                   <Select
-                    value={formData.networkId}
-                    onValueChange={(value) => setFormData({ ...formData, networkId: value })}
+                    value={formData.network_id}
+                    onValueChange={(value) => setFormData({ ...formData, network_id: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select network" />
                     </SelectTrigger>
                     <SelectContent>
-                      {networks.map((net) => (
+                      {allNetworks.map((net) => (
                         <SelectItem key={net.id} value={net.id}>{net.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>CPU</Label>
+                  <Input
+                    value={formData.cpu}
+                    onChange={(e) => setFormData({ ...formData, cpu: e.target.value })}
+                    placeholder="4 vCPU"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>RAM</Label>
+                  <Input
+                    value={formData.ram}
+                    onChange={(e) => setFormData({ ...formData, ram: e.target.value })}
+                    placeholder="16 GB"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Disk Space</Label>
+                  <Input
+                    value={formData.disk_space}
+                    onChange={(e) => setFormData({ ...formData, disk_space: e.target.value })}
+                    placeholder="500 GB"
+                  />
+                </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>{t('servers.description')}</Label>
                   <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     placeholder="Server description..."
                     rows={3}
                   />
@@ -424,7 +484,8 @@ const Servers: React.FC = () => {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   {t('common.cancel')}
                 </Button>
-                <Button onClick={handleSubmit}>
+                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="w-4 h-4 me-2 animate-spin" />}
                   {t('common.save')}
                 </Button>
               </div>
@@ -437,6 +498,35 @@ const Servers: React.FC = () => {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
+            {/* Domain Filter */}
+            <Select value={selectedDomainId} onValueChange={(v) => {
+              setSelectedDomainId(v);
+              setSelectedNetworkId('all');
+            }}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="All Domains" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Domains</SelectItem>
+                {domains.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Network Filter */}
+            <Select value={selectedNetworkId} onValueChange={setSelectedNetworkId}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="All Networks" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Networks</SelectItem>
+                {networks.map((n) => (
+                  <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <div className="relative flex-1">
               <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -459,11 +549,11 @@ const Servers: React.FC = () => {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t('common.all')} - {t('servers.status')}</SelectItem>
+                <SelectItem value="all">{t('common.all')} - Status</SelectItem>
                 <SelectItem value="active">{t('common.active')}</SelectItem>
                 <SelectItem value="inactive">{t('common.inactive')}</SelectItem>
                 <SelectItem value="maintenance">Maintenance</SelectItem>
@@ -484,91 +574,78 @@ const Servers: React.FC = () => {
                   <TableHead>{t('servers.ip')}</TableHead>
                   <TableHead>{t('servers.os')}</TableHead>
                   <TableHead>{t('servers.environment')}</TableHead>
-                  <TableHead>{t('servers.status')}</TableHead>
-                  <TableHead>{t('servers.diskSpace')}</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>{t('servers.network')}</TableHead>
                   <TableHead>{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredServers.length > 0 ? (
-                  filteredServers.map((server) => {
-                    const totalDisk = server.disks.reduce((acc, d) => acc + d.totalGB, 0);
-                    const usedDisk = server.disks.reduce((acc, d) => acc + d.usedGB, 0);
-                    const diskPercent = totalDisk > 0 ? Math.round((usedDisk / totalDisk) * 100) : 0;
-
-                    return (
-                      <TableRow key={server.id} className="stagger-item">
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                              <ServerIcon className="w-4 h-4 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{server.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {networks.find((n) => n.id === server.networkId)?.name || '-'}
-                              </p>
-                            </div>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 7 }).map((_, j) => (
+                        <TableCell key={j}><Skeleton className="h-6 w-full" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : filteredServers.length > 0 ? (
+                  filteredServers.map((server) => (
+                    <TableRow key={server.id} className="stagger-item">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <ServerIcon className="w-4 h-4 text-primary" />
                           </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{server.ipAddress}</TableCell>
-                        <TableCell>
                           <div>
-                            <p className="text-sm">{server.os}</p>
-                            <p className="text-xs text-muted-foreground">{server.osVersion}</p>
+                            <p className="font-medium">{server.name}</p>
+                            <p className="text-xs text-muted-foreground">{server.owner}</p>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getEnvBadgeClass(server.environment)}>
-                            {t(`env.${server.environment}`)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className={cn('w-2 h-2 rounded-full', getStatusColor(server.status))} />
-                            <span className="text-sm capitalize">{server.status}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <HardDrive className="w-3 h-3 text-muted-foreground" />
-                              <span className="text-sm">{usedDisk}/{totalDisk} GB</span>
-                            </div>
-                            <div className="w-20 h-1.5 bg-secondary rounded-full overflow-hidden">
-                              <div
-                                className={cn(
-                                  'h-full transition-all',
-                                  diskPercent > 90 ? 'bg-destructive' : diskPercent > 70 ? 'bg-warning' : 'bg-success'
-                                )}
-                                style={{ width: `${diskPercent}%` }}
-                              />
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button size="icon" variant="ghost" onClick={() => handleEdit(server)}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleDelete(server.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">{server.ip_address}</TableCell>
+                      <TableCell>{server.operating_system}</TableCell>
+                      <TableCell>
+                        <Badge className={getEnvBadgeClass(server.environment)}>
+                          {t(`env.${server.environment}`)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className={cn('w-2 h-2 rounded-full', getStatusColor(server.status))} />
+                          <span className="capitalize">{server.status}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {allNetworks.find((n) => n.id === server.network_id)?.name || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => handleEdit(server)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(server.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-12">
-                      <ServerIcon className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
-                      <p className="text-muted-foreground">{t('common.noData')}</p>
+                      <div className="flex flex-col items-center gap-2">
+                        <HardDrive className="w-12 h-12 text-muted-foreground/50" />
+                        <p className="text-muted-foreground">No servers found</p>
+                        <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)}>
+                          <Plus className="w-4 h-4 me-2" />
+                          Add your first server
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
