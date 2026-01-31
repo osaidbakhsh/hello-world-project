@@ -191,45 +191,57 @@ const EmployeePermissions: React.FC = () => {
       return;
     }
 
+    // Validate phone format (must start with 05 and be 10 digits)
+    if (newEmployeeForm.phone && !/^05\d{8}$/.test(newEmployeeForm.phone)) {
+      toast({
+        title: 'خطأ',
+        description: 'رقم الهاتف يجب أن يبدأ بـ 05 ويتكون من 10 أرقام',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsAddingEmployee(true);
     try {
-      // Create user via Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: newEmployeeForm.email,
-        password: newEmployeeForm.password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
-            full_name: newEmployeeForm.full_name,
-            role: newEmployeeForm.role,
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('غير مسجل الدخول');
+      }
+
+      // Call the Edge Function to create employee
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-employee`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
           },
-        },
-      });
-
-      if (error) throw error;
-
-      // Update the profile with additional info
-      if (data.user) {
-        // Wait a moment for the trigger to create the profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
+          body: JSON.stringify({
+            email: newEmployeeForm.email,
+            password: newEmployeeForm.password,
+            full_name: newEmployeeForm.full_name,
             department: newEmployeeForm.department,
             position: newEmployeeForm.position,
             phone: newEmployeeForm.phone,
-          })
-          .eq('user_id', data.user.id);
+            role: newEmployeeForm.role,
+          }),
+        }
+      );
 
-        if (updateError) console.error('Error updating profile:', updateError);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'فشل في إضافة الموظف');
       }
 
       await refetchProfiles();
       
       toast({
         title: 'تم بنجاح',
-        description: 'تم إضافة الموظف بنجاح. سيتم إرسال رابط تأكيد البريد الإلكتروني.',
+        description: 'تم إضافة الموظف بنجاح.',
       });
       
       setIsAddEmployeeOpen(false);
@@ -726,9 +738,18 @@ const EmployeePermissions: React.FC = () => {
               <Input
                 id="phone"
                 value={newEmployeeForm.phone}
-                onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, phone: e.target.value })}
-                placeholder="+966 5x xxx xxxx"
+                onChange={(e) => {
+                  // Accept only numbers, max 10 digits
+                  let value = e.target.value.replace(/\D/g, '');
+                  if (value.length > 10) value = value.slice(0, 10);
+                  setNewEmployeeForm({ ...newEmployeeForm, phone: value });
+                }}
+                placeholder="05xxxxxxxx"
+                dir="ltr"
+                className="text-left font-mono"
+                maxLength={10}
               />
+              <p className="text-xs text-muted-foreground">مثال: 0512345678</p>
             </div>
           </div>
 
