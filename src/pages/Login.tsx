@@ -67,8 +67,9 @@ const Login: React.FC = () => {
         backgroundRepeat: 'no-repeat',
       }}
     >
-      {/* Overlay for better readability */}
-      <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" />
+      {/* Overlay for better readability (keep background visible; avoid over-blur) */}
+      <div className="absolute inset-0 bg-background/45" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/30 to-background/70" />
       
       <Card className="w-full max-w-md shadow-2xl relative z-10 border-primary/20 bg-card/95 backdrop-blur-md">
         <CardHeader className="text-center space-y-4">
