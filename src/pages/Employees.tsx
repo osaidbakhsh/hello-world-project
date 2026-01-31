@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useEmployees, useServers } from '@/hooks/useLocalStorage';
-import { Employee, Vacation, Training, YearlyGoal } from '@/types';
+import { useProfiles, useYearlyGoals, useTasks, useVacations } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Profile, Task, Vacation, YearlyGoal } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,330 +12,69 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Edit, Trash2, User, Calendar, GraduationCap, Server, Mail, Phone, Award, Target, Star } from 'lucide-react';
+import { Search, User, Calendar, GraduationCap, Mail, Phone, Award, Target, ListTodo } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Employees: React.FC = () => {
   const { t, dir } = useLanguage();
-  const [employees, setEmployees] = useEmployees();
-  const [servers] = useServers();
-  const { toast } = useToast();
+  const { isAdmin } = useAuth();
+  
+  // Supabase data
+  const { data: profiles, isLoading: profilesLoading } = useProfiles();
+  const { data: allTasks } = useTasks();
+  const { data: allVacations } = useVacations();
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  
-  const [formData, setFormData] = useState<Partial<Employee>>({
-    name: '',
-    position: '',
-    email: '',
-    phone: '',
-    department: 'IT',
-    hireDate: new Date().toISOString().split('T')[0],
-    vacations: [],
-    trainings: [],
-    assignedServerIds: [],
-    status: 'active',
-    skills: [],
-    certifications: [],
-    yearlyGoals: [],
-  });
+  const [selectedEmployee, setSelectedEmployee] = useState<Profile | null>(null);
+  const [selectedTab, setSelectedTab] = useState('overview');
 
-  const [skillsInput, setSkillsInput] = useState('');
-  const [certsInput, setCertsInput] = useState('');
-
-  const [goalForm, setGoalForm] = useState<Partial<YearlyGoal>>({
-    title: '',
-    description: '',
-    year: new Date().getFullYear(),
-    status: 'not-started',
-    progress: 0,
-  });
-
-  const [vacationForm, setVacationForm] = useState<Partial<Vacation>>({
-    startDate: '',
-    endDate: '',
-    type: 'annual',
-    status: 'pending',
-    notes: '',
-  });
-
-  const [trainingForm, setTrainingForm] = useState<Partial<Training>>({
-    name: '',
-    provider: '',
-    startDate: '',
-    endDate: '',
-    status: 'planned',
-    notes: '',
-  });
-
-  const filteredEmployees = employees.filter((emp) =>
-    emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    emp.position.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleSubmit = () => {
-    if (!formData.name || !formData.email) {
-      toast({
-        title: t('common.error'),
-        description: 'Please fill in required fields',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const now = new Date().toISOString();
-    
-    if (editingEmployee) {
-      setEmployees(employees.map((e) =>
-        e.id === editingEmployee.id
-          ? { ...e, ...formData } as Employee
-          : e
-      ));
-      toast({ title: t('common.success'), description: 'Employee updated' });
-    } else {
-      const newEmployee: Employee = {
-        id: crypto.randomUUID(),
-        name: formData.name || '',
-        position: formData.position || '',
-        email: formData.email || '',
-        phone: formData.phone || '',
-        department: formData.department || 'IT',
-        hireDate: formData.hireDate || now,
-        vacations: [],
-        trainings: [],
-        assignedServerIds: formData.assignedServerIds || [],
-        status: formData.status || 'active',
-        createdAt: now,
-        skills: skillsInput ? skillsInput.split(',').map(s => s.trim()).filter(Boolean) : [],
-        certifications: certsInput ? certsInput.split(',').map(s => s.trim()).filter(Boolean) : [],
-        yearlyGoals: [],
-      };
-      setEmployees([...employees, newEmployee]);
-      toast({ title: t('common.success'), description: 'Employee added' });
-    }
-
-    resetForm();
-    setIsDialogOpen(false);
-  };
-
-  const handleAddVacation = () => {
-    if (!selectedEmployee || !vacationForm.startDate || !vacationForm.endDate) return;
-
-    const newVacation: Vacation = {
-      id: crypto.randomUUID(),
-      startDate: vacationForm.startDate,
-      endDate: vacationForm.endDate,
-      type: vacationForm.type as Vacation['type'],
-      status: vacationForm.status as Vacation['status'],
-      notes: vacationForm.notes,
-    };
-
-    setEmployees(employees.map((e) =>
-      e.id === selectedEmployee.id
-        ? { ...e, vacations: [...e.vacations, newVacation] }
-        : e
-    ));
-
-    setSelectedEmployee({
-      ...selectedEmployee,
-      vacations: [...selectedEmployee.vacations, newVacation],
-    });
-
-    setVacationForm({
-      startDate: '',
-      endDate: '',
-      type: 'annual',
-      status: 'pending',
-      notes: '',
-    });
-
-    toast({ title: t('common.success'), description: 'Vacation added' });
-  };
-
-  const handleAddTraining = () => {
-    if (!selectedEmployee || !trainingForm.name || !trainingForm.startDate) return;
-
-    const newTraining: Training = {
-      id: crypto.randomUUID(),
-      name: trainingForm.name,
-      provider: trainingForm.provider || '',
-      startDate: trainingForm.startDate,
-      endDate: trainingForm.endDate || trainingForm.startDate,
-      status: trainingForm.status as Training['status'],
-      notes: trainingForm.notes,
-    };
-
-    setEmployees(employees.map((e) =>
-      e.id === selectedEmployee.id
-        ? { ...e, trainings: [...e.trainings, newTraining] }
-        : e
-    ));
-
-    setSelectedEmployee({
-      ...selectedEmployee,
-      trainings: [...selectedEmployee.trainings, newTraining],
-    });
-
-    setTrainingForm({
-      name: '',
-      provider: '',
-      startDate: '',
-      endDate: '',
-      status: 'planned',
-      notes: '',
-    });
-
-    toast({ title: t('common.success'), description: 'Training added' });
-  };
-
-  const handleAddGoal = () => {
-    if (!selectedEmployee || !goalForm.title) return;
-
-    const newGoal: YearlyGoal = {
-      id: crypto.randomUUID(),
-      title: goalForm.title,
-      description: goalForm.description,
-      year: goalForm.year || new Date().getFullYear(),
-      status: goalForm.status as YearlyGoal['status'] || 'not-started',
-      progress: goalForm.progress || 0,
-    };
-
-    const updatedGoals = [...(selectedEmployee.yearlyGoals || []), newGoal];
-    
-    setEmployees(employees.map((e) =>
-      e.id === selectedEmployee.id
-        ? { ...e, yearlyGoals: updatedGoals }
-        : e
-    ));
-
-    setSelectedEmployee({
-      ...selectedEmployee,
-      yearlyGoals: updatedGoals,
-    });
-
-    setGoalForm({
-      title: '',
-      description: '',
-      year: new Date().getFullYear(),
-      status: 'not-started',
-      progress: 0,
-    });
-
-    toast({ title: t('common.success'), description: 'Goal added' });
-  };
-
-  const handleUpdateGoalProgress = (goalId: string, progress: number) => {
-    if (!selectedEmployee) return;
-
-    const updatedGoals = (selectedEmployee.yearlyGoals || []).map((g) =>
-      g.id === goalId
-        ? { ...g, progress, status: progress >= 100 ? 'completed' as const : progress > 0 ? 'in-progress' as const : 'not-started' as const }
-        : g
+  const filteredEmployees = useMemo(() => {
+    return profiles.filter((emp) =>
+      emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (emp.position || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
+  }, [profiles, searchQuery]);
 
-    setEmployees(employees.map((e) =>
-      e.id === selectedEmployee.id
-        ? { ...e, yearlyGoals: updatedGoals }
-        : e
-    ));
-
-    setSelectedEmployee({
-      ...selectedEmployee,
-      yearlyGoals: updatedGoals,
-    });
+  // Get employee tasks
+  const getEmployeeTasks = (profileId: string): Task[] => {
+    return allTasks.filter(t => t.assigned_to === profileId);
   };
 
-  const handleDeleteGoal = (goalId: string) => {
-    if (!selectedEmployee) return;
-
-    const updatedGoals = (selectedEmployee.yearlyGoals || []).filter((g) => g.id !== goalId);
-
-    setEmployees(employees.map((e) =>
-      e.id === selectedEmployee.id
-        ? { ...e, yearlyGoals: updatedGoals }
-        : e
-    ));
-
-    setSelectedEmployee({
-      ...selectedEmployee,
-      yearlyGoals: updatedGoals,
-    });
-
-    toast({ title: t('common.success'), description: 'Goal deleted' });
+  // Get employee vacations
+  const getEmployeeVacations = (profileId: string): Vacation[] => {
+    return allVacations.filter(v => v.profile_id === profileId);
   };
 
-  const handleEdit = (employee: Employee) => {
-    setEditingEmployee(employee);
-    setFormData(employee);
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    setEmployees(employees.filter((e) => e.id !== id));
-    toast({ title: t('common.success'), description: 'Employee deleted' });
-  };
-
-  const resetForm = () => {
-    setEditingEmployee(null);
-    setFormData({
-      name: '',
-      position: '',
-      email: '',
-      phone: '',
-      department: 'IT',
-      hireDate: new Date().toISOString().split('T')[0],
-      vacations: [],
-      trainings: [],
-      assignedServerIds: [],
-      status: 'active',
-      skills: [],
-      certifications: [],
-      yearlyGoals: [],
-    });
-    setSkillsInput('');
-    setCertsInput('');
-  };
-
-  const getGoalStatusColor = (status: YearlyGoal['status']) => {
+  const getGoalStatusColor = (status: string) => {
     return {
       'not-started': 'bg-muted text-muted-foreground border-border',
+      'in_progress': 'bg-warning/10 text-warning border-warning/20',
       'in-progress': 'bg-warning/10 text-warning border-warning/20',
       'completed': 'bg-success/10 text-success border-success/20',
-    }[status];
+    }[status] || 'bg-muted text-muted-foreground';
   };
 
-  const getVacationTypeColor = (type: Vacation['type']) => {
+  const getVacationTypeColor = (type: string) => {
     return {
       annual: 'bg-primary/10 text-primary border-primary/20',
       sick: 'bg-destructive/10 text-destructive border-destructive/20',
       emergency: 'bg-warning/10 text-warning border-warning/20',
       unpaid: 'bg-muted text-muted-foreground border-border',
-    }[type];
+    }[type] || 'bg-muted';
   };
 
-  const getTrainingStatusColor = (status: Training['status']) => {
+  const getTaskStatusColor = (status: string) => {
     return {
-      planned: 'bg-info/10 text-info border-info/20',
-      'in-progress': 'bg-warning/10 text-warning border-warning/20',
-      completed: 'bg-success/10 text-success border-success/20',
-    }[status];
+      pending: 'bg-warning/10 text-warning',
+      completed: 'bg-success/10 text-success',
+      overdue: 'bg-destructive/10 text-destructive',
+      'in-progress': 'bg-primary/10 text-primary',
+    }[status] || 'bg-muted';
   };
 
   return (
@@ -342,119 +82,11 @@ const Employees: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold">{t('employees.title')}</h1>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 me-2" />
-              {t('employees.add')}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>
-                {editingEmployee ? t('common.edit') : t('employees.add')}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label>{t('employees.name')} *</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('employees.email')} *</Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t('employees.phone')}</Label>
-                  <Input
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('employees.position')}</Label>
-                  <Input
-                    value={formData.position}
-                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t('employees.department')}</Label>
-                  <Select
-                    value={formData.department}
-                    onValueChange={(value) => setFormData({ ...formData, department: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="IT">{t('dept.it')}</SelectItem>
-                      <SelectItem value="DevOps">{t('dept.devops')}</SelectItem>
-                      <SelectItem value="Security">{t('dept.security')}</SelectItem>
-                      <SelectItem value="Network">{t('dept.network')}</SelectItem>
-                      <SelectItem value="Support">{t('dept.support')}</SelectItem>
-                      <SelectItem value="System Admin">{t('dept.sysadmin')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value as Employee['status'] })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">{t('common.active')}</SelectItem>
-                      <SelectItem value="inactive">{t('common.inactive')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Skills (comma separated)</Label>
-                <Textarea
-                  value={skillsInput}
-                  onChange={(e) => setSkillsInput(e.target.value)}
-                  placeholder="Windows Server, Linux, VMware, Networking..."
-                  rows={2}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Certifications (comma separated)</Label>
-                <Textarea
-                  value={certsInput}
-                  onChange={(e) => setCertsInput(e.target.value)}
-                  placeholder="MCSA, CCNA, VCP, AWS Solutions Architect..."
-                  rows={2}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={handleSubmit}>
-                {t('common.save')}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {isAdmin && (
+          <p className="text-sm text-muted-foreground">
+            لإضافة موظفين جدد، استخدم صفحة "صلاحيات الموظفين"
+          </p>
+        )}
       </div>
 
       {/* Search */}
@@ -470,14 +102,38 @@ const Employees: React.FC = () => {
 
       {/* Employees Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredEmployees.length > 0 ? (
+        {profilesLoading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="card-hover">
+              <CardHeader className="pb-3">
+                <div className="flex items-start gap-3">
+                  <Skeleton className="w-12 h-12 rounded-full" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : filteredEmployees.length > 0 ? (
           filteredEmployees.map((employee) => {
-            const assignedServers = servers.filter((s) =>
-              employee.assignedServerIds.includes(s.id)
-            );
+            const tasks = getEmployeeTasks(employee.id);
+            const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'in-progress');
+            const completedTasks = tasks.filter(t => t.status === 'completed');
 
             return (
-              <Card key={employee.id} className="card-hover stagger-item">
+              <Card 
+                key={employee.id} 
+                className="card-hover stagger-item cursor-pointer transition-all hover:shadow-lg"
+                onClick={() => setSelectedEmployee(employee)}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -485,12 +141,12 @@ const Employees: React.FC = () => {
                         <User className="w-6 h-6 text-primary" />
                       </div>
                       <div>
-                        <CardTitle className="text-lg">{employee.name}</CardTitle>
+                        <CardTitle className="text-lg">{employee.full_name}</CardTitle>
                         <p className="text-sm text-muted-foreground">{employee.position}</p>
                       </div>
                     </div>
-                    <Badge variant={employee.status === 'active' ? 'default' : 'secondary'}>
-                      {employee.status === 'active' ? t('common.active') : t('common.inactive')}
+                    <Badge variant={employee.role === 'admin' ? 'default' : 'secondary'}>
+                      {employee.role === 'admin' ? 'مدير' : 'موظف'}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -498,7 +154,7 @@ const Employees: React.FC = () => {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Mail className="w-4 h-4" />
-                      <span>{employee.email}</span>
+                      <span className="truncate">{employee.email}</span>
                     </div>
                     {employee.phone && (
                       <div className="flex items-center gap-2 text-muted-foreground">
@@ -506,74 +162,62 @@ const Employees: React.FC = () => {
                         <span>{employee.phone}</span>
                       </div>
                     )}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <GraduationCap className="w-4 h-4" />
+                      <span>{employee.department}</span>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {employee.yearlyGoals && employee.yearlyGoals.length > 0 && (
-                      <Badge variant="outline" className="text-xs bg-accent/10 border-accent/20">
-                        <Target className="w-3 h-3 me-1" />
-                        {employee.yearlyGoals.length} Goals
-                      </Badge>
-                    )}
-                    <Badge variant="outline" className="text-xs">
-                      <Calendar className="w-3 h-3 me-1" />
-                      {employee.vacations.length} {t('employees.vacations')}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      <GraduationCap className="w-3 h-3 me-1" />
-                      {employee.trainings.length} {t('employees.trainings')}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      <Server className="w-3 h-3 me-1" />
-                      {assignedServers.length} {t('nav.servers')}
-                    </Badge>
+                  {/* Task Summary */}
+                  <div className="pt-3 border-t">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <ListTodo className="w-4 h-4" />
+                        المهام
+                      </span>
+                      <div className="flex gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {pendingTasks.length} قيد التنفيذ
+                        </Badge>
+                        <Badge variant="outline" className="text-xs bg-success/10 text-success">
+                          {completedTasks.length} مكتملة
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Skills preview */}
+                  {/* Skills */}
                   {employee.skills && employee.skills.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {employee.skills.slice(0, 3).map((skill, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
+                      {employee.skills.slice(0, 3).map((skill, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
                           {skill}
                         </Badge>
                       ))}
                       {employee.skills.length > 3 && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="outline" className="text-xs">
                           +{employee.skills.length - 3}
                         </Badge>
                       )}
                     </div>
                   )}
-
-                  <div className="flex items-center gap-2 pt-2 border-t">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setSelectedEmployee(employee)}
-                    >
-                      {t('common.edit')} {t('employees.vacations')}
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => handleEdit(employee)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-destructive"
-                      onClick={() => handleDelete(employee.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             );
           })
         ) : (
-          <div className="col-span-full text-center py-12">
-            <User className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
-            <p className="text-muted-foreground">{t('common.noData')}</p>
+          <div className="col-span-full">
+            <Card className="p-12">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <User className="w-16 h-16 text-muted-foreground/50" />
+                <div>
+                  <h3 className="text-lg font-medium">لا يوجد موظفين</h3>
+                  <p className="text-muted-foreground">
+                    {isAdmin ? 'أضف موظفين من صفحة صلاحيات الموظفين' : 'لم يتم العثور على موظفين'}
+                  </p>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
       </div>
@@ -581,344 +225,182 @@ const Employees: React.FC = () => {
       {/* Employee Details Dialog */}
       <Dialog open={!!selectedEmployee} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedEmployee?.name}</DialogTitle>
-          </DialogHeader>
-          <Tabs defaultValue="goals">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="goals" className="gap-1">
-                <Target className="w-3 h-3" />
-                Goals
-              </TabsTrigger>
-              <TabsTrigger value="vacations">{t('employees.vacations')}</TabsTrigger>
-              <TabsTrigger value="trainings">{t('employees.trainings')}</TabsTrigger>
-            </TabsList>
-
-            {/* Goals Tab */}
-            <TabsContent value="goals" className="space-y-4">
-              {/* Skills & Certifications */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Award className="w-4 h-4" />
-                    Skills & Certifications
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {selectedEmployee?.skills && selectedEmployee.skills.length > 0 && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Skills</Label>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {selectedEmployee.skills.map((skill, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            <Star className="w-2.5 h-2.5 me-1" />
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {selectedEmployee?.certifications && selectedEmployee.certifications.length > 0 && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Certifications</Label>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {selectedEmployee.certifications.map((cert, idx) => (
-                          <Badge key={idx} className="text-xs bg-accent/10 text-accent border-accent/20">
-                            <Award className="w-2.5 h-2.5 me-1" />
-                            {cert}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {(!selectedEmployee?.skills || selectedEmployee.skills.length === 0) &&
-                   (!selectedEmployee?.certifications || selectedEmployee.certifications.length === 0) && (
-                    <p className="text-sm text-muted-foreground text-center py-2">No skills or certifications added yet</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Add Goal Form */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Add Yearly Goal</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1 col-span-2">
-                      <Label className="text-xs">Goal Title *</Label>
-                      <Input
-                        value={goalForm.title}
-                        onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
-                        placeholder="Complete AWS certification"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Year</Label>
-                      <Select
-                        value={String(goalForm.year)}
-                        onValueChange={(value) => setGoalForm({ ...goalForm, year: parseInt(value) })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={String(new Date().getFullYear())}>{new Date().getFullYear()}</SelectItem>
-                          <SelectItem value={String(new Date().getFullYear() + 1)}>{new Date().getFullYear() + 1}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Initial Status</Label>
-                      <Select
-                        value={goalForm.status}
-                        onValueChange={(value) => setGoalForm({ ...goalForm, status: value as YearlyGoal['status'] })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="not-started">Not Started</SelectItem>
-                          <SelectItem value="in-progress">In Progress</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+          {selectedEmployee && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="w-8 h-8 text-primary" />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Description</Label>
-                    <Textarea
-                      value={goalForm.description}
-                      onChange={(e) => setGoalForm({ ...goalForm, description: e.target.value })}
-                      rows={2}
-                      placeholder="Describe the goal..."
-                    />
+                  <div>
+                    <h2 className="text-xl font-bold">{selectedEmployee.full_name}</h2>
+                    <p className="text-muted-foreground">{selectedEmployee.position} - {selectedEmployee.department}</p>
+                    <Badge variant={selectedEmployee.role === 'admin' ? 'default' : 'secondary'} className="mt-1">
+                      {selectedEmployee.role === 'admin' ? 'مدير النظام' : 'موظف'}
+                    </Badge>
                   </div>
-                  <Button size="sm" onClick={handleAddGoal} disabled={!goalForm.title}>
-                    <Plus className="w-4 h-4 me-1" />
-                    Add Goal
-                  </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </DialogHeader>
 
-              {/* Goals List */}
-              <div className="space-y-3">
-                {(selectedEmployee?.yearlyGoals || []).length > 0 ? (
-                  selectedEmployee?.yearlyGoals?.map((goal) => (
-                    <Card key={goal.id} className={cn('border', getGoalStatusColor(goal.status))}>
-                      <CardContent className="pt-4 space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant="outline" className="text-xs">{goal.year}</Badge>
-                              <h4 className="font-medium text-sm">{goal.title}</h4>
-                            </div>
-                            {goal.description && (
-                              <p className="text-xs text-muted-foreground">{goal.description}</p>
-                            )}
-                          </div>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-destructive"
-                            onClick={() => handleDeleteGoal(goal.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span>Progress</span>
-                            <span className="font-medium">{goal.progress}%</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Progress value={goal.progress} className="h-2 flex-1" />
-                            <Input
-                              type="number"
-                              min={0}
-                              max={100}
-                              value={goal.progress}
-                              onChange={(e) => handleUpdateGoalProgress(goal.id, parseInt(e.target.value) || 0)}
-                              className="w-16 h-7 text-xs"
-                            />
-                          </div>
+              <Tabs value={selectedTab} onValueChange={setSelectedTab} className="mt-4">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
+                  <TabsTrigger value="tasks">المهام</TabsTrigger>
+                  <TabsTrigger value="vacations">الإجازات</TabsTrigger>
+                  <TabsTrigger value="skills">المهارات</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm">{selectedEmployee.email}</span>
                         </div>
                       </CardContent>
                     </Card>
-                  ))
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No yearly goals set</p>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm">{selectedEmployee.phone || 'غير محدد'}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                )}
-              </div>
-            </TabsContent>
+                  
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <Card>
+                      <CardContent className="pt-4 text-center">
+                        <p className="text-2xl font-bold text-primary">
+                          {getEmployeeTasks(selectedEmployee.id).length}
+                        </p>
+                        <p className="text-sm text-muted-foreground">إجمالي المهام</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4 text-center">
+                        <p className="text-2xl font-bold text-success">
+                          {getEmployeeTasks(selectedEmployee.id).filter(t => t.status === 'completed').length}
+                        </p>
+                        <p className="text-sm text-muted-foreground">مهام مكتملة</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4 text-center">
+                        <p className="text-2xl font-bold text-warning">
+                          {getEmployeeVacations(selectedEmployee.id).length}
+                        </p>
+                        <p className="text-sm text-muted-foreground">الإجازات</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
 
-            <TabsContent value="vacations" className="space-y-4">
-              {/* Add Vacation Form */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">{t('employees.addVacation')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">{t('licenses.startDate')}</Label>
-                      <Input
-                        type="date"
-                        value={vacationForm.startDate}
-                        onChange={(e) => setVacationForm({ ...vacationForm, startDate: e.target.value })}
-                      />
+                <TabsContent value="tasks" className="space-y-4 mt-4">
+                  {getEmployeeTasks(selectedEmployee.id).length > 0 ? (
+                    getEmployeeTasks(selectedEmployee.id).map((task) => (
+                      <Card key={task.id}>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{task.title}</p>
+                              <p className="text-sm text-muted-foreground">{task.description}</p>
+                            </div>
+                            <Badge className={getTaskStatusColor(task.status)}>
+                              {task.status}
+                            </Badge>
+                          </div>
+                          {task.due_date && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                              تاريخ الاستحقاق: {new Date(task.due_date).toLocaleDateString('ar-SA')}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <ListTodo className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>لا توجد مهام مسندة</p>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">{t('licenses.expiryDate')}</Label>
-                      <Input
-                        type="date"
-                        value={vacationForm.endDate}
-                        onChange={(e) => setVacationForm({ ...vacationForm, endDate: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Select
-                      value={vacationForm.type}
-                      onValueChange={(value) => setVacationForm({ ...vacationForm, type: value as Vacation['type'] })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="annual">Annual</SelectItem>
-                        <SelectItem value="sick">Sick</SelectItem>
-                        <SelectItem value="emergency">Emergency</SelectItem>
-                        <SelectItem value="unpaid">Unpaid</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={vacationForm.status}
-                      onValueChange={(value) => setVacationForm({ ...vacationForm, status: value as Vacation['status'] })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="rejected">Rejected</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button size="sm" onClick={handleAddVacation}>
-                    <Plus className="w-4 h-4 me-1" />
-                    {t('employees.addVacation')}
-                  </Button>
-                </CardContent>
-              </Card>
+                  )}
+                </TabsContent>
 
-              {/* Vacations List */}
-              <div className="space-y-2">
-                {selectedEmployee?.vacations.map((vacation) => (
-                  <div
-                    key={vacation.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Badge className={cn('border', getVacationTypeColor(vacation.type))}>
-                        {vacation.type}
-                      </Badge>
-                      <span className="text-sm">
-                        {vacation.startDate} → {vacation.endDate}
-                      </span>
+                <TabsContent value="vacations" className="space-y-4 mt-4">
+                  {getEmployeeVacations(selectedEmployee.id).length > 0 ? (
+                    getEmployeeVacations(selectedEmployee.id).map((vacation) => (
+                      <Card key={vacation.id}>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Badge className={getVacationTypeColor(vacation.vacation_type)}>
+                                {vacation.vacation_type}
+                              </Badge>
+                              <p className="text-sm mt-2">
+                                {new Date(vacation.start_date).toLocaleDateString('ar-SA')} - {new Date(vacation.end_date).toLocaleDateString('ar-SA')}
+                              </p>
+                            </div>
+                            <Badge variant={vacation.status === 'approved' ? 'default' : 'secondary'}>
+                              {vacation.status}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>لا توجد إجازات مسجلة</p>
                     </div>
-                    <Badge variant={vacation.status === 'approved' ? 'default' : 'secondary'}>
-                      {vacation.status}
-                    </Badge>
-                  </div>
-                ))}
-                {(!selectedEmployee?.vacations || selectedEmployee.vacations.length === 0) && (
-                  <p className="text-center text-muted-foreground py-4">{t('common.noData')}</p>
-                )}
-              </div>
-            </TabsContent>
+                  )}
+                </TabsContent>
 
-            <TabsContent value="trainings" className="space-y-4">
-              {/* Add Training Form */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">{t('employees.addTraining')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Name</Label>
-                      <Input
-                        value={trainingForm.name}
-                        onChange={(e) => setTrainingForm({ ...trainingForm, name: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Provider</Label>
-                      <Input
-                        value={trainingForm.provider}
-                        onChange={(e) => setTrainingForm({ ...trainingForm, provider: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Input
-                      type="date"
-                      value={trainingForm.startDate}
-                      onChange={(e) => setTrainingForm({ ...trainingForm, startDate: e.target.value })}
-                    />
-                    <Input
-                      type="date"
-                      value={trainingForm.endDate}
-                      onChange={(e) => setTrainingForm({ ...trainingForm, endDate: e.target.value })}
-                    />
-                    <Select
-                      value={trainingForm.status}
-                      onValueChange={(value) => setTrainingForm({ ...trainingForm, status: value as Training['status'] })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="planned">Planned</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button size="sm" onClick={handleAddTraining}>
-                    <Plus className="w-4 h-4 me-1" />
-                    {t('employees.addTraining')}
-                  </Button>
-                </CardContent>
-              </Card>
+                <TabsContent value="skills" className="space-y-4 mt-4">
+                  {/* Skills */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">المهارات</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {selectedEmployee.skills && selectedEmployee.skills.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedEmployee.skills.map((skill, i) => (
+                            <Badge key={i} variant="outline">{skill}</Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-sm">لم تُضف مهارات بعد</p>
+                      )}
+                    </CardContent>
+                  </Card>
 
-              {/* Trainings List */}
-              <div className="space-y-2">
-                {selectedEmployee?.trainings.map((training) => (
-                  <div
-                    key={training.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{training.name}</p>
-                      <p className="text-xs text-muted-foreground">{training.provider}</p>
-                    </div>
-                    <Badge className={cn('border', getTrainingStatusColor(training.status))}>
-                      {training.status}
-                    </Badge>
-                  </div>
-                ))}
-                {(!selectedEmployee?.trainings || selectedEmployee.trainings.length === 0) && (
-                  <p className="text-center text-muted-foreground py-4">{t('common.noData')}</p>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
+                  {/* Certifications */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Award className="w-4 h-4" />
+                        الشهادات
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {selectedEmployee.certifications && selectedEmployee.certifications.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedEmployee.certifications.map((cert, i) => (
+                            <Badge key={i} className="bg-accent/10 text-accent border-accent/20">{cert}</Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-sm">لم تُضف شهادات بعد</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

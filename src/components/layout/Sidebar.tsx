@@ -22,6 +22,7 @@ import {
   LogOut,
   User,
   Shield,
+  History,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -50,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
     { path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports', adminOnly: true },
     { path: '/reports', icon: FileBarChart, label: 'nav.reports' },
+    { path: '/audit-log', icon: History, label: 'سجل التغييرات', adminOnly: true, isArabic: true },
     { path: '/settings', icon: Settings, label: 'nav.settings', adminOnly: true },
   ];
 

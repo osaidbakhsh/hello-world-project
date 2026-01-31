@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useLicenses, useServers } from '@/hooks/useLocalStorage';
-import { License } from '@/types';
+import { useLicenses, useDomains, useServers, useLicenseMutations } from '@/hooks/useSupabaseData';
+import type { License } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,63 +30,87 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Edit, Trash2, KeyRound, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, KeyRound, AlertTriangle, CheckCircle, Clock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface LicenseFormData {
+  name: string;
+  vendor: string;
+  license_key: string;
+  purchase_date: string;
+  expiry_date: string;
+  domain_id: string;
+  assigned_to: string;
+  cost: number;
+  quantity: number;
+  notes: string;
+}
+
+const initialFormData: LicenseFormData = {
+  name: '',
+  vendor: '',
+  license_key: '',
+  purchase_date: new Date().toISOString().split('T')[0],
+  expiry_date: '',
+  domain_id: '',
+  assigned_to: '',
+  cost: 0,
+  quantity: 1,
+  notes: '',
+};
 
 const Licenses: React.FC = () => {
   const { t, dir } = useLanguage();
-  const [licenses, setLicenses] = useLicenses();
-  const [servers] = useServers();
   const { toast } = useToast();
+  
+  // Supabase data
+  const { data: licenses, isLoading, refetch: refetchLicenses } = useLicenses();
+  const { data: domains } = useDomains();
+  const { data: servers } = useServers();
+  const { createLicense, updateLicense, deleteLicense } = useLicenseMutations();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [formData, setFormData] = useState<Partial<License>>({
-    name: '',
-    product: '',
-    licenseKey: '',
-    startDate: new Date().toISOString().split('T')[0],
-    expiryDate: '',
-    serverId: '',
-    cost: 0,
-    currency: 'SAR',
-    vendor: '',
-    notes: '',
-  });
+  const [formData, setFormData] = useState<LicenseFormData>(initialFormData);
 
   const now = new Date();
   const thirtyDays = 30 * 24 * 60 * 60 * 1000;
 
-  const getLicenseStatus = (expiryDate: string) => {
+  const getLicenseStatus = (expiryDate: string | null) => {
+    if (!expiryDate) return 'active';
     const expiry = new Date(expiryDate);
     if (expiry < now) return 'expired';
     if (expiry.getTime() - now.getTime() <= thirtyDays) return 'expiring-soon';
     return 'active';
   };
 
-  const getDaysLeft = (expiryDate: string) => {
+  const getDaysLeft = (expiryDate: string | null) => {
+    if (!expiryDate) return 999;
     const expiry = new Date(expiryDate);
     return Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   };
 
-  const filteredLicenses = licenses.filter((license) => {
-    const matchesSearch =
-      license.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      license.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      license.vendor.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const status = getLicenseStatus(license.expiryDate);
-    const matchesStatus = statusFilter === 'all' || status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredLicenses = useMemo(() => {
+    return licenses.filter((license) => {
+      const matchesSearch =
+        license.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (license.vendor || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const status = getLicenseStatus(license.expiry_date);
+      const matchesStatus = statusFilter === 'all' || status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [licenses, searchQuery, statusFilter]);
 
-  const handleSubmit = () => {
-    if (!formData.name || !formData.expiryDate) {
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.expiry_date) {
       toast({
         title: t('common.error'),
         description: 'Please fill in required fields',
@@ -95,63 +119,86 @@ const Licenses: React.FC = () => {
       return;
     }
 
-    const now = new Date().toISOString();
+    setIsSubmitting(true);
     
-    if (editingLicense) {
-      setLicenses(licenses.map((l) =>
-        l.id === editingLicense.id
-          ? { ...l, ...formData } as License
-          : l
-      ));
-      toast({ title: t('common.success'), description: 'License updated' });
-    } else {
-      const newLicense: License = {
-        id: crypto.randomUUID(),
-        name: formData.name || '',
-        product: formData.product || '',
-        licenseKey: formData.licenseKey || '',
-        startDate: formData.startDate || now,
-        expiryDate: formData.expiryDate || '',
-        serverId: formData.serverId,
-        cost: formData.cost || 0,
-        currency: formData.currency || 'SAR',
-        vendor: formData.vendor || '',
-        notes: formData.notes,
-        createdAt: now,
-      };
-      setLicenses([...licenses, newLicense]);
-      toast({ title: t('common.success'), description: 'License added' });
-    }
+    try {
+      if (editingLicense) {
+        const { error } = await updateLicense(editingLicense.id, {
+          name: formData.name,
+          vendor: formData.vendor,
+          license_key: formData.license_key,
+          purchase_date: formData.purchase_date || null,
+          expiry_date: formData.expiry_date,
+          domain_id: formData.domain_id || null,
+          assigned_to: formData.assigned_to || null,
+          cost: formData.cost,
+          quantity: formData.quantity,
+          notes: formData.notes || null,
+        });
+        if (error) throw error;
+        toast({ title: t('common.success'), description: 'License updated' });
+      } else {
+        const { error } = await createLicense({
+          name: formData.name,
+          vendor: formData.vendor,
+          license_key: formData.license_key,
+          purchase_date: formData.purchase_date || null,
+          expiry_date: formData.expiry_date,
+          domain_id: formData.domain_id || null,
+          assigned_to: formData.assigned_to || null,
+          cost: formData.cost,
+          quantity: formData.quantity,
+          notes: formData.notes || null,
+          status: 'active',
+        });
+        if (error) throw error;
+        toast({ title: t('common.success'), description: 'License added' });
+      }
 
-    resetForm();
-    setIsDialogOpen(false);
+      resetForm();
+      setIsDialogOpen(false);
+      refetchLicenses();
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: 'Failed to save license',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEdit = (license: License) => {
     setEditingLicense(license);
-    setFormData(license);
+    setFormData({
+      name: license.name,
+      vendor: license.vendor || '',
+      license_key: license.license_key || '',
+      purchase_date: license.purchase_date || '',
+      expiry_date: license.expiry_date || '',
+      domain_id: license.domain_id || '',
+      assigned_to: license.assigned_to || '',
+      cost: license.cost || 0,
+      quantity: license.quantity || 1,
+      notes: license.notes || '',
+    });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setLicenses(licenses.filter((l) => l.id !== id));
-    toast({ title: t('common.success'), description: 'License deleted' });
+  const handleDelete = async (id: string) => {
+    const { error } = await deleteLicense(id);
+    if (error) {
+      toast({ title: t('common.error'), description: 'Failed to delete license', variant: 'destructive' });
+    } else {
+      toast({ title: t('common.success'), description: 'License deleted' });
+      refetchLicenses();
+    }
   };
 
   const resetForm = () => {
     setEditingLicense(null);
-    setFormData({
-      name: '',
-      product: '',
-      licenseKey: '',
-      startDate: new Date().toISOString().split('T')[0],
-      expiryDate: '',
-      serverId: '',
-      cost: 0,
-      currency: 'SAR',
-      vendor: '',
-      notes: '',
-    });
+    setFormData(initialFormData);
   };
 
   const getStatusBadge = (status: string) => {
@@ -166,12 +213,12 @@ const Licenses: React.FC = () => {
   };
 
   // Stats
-  const stats = {
+  const stats = useMemo(() => ({
     total: licenses.length,
-    active: licenses.filter((l) => getLicenseStatus(l.expiryDate) === 'active').length,
-    expiringSoon: licenses.filter((l) => getLicenseStatus(l.expiryDate) === 'expiring-soon').length,
-    expired: licenses.filter((l) => getLicenseStatus(l.expiryDate) === 'expired').length,
-  };
+    active: licenses.filter((l) => getLicenseStatus(l.expiry_date) === 'active').length,
+    expiringSoon: licenses.filter((l) => getLicenseStatus(l.expiry_date) === 'expiring-soon').length,
+    expired: licenses.filter((l) => getLicenseStatus(l.expiry_date) === 'expired').length,
+  }), [licenses]);
 
   return (
     <div className="space-y-6" dir={dir}>
@@ -204,18 +251,18 @@ const Licenses: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('licenses.product')}</Label>
+                  <Label>{t('licenses.vendor')}</Label>
                   <Input
-                    value={formData.product}
-                    onChange={(e) => setFormData({ ...formData, product: e.target.value })}
+                    value={formData.vendor}
+                    onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
                   />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>{t('licenses.key')}</Label>
                 <Input
-                  value={formData.licenseKey}
-                  onChange={(e) => setFormData({ ...formData, licenseKey: e.target.value })}
+                  value={formData.license_key}
+                  onChange={(e) => setFormData({ ...formData, license_key: e.target.value })}
                   className="font-mono"
                 />
               </div>
@@ -224,16 +271,16 @@ const Licenses: React.FC = () => {
                   <Label>{t('licenses.startDate')}</Label>
                   <Input
                     type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    value={formData.purchase_date}
+                    onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('licenses.expiryDate')} *</Label>
                   <Input
                     type="date"
-                    value={formData.expiryDate}
-                    onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                    value={formData.expiry_date}
+                    onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
                   />
                 </div>
               </div>
@@ -247,45 +294,38 @@ const Licenses: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Currency</Label>
-                  <Select
-                    value={formData.currency}
-                    onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SAR">SAR</SelectItem>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Quantity</Label>
+                  <Input
+                    type="number"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t('licenses.vendor')}</Label>
-                  <Input
-                    value={formData.vendor}
-                    onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('licenses.server')}</Label>
+                  <Label>Domain</Label>
                   <Select
-                    value={formData.serverId || ''}
-                    onValueChange={(value) => setFormData({ ...formData, serverId: value })}
+                    value={formData.domain_id}
+                    onValueChange={(value) => setFormData({ ...formData, domain_id: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select server" />
+                      <SelectValue placeholder="Select domain" />
                     </SelectTrigger>
                     <SelectContent>
-                      {servers.map((server) => (
-                        <SelectItem key={server.id} value={server.id}>{server.name}</SelectItem>
+                      {domains.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Assigned To</Label>
+                  <Input
+                    value={formData.assigned_to}
+                    onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                    placeholder="Server or user"
+                  />
                 </div>
               </div>
               <div className="space-y-2">
@@ -301,7 +341,8 @@ const Licenses: React.FC = () => {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button onClick={handleSubmit}>
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="w-4 h-4 me-2 animate-spin" />}
                 {t('common.save')}
               </Button>
             </div>
@@ -401,8 +442,8 @@ const Licenses: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('licenses.name')}</TableHead>
-                  <TableHead>{t('licenses.product')}</TableHead>
                   <TableHead>{t('licenses.vendor')}</TableHead>
+                  <TableHead>Domain</TableHead>
                   <TableHead>{t('licenses.expiryDate')}</TableHead>
                   <TableHead>{t('licenses.daysLeft')}</TableHead>
                   <TableHead>{t('licenses.cost')}</TableHead>
@@ -410,12 +451,21 @@ const Licenses: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLicenses.length > 0 ? (
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 7 }).map((_, j) => (
+                        <TableCell key={j}><Skeleton className="h-6 w-full" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : filteredLicenses.length > 0 ? (
                   filteredLicenses.map((license) => {
-                    const status = getLicenseStatus(license.expiryDate);
-                    const daysLeft = getDaysLeft(license.expiryDate);
+                    const status = getLicenseStatus(license.expiry_date);
+                    const daysLeft = getDaysLeft(license.expiry_date);
                     const statusBadge = getStatusBadge(status);
                     const StatusIcon = statusBadge.icon;
+                    const domain = domains.find(d => d.id === license.domain_id);
 
                     return (
                       <TableRow key={license.id} className="stagger-item">
@@ -426,20 +476,18 @@ const Licenses: React.FC = () => {
                             </div>
                             <div>
                               <p className="font-medium">{license.name}</p>
-                              {license.serverId && (
-                                <p className="text-xs text-muted-foreground">
-                                  {servers.find((s) => s.id === license.serverId)?.name}
-                                </p>
+                              {license.assigned_to && (
+                                <p className="text-xs text-muted-foreground">{license.assigned_to}</p>
                               )}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>{license.product}</TableCell>
-                        <TableCell>{license.vendor}</TableCell>
+                        <TableCell>{license.vendor || '-'}</TableCell>
+                        <TableCell>{domain?.name || '-'}</TableCell>
                         <TableCell>
-                          {new Date(license.expiryDate).toLocaleDateString(
+                          {license.expiry_date ? new Date(license.expiry_date).toLocaleDateString(
                             dir === 'rtl' ? 'ar-SA' : 'en-US'
-                          )}
+                          ) : '-'}
                         </TableCell>
                         <TableCell>
                           <Badge className={cn('gap-1', statusBadge.class)}>
@@ -448,7 +496,7 @@ const Licenses: React.FC = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {license.cost > 0 ? `${license.cost} ${license.currency}` : '-'}
+                          {(license.cost || 0) > 0 ? `${license.cost} SAR` : '-'}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -471,8 +519,14 @@ const Licenses: React.FC = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-12">
-                      <KeyRound className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
-                      <p className="text-muted-foreground">{t('common.noData')}</p>
+                      <div className="flex flex-col items-center gap-2">
+                        <KeyRound className="w-12 h-12 text-muted-foreground/50" />
+                        <p className="text-muted-foreground">No licenses found</p>
+                        <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)}>
+                          <Plus className="w-4 h-4 me-2" />
+                          Add your first license
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}

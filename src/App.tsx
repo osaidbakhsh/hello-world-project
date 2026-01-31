@@ -18,6 +18,7 @@ import Networks from "./pages/Networks";
 import EmployeeReports from "./pages/EmployeeReports";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import AuditLog from "./pages/AuditLog";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/networks" element={<Networks />} />
                 <Route path="/employee-reports" element={<EmployeeReports />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/audit-log" element={<AuditLog />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               
