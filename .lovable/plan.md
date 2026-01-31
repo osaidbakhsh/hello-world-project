@@ -1,519 +1,474 @@
 
-# خطة التطوير الشاملة: مهام الفريق + تحسينات الإعدادات + إصلاحات
+# خطة الإصلاحات والتحسينات الشاملة
 
-## ملخص المتطلبات
+## ملخص المشاكل المكتشفة
 
-| # | المتطلب | الأولوية |
-|---|---------|----------|
-| 1 | إضافة خانة متابعة مهام الموظفين مع تصدير تقرير | 🔴 High |
-| 2 | حذف رابط "إنشاء حساب" من صفحة الدخول | 🔴 High |
-| 3 | إصلاح فلتر الدومين في Dashboard (الرخص والسيرفرات) | 🔴 Critical |
-| 4 | إصلاح "مستخدم غير معروف" في سجل العمليات | 🔴 Critical |
-| 5 | اسم التطبيق بالعربي والإنجليزي | 🟡 Medium |
-| 6 | ترتيب خانات Dashboard والصفحات | 🟡 Medium |
-| 7 | توسيع خيارات الأيقونات (40+ أيقونة) | 🟡 Medium |
-| 8 | زر Dark Mode سريع | 🟡 Medium |
-| 9 | إصلاح الترجمة الناقصة | 🟡 Medium |
-| 10 | سكربت PowerShell لاكتشاف السيرفرات | 🟢 Feature |
-| 11 | تحسينات إضافية للإعدادات | 🟢 Optional |
+| # | المشكلة | السبب | الأولوية |
+|---|---------|-------|----------|
+| 1 | خطأ "AbortError" عند رفع الإجازة | مشكلة في إلغاء الـ request أو timeout | 🔴 Critical |
+| 2 | صفحة التقارير فارغة | تستخدم `useLocalStorage` بدلاً من `useSupabaseData` | 🔴 Critical |
+| 3 | عدد السيرفرات والرخص = 0 في التقارير | نفس المشكلة - مصدر بيانات خاطئ | 🔴 Critical |
+| 4 | المهام تظهر واحدة فقط | البيانات من localStorage فارغة | 🔴 Critical |
+| 5 | اللغة لا تتغير بالكامل | نصوص hardcoded غير مترجمة | 🟡 Medium |
+| 6 | لا يوجد فلتر دومين في التقارير | غير مطبق | 🟡 Medium |
+| 7 | ترتيب الخانات | غير مطبق | 🟢 Feature |
 
 ---
 
-## 1️⃣ متابعة مهام الموظفين (صفحة المهام)
+## 1️⃣ إصلاح خطأ "AbortError" في الإجازات
 
-**الملف:** `src/pages/Tasks.tsx`
+**الملف:** `src/pages/Vacations.tsx`
 
-### التغييرات المطلوبة:
+**المشكلة:** عند إرسال النموذج، يتم إلغاء الـ request بسبب:
+- Dialog يُغلق قبل اكتمال الـ request
+- أو React strict mode يُعيد render
 
-```
-+--------------------------------------------------+
-| المهام                       [تصدير ▼] [إضافة]   |
-+--------------------------------------------------+
-| [مهامي] [مهام الفريق]                            |  ← تبويبات جديدة (للأدمن)
-| الموظف: [جميع الموظفين ▼]                        |  ← فلتر موظف
-| القسم:  [جميع الأقسام ▼]                         |  ← فلتر قسم
-+--------------------------------------------------+
-| مهمة 1 - أحمد محمد - قيد التنفيذ                 |
-| مهمة 2 - سارة أحمد - مكتملة                      |
-+--------------------------------------------------+
-|  [تصدير Excel] [تصدير PDF]                       |
-+--------------------------------------------------+
-```
-
-**الإضافات:**
-- تبويب "مهامي" و "مهام الفريق" (للأدمن فقط)
-- فلتر اختيار موظف معين
-- فلتر اختيار قسم
-- عرض اسم الموظف المسند إليه في كل مهمة
-- زر تصدير (Excel + PDF) للتقارير
-
----
-
-## 2️⃣ حذف رابط التسجيل من صفحة الدخول
-
-**الملف:** `src/pages/Login.tsx`
-
-### التغيير:
-حذف `CardFooter` الذي يحتوي على رابط "إنشاء حساب جديد" - السبب: إضافة الموظفين تتم فقط عبر الأدمن (Edge Function)
-
----
-
-## 3️⃣ إصلاح فلتر الدومين في Dashboard
-
-**المشكلة:** عند تغيير الدومين، عدد الرخص والسيرفرات لا يتغير
-
-**الملف:** `src/hooks/useSupabaseData.ts` → `useDashboardStats`
-
-### الإصلاح:
+**الإصلاح:**
 ```typescript
-export function useDashboardStats(selectedDomainId?: string) {
-  const fetch = useCallback(async () => {
-    // 1. جلب الشبكات التابعة للدومين
-    let networkIds: string[] = [];
-    if (selectedDomainId) {
-      const { data: domainNetworks } = await supabase
-        .from('networks')
-        .select('id')
-        .eq('domain_id', selectedDomainId);
-      networkIds = domainNetworks?.map(n => n.id) || [];
-    }
-
-    // 2. فلترة السيرفرات حسب network_id
-    let serversQuery = supabase.from('servers').select('*');
-    if (selectedDomainId && networkIds.length > 0) {
-      serversQuery = serversQuery.in('network_id', networkIds);
-    } else if (selectedDomainId && networkIds.length === 0) {
-      // إذا الدومين ليس له شبكات، لا سيرفرات
-      setStats(prev => ({ ...prev, totalServers: 0, activeServers: 0 }));
-    }
-
-    // 3. فلترة التراخيص حسب domain_id
-    let licensesQuery = supabase.from('licenses').select('*');
-    if (selectedDomainId) {
-      licensesQuery = licensesQuery.eq('domain_id', selectedDomainId);
-    }
-    
-    // ... باقي الحسابات
-  }, [selectedDomainId]);
-}
-```
-
----
-
-## 4️⃣ إصلاح "مستخدم غير معروف" في سجل العمليات
-
-**المشكلة:** `user_id` في audit_logs دائماً `null`
-
-**الملف:** `src/hooks/useSupabaseData.ts`
-
-### الإصلاح:
-
-```typescript
-// تعديل logAuditAction لتستقبل userId
-export async function logAuditAction(
-  userId: string | undefined,  // ← إضافة parameter
-  action: string,
-  tableName?: string,
-  recordId?: string,
-  oldData?: Record<string, any>,
-  newData?: Record<string, any>
-) {
-  try {
-    await supabase.from('audit_logs').insert({
-      user_id: userId,  // ← ربط المستخدم
-      action,
-      table_name: tableName,
-      record_id: recordId,
-      old_data: oldData,
-      new_data: newData,
-      user_agent: navigator.userAgent,
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // إضافة loading state
+  setIsSubmitting(true);
+  
+  if (!formData.start_date || !formData.end_date) {
+    toast({
+      title: t('common.error'),
+      description: 'يرجى ملء جميع الحقول المطلوبة',
+      variant: 'destructive',
     });
-  } catch (e) {
-    console.error('Error logging audit action:', e);
+    setIsSubmitting(false);
+    return;
   }
-}
 
-// تحديث useServerMutations و useLicenseMutations
-export function useServerMutations() {
-  const { profile } = useAuth();  // ← إضافة
-  
-  const createServer = async (serverData: Record<string, any>) => {
-    // ...
-    await logAuditAction(profile?.id, 'create', 'servers', data.id, undefined, serverData);
-    // ...
-  };
-}
+  // التحقق من اختيار موظف للأدمن
+  if (isAdmin && !formData.profile_id) {
+    toast({
+      title: t('common.error'),
+      description: 'يرجى اختيار الموظف',
+      variant: 'destructive',
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  try {
+    const vacationData = {
+      profile_id: isAdmin ? formData.profile_id : profile?.id,
+      start_date: formData.start_date,
+      end_date: formData.end_date,
+      vacation_type: formData.vacation_type,
+      status: isAdmin ? formData.status : 'pending',
+      notes: formData.notes || null,
+      days_count: calculateDays(formData.start_date, formData.end_date),
+    };
+
+    const { error } = await supabase.from('vacations').insert([vacationData]);
+    
+    if (error) throw error;
+    
+    toast({ title: t('common.success'), description: 'تم إضافة الإجازة بنجاح' });
+    resetForm();
+    setIsDialogOpen(false);
+    refetch();
+  } catch (error: any) {
+    // تجاهل AbortError
+    if (error.name === 'AbortError') return;
+    
+    toast({
+      title: t('common.error'),
+      description: error.message,
+      variant: 'destructive',
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 ```
+
+**إضافة:**
+- `isSubmitting` state لمنع الضغط المتكرر
+- تعطيل زر الحفظ أثناء الإرسال
+- تجاهل أخطاء AbortError
 
 ---
 
-## 5️⃣ اسم التطبيق بالعربي والإنجليزي
+## 2️⃣ إصلاح صفحة التقارير (المشكلة الرئيسية)
 
-**الملف:** `src/pages/Settings.tsx`
+**الملف:** `src/pages/Reports.tsx`
 
-### الإضافات:
-```
-+--------------------------------+
-| اسم التطبيق (عربي):            |
-| [إدارة البنية التحتية        ] |
-|                                |
-| اسم التطبيق (English):         |
-| [IT Infrastructure Manager   ] |
-|                                |
-| [حفظ]                          |
-+--------------------------------+
-```
-
-**الملف:** `src/hooks/useSupabaseData.ts`
-- إضافة `useAppNameBilingual()` hook جديد
-- يحفظ `app_name_ar` و `app_name_en` في `app_settings`
-
----
-
-## 6️⃣ ترتيب خانات Dashboard والصفحات
-
-**ملفات جديدة:**
-- `src/components/settings/SectionOrderSettings.tsx`
-
-### الفكرة:
-- Drag & Drop لترتيب أقسام Dashboard
-- حفظ الترتيب في `app_settings` → `dashboard_order`
-- تطبيق الترتيب عند عرض Dashboard
-
-**الأقسام القابلة للترتيب:**
-```json
-{
-  "dashboard_order": ["stats", "webapps", "progress", "tasks"]
-}
-```
-
----
-
-## 7️⃣ توسيع خيارات الأيقونات (40+ أيقونة)
-
-**الملف:** `src/pages/WebApps.tsx`
-
-### التحويل من Select إلى Grid:
-```tsx
-const iconOptions = [
-  // البنية التحتية (9)
-  { value: 'globe', label: 'Globe', icon: Globe },
-  { value: 'server', label: 'Server', icon: Server },
-  { value: 'database', label: 'Database', icon: Database },
-  { value: 'cloud', label: 'Cloud', icon: Cloud },
-  { value: 'hard-drive', label: 'Hard Drive', icon: HardDrive },
-  { value: 'cpu', label: 'CPU', icon: Cpu },
-  { value: 'network', label: 'Network', icon: Network },
-  { value: 'wifi', label: 'Wifi', icon: Wifi },
-  { value: 'router', label: 'Router', icon: Router },
-  
-  // الأمان (5)
-  { value: 'shield', label: 'Shield', icon: Shield },
-  { value: 'lock', label: 'Lock', icon: Lock },
-  { value: 'key', label: 'Key', icon: Key },
-  { value: 'fingerprint', label: 'Fingerprint', icon: Fingerprint },
-  { value: 'scan', label: 'Scan', icon: Scan },
-  
-  // التواصل (5)
-  { value: 'mail', label: 'Mail', icon: Mail },
-  { value: 'message-square', label: 'Message', icon: MessageSquare },
-  { value: 'phone', label: 'Phone', icon: Phone },
-  { value: 'video', label: 'Video', icon: Video },
-  { value: 'users', label: 'Users', icon: Users },
-  
-  // الملفات (4)
-  { value: 'file', label: 'File', icon: FileText },
-  { value: 'folder', label: 'Folder', icon: Folder },
-  { value: 'archive', label: 'Archive', icon: Archive },
-  { value: 'clipboard', label: 'Clipboard', icon: Clipboard },
-  
-  // التطوير (4)
-  { value: 'code', label: 'Code', icon: Code },
-  { value: 'terminal', label: 'Terminal', icon: Terminal },
-  { value: 'git-branch', label: 'Git', icon: GitBranch },
-  { value: 'box', label: 'Box', icon: Box },
-  
-  // المراقبة (5)
-  { value: 'monitor', label: 'Monitor', icon: Monitor },
-  { value: 'activity', label: 'Activity', icon: Activity },
-  { value: 'bar-chart', label: 'Chart', icon: BarChart },
-  { value: 'pie-chart', label: 'Pie Chart', icon: PieChart },
-  { value: 'trending-up', label: 'Trending', icon: TrendingUp },
-  
-  // أخرى (8)
-  { value: 'settings', label: 'Settings', icon: Settings },
-  { value: 'tool', label: 'Tool', icon: Wrench },
-  { value: 'calendar', label: 'Calendar', icon: Calendar },
-  { value: 'clock', label: 'Clock', icon: Clock },
-  { value: 'home', label: 'Home', icon: Home },
-  { value: 'bookmark', label: 'Bookmark', icon: Bookmark },
-  { value: 'star', label: 'Star', icon: Star },
-  { value: 'layers', label: 'Layers', icon: Layers },
-];
-```
-
-### عرض الأيقونات كـ Grid:
-```tsx
-<div className="grid grid-cols-8 gap-2">
-  {iconOptions.map((opt) => {
-    const Icon = opt.icon;
-    return (
-      <button
-        key={opt.value}
-        type="button"
-        onClick={() => setFormData({ ...formData, icon: opt.value })}
-        className={cn(
-          "p-3 rounded-lg border-2 transition-all",
-          formData.icon === opt.value
-            ? "border-primary bg-primary/10"
-            : "border-border hover:border-primary/50"
-        )}
-      >
-        <Icon className="w-5 h-5" />
-      </button>
-    );
-  })}
-</div>
-```
-
----
-
-## 8️⃣ زر Dark Mode سريع
-
-**الملف:** `src/components/layout/Layout.tsx` أو `Sidebar.tsx`
-
-### الإضافات:
-```tsx
-import { useTheme } from 'next-themes';
-
-// في الـ Header أو Sidebar
-<Button
-  variant="ghost"
-  size="icon"
-  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
->
-  {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-</Button>
-```
-
-**ملاحظة:** المشروع يستخدم `next-themes` بالفعل، فقط نحتاج إضافة الزر في مكان ظاهر.
-
----
-
-## 9️⃣ إصلاح الترجمة الناقصة
-
-**الملف:** `src/contexts/LanguageContext.tsx`
-
-### الإضافات المطلوبة:
+**المشكلة الجذرية:**
 ```typescript
-// ترجمات إضافية مفقودة
+// ❌ الكود الحالي - يستخدم localStorage (فارغ!)
+import { useServers, useLicenses, useEmployees, useTasks, useNetworks } from '@/hooks/useLocalStorage';
+```
+
+**الإصلاح - استخدام Supabase:**
+```typescript
+// ✅ الكود الصحيح
+import { 
+  useServers, 
+  useLicenses, 
+  useTasks, 
+  useProfiles, 
+  useNetworks, 
+  useDomains 
+} from '@/hooks/useSupabaseData';
+```
+
+**التغييرات المطلوبة:**
+
+### أ. تحديث الـ imports
+```typescript
+import { 
+  useServers, 
+  useLicenses, 
+  useTasks, 
+  useProfiles, 
+  useNetworks, 
+  useDomains 
+} from '@/hooks/useSupabaseData';
+```
+
+### ب. تحديث استخدام الـ hooks
+```typescript
+const { data: servers } = useServers();
+const { data: licenses } = useLicenses();
+const { data: profiles } = useProfiles(); // بدلاً من employees
+const { data: tasks } = useTasks();
+const { data: networks } = useNetworks();
+const { data: domains } = useDomains();
+```
+
+### ج. إضافة فلتر الدومين
+```typescript
+const [selectedDomainId, setSelectedDomainId] = useState<string>('');
+
+// فلترة البيانات حسب الدومين
+const filteredServers = useMemo(() => {
+  if (!selectedDomainId) return servers;
+  const domainNetworks = networks.filter(n => n.domain_id === selectedDomainId);
+  const networkIds = domainNetworks.map(n => n.id);
+  return servers.filter(s => networkIds.includes(s.network_id));
+}, [servers, networks, selectedDomainId]);
+
+const filteredLicenses = useMemo(() => {
+  if (!selectedDomainId) return licenses;
+  return licenses.filter(l => l.domain_id === selectedDomainId);
+}, [licenses, selectedDomainId]);
+```
+
+### د. تحديث دوال التصدير لتستخدم بنية البيانات الصحيحة
+```typescript
+// تحديث exportReport لتتوافق مع بنية Supabase
+const exportReport = (type: string) => {
+  let data: any[] = [];
+  let filename = '';
+
+  switch (type) {
+    case 'servers':
+      data = filteredServers.map((s) => ({
+        الاسم: s.name,
+        'عنوان IP': s.ip_address,
+        'نظام التشغيل': s.operating_system,
+        البيئة: t(`env.${s.environment}`),
+        الحالة: s.status === 'active' ? 'نشط' : 'غير نشط',
+        المسؤول: s.responsible_user,
+        الشبكة: networks.find(n => n.id === s.network_id)?.name || '',
+        ملاحظات: s.notes,
+      }));
+      filename = 'servers-report.xlsx';
+      break;
+    case 'licenses':
+      data = filteredLicenses.map((l) => ({
+        الاسم: l.name,
+        المورد: l.vendor,
+        'مفتاح الترخيص': l.license_key,
+        'تاريخ الشراء': l.purchase_date,
+        'تاريخ الانتهاء': l.expiry_date,
+        التكلفة: l.cost,
+        الكمية: l.quantity,
+        الحالة: l.status,
+      }));
+      filename = 'licenses-report.xlsx';
+      break;
+    case 'employees':
+      data = profiles.map((e) => ({
+        الاسم: e.full_name,
+        المنصب: e.position,
+        'البريد الإلكتروني': e.email,
+        القسم: e.department,
+        الدور: e.role === 'admin' ? 'مدير' : 'موظف',
+      }));
+      filename = 'employees-report.xlsx';
+      break;
+    case 'tasks':
+      data = tasks.map((t) => ({
+        العنوان: t.title,
+        الوصف: t.description,
+        المسؤول: profiles.find(p => p.id === t.assigned_to)?.full_name || '',
+        التكرار: t.frequency,
+        'تاريخ الاستحقاق': t.due_date,
+        الحالة: t(`tasks.${t.status}`),
+        الأولوية: t.priority,
+      }));
+      filename = 'tasks-report.xlsx';
+      break;
+    default:
+      return;
+  }
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, type);
+  XLSX.writeFile(wb, filename);
+  toast({ title: t('common.success'), description: `تم تصدير ${t(`nav.${type}`)}` });
+};
+```
+
+### هـ. إضافة واجهة فلتر الدومين
+```tsx
+{/* Domain Filter */}
+<Select value={selectedDomainId} onValueChange={setSelectedDomainId}>
+  <SelectTrigger className="w-[200px]">
+    <SelectValue placeholder={t('dashboard.allDomains')} />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="">جميع النطاقات</SelectItem>
+    {domains.map((d) => (
+      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+```
+
+---
+
+## 3️⃣ إصلاح الترجمة غير المكتملة
+
+**الملف:** `src/pages/Reports.tsx`
+
+**النصوص الـ Hardcoded التي تحتاج ترجمة:**
+```typescript
+// ❌ النصوص الحالية
+"Export Full Report"
+"Infrastructure Summary"
+"records"
+"Report"
+"Export"
+"Servers by Environment"
+"Tasks Status"
+
+// ✅ استخدام t()
+t('reports.exportFull')
+t('reports.infrastructureSummary')
+t('reports.records')
+t('reports.report')
+t('common.export')
+t('reports.serversByEnv')
+t('reports.tasksStatus')
+```
+
+**إضافة الترجمات في `LanguageContext.tsx`:**
+```typescript
 ar: {
-  // الإعدادات
-  'settings.general': 'عام',
-  'settings.mail': 'البريد',
-  'settings.ldap': 'LDAP',
-  'settings.ntp': 'NTP',
-  'settings.templates': 'القوالب',
-  'settings.appearance': 'المظهر',
-  'settings.darkMode': 'الوضع الداكن',
-  'settings.lightMode': 'الوضع الفاتح',
-  'settings.appNameAr': 'اسم التطبيق (عربي)',
-  'settings.appNameEn': 'اسم التطبيق (English)',
-  
-  // سجل العمليات
-  'auditLog.title': 'سجل العمليات',
-  'auditLog.unknownUser': 'مستخدم غير معروف',
-  'auditLog.create': 'إنشاء',
-  'auditLog.update': 'تحديث',
-  'auditLog.delete': 'حذف',
-  
-  // أخرى
-  'common.export': 'تصدير',
-  'common.import': 'استيراد',
-  'common.refresh': 'تحديث',
-  'common.settings': 'الإعدادات',
+  // Reports
+  'reports.exportFull': 'تصدير التقرير الكامل',
+  'reports.infrastructureSummary': 'ملخص البنية التحتية',
+  'reports.records': 'سجل',
+  'reports.report': 'تقرير',
+  'reports.serversByEnv': 'السيرفرات حسب البيئة',
+  'reports.tasksStatus': 'حالة المهام',
+  'reports.selectDomain': 'اختر النطاق',
+  'reports.allDomains': 'جميع النطاقات',
 },
-
 en: {
-  'settings.general': 'General',
-  'settings.mail': 'Mail',
-  'settings.ldap': 'LDAP',
-  'settings.ntp': 'NTP',
-  'settings.templates': 'Templates',
-  'settings.appearance': 'Appearance',
-  'settings.darkMode': 'Dark Mode',
-  'settings.lightMode': 'Light Mode',
-  'settings.appNameAr': 'App Name (Arabic)',
-  'settings.appNameEn': 'App Name (English)',
-  
-  'auditLog.title': 'Audit Log',
-  'auditLog.unknownUser': 'Unknown User',
-  'auditLog.create': 'Create',
-  'auditLog.update': 'Update',
-  'auditLog.delete': 'Delete',
-  
-  'common.export': 'Export',
-  'common.import': 'Import',
-  'common.refresh': 'Refresh',
-  'common.settings': 'Settings',
+  'reports.exportFull': 'Export Full Report',
+  'reports.infrastructureSummary': 'Infrastructure Summary',
+  'reports.records': 'records',
+  'reports.report': 'Report',
+  'reports.serversByEnv': 'Servers by Environment',
+  'reports.tasksStatus': 'Tasks Status',
+  'reports.selectDomain': 'Select Domain',
+  'reports.allDomains': 'All Domains',
 }
 ```
 
 ---
 
-## 🔟 سكربت PowerShell لاكتشاف السيرفرات
+## 4️⃣ إضافة خانة ترتيب الأقسام في الإعدادات
 
-**حل مقترح:** سكربت PowerShell يُنفذ محلياً على جهاز الأدمن ويُصدر ملف Excel
+**ملف جديد:** `src/components/settings/SectionOrderSettings.tsx`
 
-### الفكرة:
-1. تحميل سكربت PowerShell من الإعدادات
-2. تنفيذه على جهاز Windows مع صلاحيات Domain Admin
-3. السكربت يستعلم AD عن جميع الكمبيوترات (Servers)
-4. يُصدر ملف Excel بنفس قالب النظام
-5. رفع الملف للنظام عبر الاستيراد الذكي
+**الفكرة:**
+- قائمة بأقسام Dashboard قابلة للترتيب
+- أزرار ⬆️⬇️ لتحريك كل قسم
+- حفظ الترتيب في `app_settings`
 
-### السكربت المقترح:
-```powershell
-# IT-ServerDiscovery.ps1
-# Script to discover servers from Active Directory and export to Excel
+```tsx
+import React, { useState, useEffect } from 'react';
+import { useAppSettings } from '@/hooks/useSupabaseData';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowUp, ArrowDown, GripVertical, LayoutDashboard } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-param(
-    [string]$OutputPath = ".\ServerInventory.xlsx",
-    [string]$SearchBase = "", # Leave empty for entire domain
-    [switch]$IncludeWorkstations = $false
-)
-
-# Import required module
-Import-Module ActiveDirectory -ErrorAction Stop
-
-# Build filter for servers only
-$filter = if ($IncludeWorkstations) {
-    "OperatingSystem -like '*'"
-} else {
-    "OperatingSystem -like '*Server*'"
+interface Section {
+  id: string;
+  name: string;
+  enabled: boolean;
 }
 
-# Get computers from AD
-$computers = Get-ADComputer -Filter $filter -Properties `
-    Name, DNSHostName, IPv4Address, OperatingSystem, OperatingSystemVersion, `
-    Description, Enabled, LastLogonDate, Created, DistinguishedName
+const defaultSections: Section[] = [
+  { id: 'stats', name: 'الإحصائيات', enabled: true },
+  { id: 'webapps', name: 'تطبيقات الويب', enabled: true },
+  { id: 'tasks', name: 'المهام', enabled: true },
+  { id: 'progress', name: 'نسبة الإنجاز', enabled: true },
+];
 
-# Convert to export format matching system template
-$exportData = $computers | ForEach-Object {
-    [PSCustomObject]@{
-        'server_id'        = ''  # Empty for new servers
-        'name'             = $_.Name
-        'ip_address'       = $_.IPv4Address
-        'operating_system' = $_.OperatingSystem
-        'environment'      = 'production'  # Default, adjust manually
-        'status'           = if ($_.Enabled) { 'active' } else { 'inactive' }
-        'owner'            = ''
-        'responsible_user' = ''
-        'network_name'     = ($_.DistinguishedName -split ',DC=' | Select-Object -Skip 1) -join '.'
-        'cpu'              = ''
-        'ram'              = ''
-        'disk_space'       = ''
-        'notes'            = $_.Description
-        'last_logon'       = $_.LastLogonDate
+const SectionOrderSettings: React.FC = () => {
+  const { getSetting, updateSetting } = useAppSettings();
+  const { toast } = useToast();
+  const [sections, setSections] = useState<Section[]>(defaultSections);
+
+  useEffect(() => {
+    const loadOrder = async () => {
+      const saved = await getSetting('dashboard_order');
+      if (saved) {
+        try {
+          setSections(JSON.parse(saved));
+        } catch (e) {
+          console.error('Failed to parse dashboard order');
+        }
+      }
+    };
+    loadOrder();
+  }, [getSetting]);
+
+  const moveSection = (index: number, direction: 'up' | 'down') => {
+    const newSections = [...sections];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    if (targetIndex < 0 || targetIndex >= sections.length) return;
+    
+    [newSections[index], newSections[targetIndex]] = 
+    [newSections[targetIndex], newSections[index]];
+    
+    setSections(newSections);
+  };
+
+  const handleSave = async () => {
+    const success = await updateSetting('dashboard_order', JSON.stringify(sections));
+    if (success) {
+      toast({ title: 'تم الحفظ', description: 'تم حفظ ترتيب الأقسام' });
+    } else {
+      toast({ title: 'خطأ', description: 'فشل حفظ الترتيب', variant: 'destructive' });
     }
-}
+  };
 
-# Export to Excel (requires ImportExcel module)
-if (Get-Module -ListAvailable -Name ImportExcel) {
-    $exportData | Export-Excel -Path $OutputPath -AutoSize -TableName "Servers" -WorksheetName "Data"
-    Write-Host "Exported $($exportData.Count) servers to $OutputPath" -ForegroundColor Green
-} else {
-    # Fallback to CSV if ImportExcel not installed
-    $csvPath = $OutputPath -replace '\.xlsx$', '.csv'
-    $exportData | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
-    Write-Host "ImportExcel module not found. Exported to CSV: $csvPath" -ForegroundColor Yellow
-    Write-Host "Install ImportExcel: Install-Module ImportExcel -Scope CurrentUser" -ForegroundColor Cyan
-}
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <LayoutDashboard className="w-5 h-5" />
+          ترتيب أقسام لوحة التحكم
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          {sections.map((section, index) => (
+            <div 
+              key={section.id}
+              className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30"
+            >
+              <GripVertical className="w-4 h-4 text-muted-foreground" />
+              <span className="flex-1">{section.name}</span>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => moveSection(index, 'up')}
+                  disabled={index === 0}
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => moveSection(index, 'down')}
+                  disabled={index === sections.length - 1}
+                >
+                  <ArrowDown className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <Button onClick={handleSave} className="w-full">
+          حفظ الترتيب
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default SectionOrderSettings;
 ```
 
-**إضافة في الإعدادات:**
-- زر "تحميل سكربت اكتشاف السيرفرات"
-- تعليمات التشغيل
+**تحديث Settings.tsx:**
+- إضافة تبويب جديد "التخصيص" أو دمجه في "عام"
+- عرض `SectionOrderSettings` component
 
 ---
 
-## 1️⃣1️⃣ تحسينات إضافية للإعدادات
+## 5️⃣ تحسينات إضافية للموظفين
 
-### أ. إعدادات الجلسة
-```
-- مدة انتهاء الجلسة: [30 دقيقة ▼]
-- تذكرني (افتراضي): [✓]
-```
+### أ. لوحة تحكم الموظف الشخصية
+- عرض مهامه المسندة
+- عرض إجازاته المعتمدة والمعلقة
+- عرض تقاريره المرفوعة
 
-### ب. إعدادات التنبيهات
-```
-- تنبيه انتهاء الترخيص قبل: [30 ▼] يوم
-- تنبيه المهام المتأخرة: [✓]
-```
+### ب. إشعارات تلقائية
+- عند اقتراب انتهاء ترخيص
+- عند تأخر مهمة
+- عند الموافقة/رفض إجازة
 
-### ج. إعدادات العرض
-```
-- عدد العناصر في الصفحة: [20 ▼]
-- Dark Mode: [Toggle]
-```
-
-### د. تصدير البيانات
-```
-- تصدير جميع البيانات: [JSON]
-- تصدير السيرفرات: [Excel]
-- تصدير التراخيص: [Excel]
-```
+### ج. تقرير أداء الموظف
+- نسبة إنجاز المهام
+- عدد الإجازات المستخدمة
+- التقارير المرفوعة
 
 ---
 
-## الملفات المطلوب إنشاؤها/تعديلها
+## الملفات المطلوب تعديلها
 
-```
-إنشاء ملفات جديدة:
-├── src/components/settings/SectionOrderSettings.tsx
-├── src/components/settings/DisplaySettings.tsx
-├── public/scripts/IT-ServerDiscovery.ps1
-
-تعديل ملفات موجودة:
-├── src/pages/Tasks.tsx              → فلتر الفريق + تصدير
-├── src/pages/Login.tsx              → حذف رابط التسجيل
-├── src/pages/Settings.tsx           → اسم ثنائي + ترتيب + تحسينات
-├── src/pages/WebApps.tsx            → 40+ أيقونة
-├── src/hooks/useSupabaseData.ts     → إصلاح فلتر + audit log
-├── src/contexts/LanguageContext.tsx → ترجمات إضافية
-├── src/components/layout/Sidebar.tsx → زر Dark Mode
-```
+| الملف | التغيير | الأولوية |
+|-------|---------|----------|
+| `src/pages/Reports.tsx` | تحويل من localStorage إلى Supabase + فلتر دومين | 🔴 Critical |
+| `src/pages/Vacations.tsx` | إصلاح AbortError + إضافة validation | 🔴 Critical |
+| `src/contexts/LanguageContext.tsx` | إضافة ترجمات التقارير | 🟡 Medium |
+| `src/pages/Settings.tsx` | إضافة قسم ترتيب الخانات | 🟢 Feature |
+| `src/components/settings/SectionOrderSettings.tsx` | إنشاء جديد | 🟢 Feature |
 
 ---
 
 ## ترتيب التنفيذ
 
-| الخطوة | المهمة | الأولوية |
-|--------|--------|----------|
-| 1 | إصلاح sجل العمليات (user_id) | 🔴 Critical |
-| 2 | إصلاح فلتر الدومين في Dashboard | 🔴 Critical |
-| 3 | حذف رابط التسجيل من Login | 🔴 High |
-| 4 | متابعة مهام الفريق + تصدير | 🔴 High |
-| 5 | إصلاح الترجمة الناقصة | 🟡 Medium |
-| 6 | زر Dark Mode سريع | 🟡 Medium |
-| 7 | توسيع الأيقونات (40+) | 🟡 Medium |
-| 8 | اسم التطبيق بلغتين | 🟡 Medium |
-| 9 | سكربت PowerShell | 🟢 Feature |
-| 10 | ترتيب خانات Dashboard | 🟢 Optional |
-| 11 | تحسينات الإعدادات الإضافية | 🟢 Optional |
+1. **إصلاح صفحة التقارير** - تحويل إلى Supabase (الأهم)
+2. **إصلاح خطأ الإجازات** - AbortError
+3. **إضافة فلتر الدومين** للتقارير
+4. **إكمال الترجمات** الناقصة
+5. **إضافة ترتيب الخانات** في الإعدادات
+6. **تحسينات إضافية** (اختياري)
 
 ---
 
 ## النتيجة المتوقعة
 
 بعد التنفيذ:
-
-- **سجل العمليات يعمل** - يظهر اسم المستخدم الفعلي
-- **فلتر الدومين صحيح** - الرخص والسيرفرات تتغير حسب الدومين
-- **صفحة الدخول آمنة** - بدون رابط تسجيل عام
-- **متابعة المهام** - المدير يرى كل مهام الفريق + تصدير
-- **Dark Mode سريع** - زر تبديل في الواجهة
-- **الترجمة كاملة** - كل النصوص تتغير حسب اللغة
-- **40+ أيقونة** - خيارات واسعة لتطبيقات الويب
-- **اسم مخصص** - عربي وإنجليزي
-- **سكربت اكتشاف** - PowerShell لجمع السيرفرات من AD
+- ✅ صفحة التقارير تعرض البيانات الفعلية من Supabase
+- ✅ إضافة الإجازات تعمل بدون أخطاء
+- ✅ فلتر الدومين يعمل في التقارير
+- ✅ جميع النصوص تتغير عند تغيير اللغة
+- ✅ إمكانية ترتيب أقسام لوحة التحكم
+- ✅ تصدير التقارير يعمل بشكل صحيح
