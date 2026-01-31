@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEmployees, useServers } from '@/hooks/useLocalStorage';
-import { Employee, Vacation, Training } from '@/types';
+import { Employee, Vacation, Training, YearlyGoal } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +22,9 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Edit, Trash2, User, Calendar, GraduationCap, Server, Mail, Phone } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
+import { Plus, Search, Edit, Trash2, User, Calendar, GraduationCap, Server, Mail, Phone, Award, Target, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -48,6 +50,20 @@ const Employees: React.FC = () => {
     trainings: [],
     assignedServerIds: [],
     status: 'active',
+    skills: [],
+    certifications: [],
+    yearlyGoals: [],
+  });
+
+  const [skillsInput, setSkillsInput] = useState('');
+  const [certsInput, setCertsInput] = useState('');
+
+  const [goalForm, setGoalForm] = useState<Partial<YearlyGoal>>({
+    title: '',
+    description: '',
+    year: new Date().getFullYear(),
+    status: 'not-started',
+    progress: 0,
   });
 
   const [vacationForm, setVacationForm] = useState<Partial<Vacation>>({
@@ -106,6 +122,9 @@ const Employees: React.FC = () => {
         assignedServerIds: formData.assignedServerIds || [],
         status: formData.status || 'active',
         createdAt: now,
+        skills: skillsInput ? skillsInput.split(',').map(s => s.trim()).filter(Boolean) : [],
+        certifications: certsInput ? certsInput.split(',').map(s => s.trim()).filter(Boolean) : [],
+        yearlyGoals: [],
       };
       setEmployees([...employees, newEmployee]);
       toast({ title: t('common.success'), description: 'Employee added' });
@@ -185,6 +204,82 @@ const Employees: React.FC = () => {
     toast({ title: t('common.success'), description: 'Training added' });
   };
 
+  const handleAddGoal = () => {
+    if (!selectedEmployee || !goalForm.title) return;
+
+    const newGoal: YearlyGoal = {
+      id: crypto.randomUUID(),
+      title: goalForm.title,
+      description: goalForm.description,
+      year: goalForm.year || new Date().getFullYear(),
+      status: goalForm.status as YearlyGoal['status'] || 'not-started',
+      progress: goalForm.progress || 0,
+    };
+
+    const updatedGoals = [...(selectedEmployee.yearlyGoals || []), newGoal];
+    
+    setEmployees(employees.map((e) =>
+      e.id === selectedEmployee.id
+        ? { ...e, yearlyGoals: updatedGoals }
+        : e
+    ));
+
+    setSelectedEmployee({
+      ...selectedEmployee,
+      yearlyGoals: updatedGoals,
+    });
+
+    setGoalForm({
+      title: '',
+      description: '',
+      year: new Date().getFullYear(),
+      status: 'not-started',
+      progress: 0,
+    });
+
+    toast({ title: t('common.success'), description: 'Goal added' });
+  };
+
+  const handleUpdateGoalProgress = (goalId: string, progress: number) => {
+    if (!selectedEmployee) return;
+
+    const updatedGoals = (selectedEmployee.yearlyGoals || []).map((g) =>
+      g.id === goalId
+        ? { ...g, progress, status: progress >= 100 ? 'completed' as const : progress > 0 ? 'in-progress' as const : 'not-started' as const }
+        : g
+    );
+
+    setEmployees(employees.map((e) =>
+      e.id === selectedEmployee.id
+        ? { ...e, yearlyGoals: updatedGoals }
+        : e
+    ));
+
+    setSelectedEmployee({
+      ...selectedEmployee,
+      yearlyGoals: updatedGoals,
+    });
+  };
+
+  const handleDeleteGoal = (goalId: string) => {
+    if (!selectedEmployee) return;
+
+    const updatedGoals = (selectedEmployee.yearlyGoals || []).filter((g) => g.id !== goalId);
+
+    setEmployees(employees.map((e) =>
+      e.id === selectedEmployee.id
+        ? { ...e, yearlyGoals: updatedGoals }
+        : e
+    ));
+
+    setSelectedEmployee({
+      ...selectedEmployee,
+      yearlyGoals: updatedGoals,
+    });
+
+    toast({ title: t('common.success'), description: 'Goal deleted' });
+  };
+
   const handleEdit = (employee: Employee) => {
     setEditingEmployee(employee);
     setFormData(employee);
@@ -209,7 +304,20 @@ const Employees: React.FC = () => {
       trainings: [],
       assignedServerIds: [],
       status: 'active',
+      skills: [],
+      certifications: [],
+      yearlyGoals: [],
     });
+    setSkillsInput('');
+    setCertsInput('');
+  };
+
+  const getGoalStatusColor = (status: YearlyGoal['status']) => {
+    return {
+      'not-started': 'bg-muted text-muted-foreground border-border',
+      'in-progress': 'bg-warning/10 text-warning border-warning/20',
+      'completed': 'bg-success/10 text-success border-success/20',
+    }[status];
   };
 
   const getVacationTypeColor = (type: Vacation['type']) => {
@@ -318,6 +426,24 @@ const Employees: React.FC = () => {
                   </Select>
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label>Skills (comma separated)</Label>
+                <Textarea
+                  value={skillsInput}
+                  onChange={(e) => setSkillsInput(e.target.value)}
+                  placeholder="Windows Server, Linux, VMware, Networking..."
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Certifications (comma separated)</Label>
+                <Textarea
+                  value={certsInput}
+                  onChange={(e) => setCertsInput(e.target.value)}
+                  placeholder="MCSA, CCNA, VCP, AWS Solutions Architect..."
+                  rows={2}
+                />
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -383,6 +509,12 @@ const Employees: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    {employee.yearlyGoals && employee.yearlyGoals.length > 0 && (
+                      <Badge variant="outline" className="text-xs bg-accent/10 border-accent/20">
+                        <Target className="w-3 h-3 me-1" />
+                        {employee.yearlyGoals.length} Goals
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="text-xs">
                       <Calendar className="w-3 h-3 me-1" />
                       {employee.vacations.length} {t('employees.vacations')}
@@ -396,6 +528,22 @@ const Employees: React.FC = () => {
                       {assignedServers.length} {t('nav.servers')}
                     </Badge>
                   </div>
+
+                  {/* Skills preview */}
+                  {employee.skills && employee.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {employee.skills.slice(0, 3).map((skill, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                      {employee.skills.length > 3 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{employee.skills.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-2 pt-2 border-t">
                     <Button
@@ -436,11 +584,176 @@ const Employees: React.FC = () => {
           <DialogHeader>
             <DialogTitle>{selectedEmployee?.name}</DialogTitle>
           </DialogHeader>
-          <Tabs defaultValue="vacations">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs defaultValue="goals">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="goals" className="gap-1">
+                <Target className="w-3 h-3" />
+                Goals
+              </TabsTrigger>
               <TabsTrigger value="vacations">{t('employees.vacations')}</TabsTrigger>
               <TabsTrigger value="trainings">{t('employees.trainings')}</TabsTrigger>
             </TabsList>
+
+            {/* Goals Tab */}
+            <TabsContent value="goals" className="space-y-4">
+              {/* Skills & Certifications */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Award className="w-4 h-4" />
+                    Skills & Certifications
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {selectedEmployee?.skills && selectedEmployee.skills.length > 0 && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Skills</Label>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {selectedEmployee.skills.map((skill, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            <Star className="w-2.5 h-2.5 me-1" />
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {selectedEmployee?.certifications && selectedEmployee.certifications.length > 0 && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Certifications</Label>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {selectedEmployee.certifications.map((cert, idx) => (
+                          <Badge key={idx} className="text-xs bg-accent/10 text-accent border-accent/20">
+                            <Award className="w-2.5 h-2.5 me-1" />
+                            {cert}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(!selectedEmployee?.skills || selectedEmployee.skills.length === 0) &&
+                   (!selectedEmployee?.certifications || selectedEmployee.certifications.length === 0) && (
+                    <p className="text-sm text-muted-foreground text-center py-2">No skills or certifications added yet</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Add Goal Form */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Add Yearly Goal</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Goal Title *</Label>
+                      <Input
+                        value={goalForm.title}
+                        onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
+                        placeholder="Complete AWS certification"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Year</Label>
+                      <Select
+                        value={String(goalForm.year)}
+                        onValueChange={(value) => setGoalForm({ ...goalForm, year: parseInt(value) })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={String(new Date().getFullYear())}>{new Date().getFullYear()}</SelectItem>
+                          <SelectItem value={String(new Date().getFullYear() + 1)}>{new Date().getFullYear() + 1}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Initial Status</Label>
+                      <Select
+                        value={goalForm.status}
+                        onValueChange={(value) => setGoalForm({ ...goalForm, status: value as YearlyGoal['status'] })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="not-started">Not Started</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Description</Label>
+                    <Textarea
+                      value={goalForm.description}
+                      onChange={(e) => setGoalForm({ ...goalForm, description: e.target.value })}
+                      rows={2}
+                      placeholder="Describe the goal..."
+                    />
+                  </div>
+                  <Button size="sm" onClick={handleAddGoal} disabled={!goalForm.title}>
+                    <Plus className="w-4 h-4 me-1" />
+                    Add Goal
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Goals List */}
+              <div className="space-y-3">
+                {(selectedEmployee?.yearlyGoals || []).length > 0 ? (
+                  selectedEmployee?.yearlyGoals?.map((goal) => (
+                    <Card key={goal.id} className={cn('border', getGoalStatusColor(goal.status))}>
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-xs">{goal.year}</Badge>
+                              <h4 className="font-medium text-sm">{goal.title}</h4>
+                            </div>
+                            {goal.description && (
+                              <p className="text-xs text-muted-foreground">{goal.description}</p>
+                            )}
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => handleDeleteGoal(goal.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span>Progress</span>
+                            <span className="font-medium">{goal.progress}%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Progress value={goal.progress} className="h-2 flex-1" />
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={goal.progress}
+                              onChange={(e) => handleUpdateGoalProgress(goal.id, parseInt(e.target.value) || 0)}
+                              className="w-16 h-7 text-xs"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No yearly goals set</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
             <TabsContent value="vacations" className="space-y-4">
               {/* Add Vacation Form */}
