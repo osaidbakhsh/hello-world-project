@@ -39,6 +39,7 @@ export type Database = {
         Row: {
           action: string
           created_at: string
+          entity_name: string | null
           id: string
           ip_address: string | null
           new_data: Json | null
@@ -51,6 +52,7 @@ export type Database = {
         Insert: {
           action: string
           created_at?: string
+          entity_name?: string | null
           id?: string
           ip_address?: string | null
           new_data?: Json | null
@@ -63,6 +65,7 @@ export type Database = {
         Update: {
           action?: string
           created_at?: string
+          entity_name?: string | null
           id?: string
           ip_address?: string | null
           new_data?: Json | null
@@ -386,6 +389,33 @@ export type Database = {
           },
         ]
       }
+      on_call_schedules: {
+        Row: {
+          created_at: string | null
+          current_index: number | null
+          id: string
+          name: string
+          rotation_type: string | null
+          team_members: string[] | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_index?: number | null
+          id?: string
+          name: string
+          rotation_type?: string | null
+          team_members?: string[] | null
+        }
+        Update: {
+          created_at?: string | null
+          current_index?: number | null
+          id?: string
+          name?: string
+          rotation_type?: string | null
+          team_members?: string[] | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           certifications: string[] | null
@@ -494,8 +524,138 @@ export type Database = {
           },
         ]
       }
+      scan_jobs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          domain_id: string | null
+          finished_at: string | null
+          id: string
+          ip_range: string
+          name: string
+          network_id: string | null
+          scan_mode: string | null
+          started_at: string | null
+          status: string | null
+          summary: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string | null
+          finished_at?: string | null
+          id?: string
+          ip_range: string
+          name: string
+          network_id?: string | null
+          scan_mode?: string | null
+          started_at?: string | null
+          status?: string | null
+          summary?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string | null
+          finished_at?: string | null
+          id?: string
+          ip_range?: string
+          name?: string
+          network_id?: string | null
+          scan_mode?: string | null
+          started_at?: string | null
+          status?: string | null
+          summary?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_jobs_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_jobs_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "networks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scan_results: {
+        Row: {
+          created_at: string | null
+          device_type: string | null
+          hostname: string | null
+          id: string
+          ip_address: string
+          is_imported: boolean | null
+          last_seen: string | null
+          mac_address: string | null
+          open_ports: string[] | null
+          os_type: string | null
+          os_version: string | null
+          raw_data: Json | null
+          scan_job_id: string | null
+          vendor: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          device_type?: string | null
+          hostname?: string | null
+          id?: string
+          ip_address: string
+          is_imported?: boolean | null
+          last_seen?: string | null
+          mac_address?: string | null
+          open_ports?: string[] | null
+          os_type?: string | null
+          os_version?: string | null
+          raw_data?: Json | null
+          scan_job_id?: string | null
+          vendor?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          device_type?: string | null
+          hostname?: string | null
+          id?: string
+          ip_address?: string
+          is_imported?: boolean | null
+          last_seen?: string | null
+          mac_address?: string | null
+          open_ports?: string[] | null
+          os_type?: string | null
+          os_version?: string | null
+          raw_data?: Json | null
+          scan_job_id?: string | null
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_results_scan_job_id_fkey"
+            columns: ["scan_job_id"]
+            isOneToOne: false
+            referencedRelation: "scan_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       servers: {
         Row: {
+          backup_frequency: string | null
+          backup_job_name: string | null
+          beneficiary_department: string | null
+          business_owner: string | null
           cpu: string | null
           created_at: string | null
           created_by: string | null
@@ -503,17 +663,25 @@ export type Database = {
           environment: string | null
           id: string
           ip_address: string | null
+          is_backed_up_by_veeam: boolean | null
+          last_backup_date: string | null
+          last_backup_status: string | null
           name: string
           network_id: string | null
           notes: string | null
           operating_system: string | null
           owner: string | null
+          primary_application: string | null
           ram: string | null
           responsible_user: string | null
           status: string | null
           updated_at: string | null
         }
         Insert: {
+          backup_frequency?: string | null
+          backup_job_name?: string | null
+          beneficiary_department?: string | null
+          business_owner?: string | null
           cpu?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -521,17 +689,25 @@ export type Database = {
           environment?: string | null
           id?: string
           ip_address?: string | null
+          is_backed_up_by_veeam?: boolean | null
+          last_backup_date?: string | null
+          last_backup_status?: string | null
           name: string
           network_id?: string | null
           notes?: string | null
           operating_system?: string | null
           owner?: string | null
+          primary_application?: string | null
           ram?: string | null
           responsible_user?: string | null
           status?: string | null
           updated_at?: string | null
         }
         Update: {
+          backup_frequency?: string | null
+          backup_job_name?: string | null
+          beneficiary_department?: string | null
+          business_owner?: string | null
           cpu?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -539,11 +715,15 @@ export type Database = {
           environment?: string | null
           id?: string
           ip_address?: string | null
+          is_backed_up_by_veeam?: boolean | null
+          last_backup_date?: string | null
+          last_backup_status?: string | null
           name?: string
           network_id?: string | null
           notes?: string | null
           operating_system?: string | null
           owner?: string | null
+          primary_application?: string | null
           ram?: string | null
           responsible_user?: string | null
           status?: string | null
@@ -566,51 +746,186 @@ export type Database = {
           },
         ]
       }
+      task_comments: {
+        Row: {
+          attachments: Json | null
+          author_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          task_id: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          author_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          task_id?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          author_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_templates: {
+        Row: {
+          checklist: Json | null
+          created_at: string | null
+          created_by: string | null
+          default_assignee_id: string | null
+          description: string | null
+          frequency: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          priority: string | null
+        }
+        Insert: {
+          checklist?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          default_assignee_id?: string | null
+          description?: string | null
+          frequency?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          priority?: string | null
+        }
+        Update: {
+          checklist?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          default_assignee_id?: string | null
+          description?: string | null
+          frequency?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          priority?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_templates_default_assignee_id_fkey"
+            columns: ["default_assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string | null
+          checklist: Json | null
           completed_at: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
           due_date: string | null
+          evidence: Json | null
           frequency: string | null
           id: string
+          linked_license_id: string | null
+          linked_network_id: string | null
+          linked_server_id: string | null
+          parent_task_id: string | null
           priority: string | null
+          requester_id: string | null
+          reviewer_id: string | null
           server_id: string | null
+          sla_breached: boolean | null
+          sla_resolve_hours: number | null
+          sla_response_hours: number | null
           status: string | null
+          task_status: string | null
           title: string
           updated_at: string | null
+          watchers: string[] | null
         }
         Insert: {
           assigned_to?: string | null
+          checklist?: Json | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           due_date?: string | null
+          evidence?: Json | null
           frequency?: string | null
           id?: string
+          linked_license_id?: string | null
+          linked_network_id?: string | null
+          linked_server_id?: string | null
+          parent_task_id?: string | null
           priority?: string | null
+          requester_id?: string | null
+          reviewer_id?: string | null
           server_id?: string | null
+          sla_breached?: boolean | null
+          sla_resolve_hours?: number | null
+          sla_response_hours?: number | null
           status?: string | null
+          task_status?: string | null
           title: string
           updated_at?: string | null
+          watchers?: string[] | null
         }
         Update: {
           assigned_to?: string | null
+          checklist?: Json | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           due_date?: string | null
+          evidence?: Json | null
           frequency?: string | null
           id?: string
+          linked_license_id?: string | null
+          linked_network_id?: string | null
+          linked_server_id?: string | null
+          parent_task_id?: string | null
           priority?: string | null
+          requester_id?: string | null
+          reviewer_id?: string | null
           server_id?: string | null
+          sla_breached?: boolean | null
+          sla_resolve_hours?: number | null
+          sla_response_hours?: number | null
           status?: string | null
+          task_status?: string | null
           title?: string
           updated_at?: string | null
+          watchers?: string[] | null
         }
         Relationships: [
           {
@@ -623,6 +938,48 @@ export type Database = {
           {
             foreignKeyName: "tasks_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_linked_license_id_fkey"
+            columns: ["linked_license_id"]
+            isOneToOne: false
+            referencedRelation: "licenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_linked_network_id_fkey"
+            columns: ["linked_network_id"]
+            isOneToOne: false
+            referencedRelation: "networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_linked_server_id_fkey"
+            columns: ["linked_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_reviewer_id_fkey"
+            columns: ["reviewer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

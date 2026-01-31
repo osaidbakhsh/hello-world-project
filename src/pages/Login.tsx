@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Server, Loader2, Eye, EyeOff } from 'lucide-react';
@@ -14,6 +15,7 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { signIn, user, profile, isLoading: authLoading } = useAuth();
   const { t, dir } = useLanguage();
@@ -33,13 +35,13 @@ const Login: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await signIn(email, password, rememberMe);
 
       if (error) {
         toast({
           title: t('common.error'),
           description: error.message === 'Invalid login credentials' 
-            ? 'بيانات تسجيل الدخول غير صحيحة' 
+            ? t('auth.invalidCredentials')
             : error.message,
           variant: 'destructive',
         });
@@ -47,7 +49,7 @@ const Login: React.FC = () => {
       } else {
         toast({
           title: t('common.success'),
-          description: 'تم تسجيل الدخول بنجاح',
+          description: t('auth.loginSuccess'),
         });
         // Do not navigate immediately; wait for AuthContext to finish loading profile.
       }
@@ -128,6 +130,19 @@ const Login: React.FC = () => {
                 </Button>
               </div>
             </div>
+            
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="remember"
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked === true)}
+              />
+              <Label htmlFor="remember" className="text-sm cursor-pointer">
+                {t('auth.rememberMe')}
+              </Label>
+            </div>
+            
             <Button
               type="submit"
               className="w-full"
@@ -136,10 +151,10 @@ const Login: React.FC = () => {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                  جارٍ تسجيل الدخول...
+                  {t('auth.loggingIn')}
                 </>
               ) : (
-                'تسجيل الدخول'
+                t('auth.login')
               )}
             </Button>
           </form>

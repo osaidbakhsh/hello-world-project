@@ -9,7 +9,7 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAdmin: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string, role?: 'admin' | 'employee') => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -23,7 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 7000): Promise<T> => {
+  const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 12000): Promise<T> => {
     let timeoutId: number | undefined;
     const timeout = new Promise<T>((_, reject) => {
       timeoutId = window.setTimeout(() => reject(new Error('Auth request timeout')), ms);
@@ -107,10 +107,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error('Auth init safety timeout hit — forcing isLoading=false');
           setIsLoading(false);
         }
-      }, 8000);
+      }, 15000); // Increased from 8s to 15s for more stability
 
       try {
-        const { data: { session: initialSession } } = await withTimeout(supabase.auth.getSession(), 7000);
+        const { data: { session: initialSession } } = await withTimeout(supabase.auth.getSession(), 12000);
         
         if (!isMounted) return;
         
@@ -173,8 +173,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe = true) => {
     try {
+      // If not remembering, set session storage flag
+      if (!rememberMe) {
+        sessionStorage.setItem('session-only', 'true');
+      } else {
+        sessionStorage.removeItem('session-only');
+      }
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,

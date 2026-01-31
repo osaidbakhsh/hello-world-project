@@ -51,6 +51,14 @@ interface ServerFormData {
   cpu: string;
   ram: string;
   disk_space: string;
+  // New fields - Beneficiary
+  beneficiary_department: string;
+  primary_application: string;
+  business_owner: string;
+  // New fields - Veeam Backup
+  is_backed_up_by_veeam: boolean;
+  backup_frequency: string;
+  backup_job_name: string;
 }
 
 const initialFormData: ServerFormData = {
@@ -66,6 +74,14 @@ const initialFormData: ServerFormData = {
   cpu: '',
   ram: '',
   disk_space: '',
+  // New fields - Beneficiary
+  beneficiary_department: '',
+  primary_application: '',
+  business_owner: '',
+  // New fields - Veeam Backup
+  is_backed_up_by_veeam: false,
+  backup_frequency: 'none',
+  backup_job_name: '',
 };
 
 const Servers: React.FC = () => {
@@ -93,6 +109,7 @@ const Servers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [envFilter, setEnvFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [backupFilter, setBackupFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,12 +134,17 @@ const Servers: React.FC = () => {
       const matchesSearch =
         server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (server.ip_address || '').includes(searchQuery) ||
-        (server.notes || '').toLowerCase().includes(searchQuery.toLowerCase());
+        (server.notes || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ((server as any).beneficiary_department || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ((server as any).primary_application || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesEnv = envFilter === 'all' || server.environment === envFilter;
       const matchesStatus = statusFilter === 'all' || server.status === statusFilter;
-      return matchesSearch && matchesEnv && matchesStatus;
+      const matchesBackup = backupFilter === 'all' || 
+        (backupFilter === 'yes' && (server as any).is_backed_up_by_veeam === true) ||
+        (backupFilter === 'no' && (!(server as any).is_backed_up_by_veeam));
+      return matchesSearch && matchesEnv && matchesStatus && matchesBackup;
     });
-  }, [servers, networks, selectedDomainId, selectedNetworkId, searchQuery, envFilter, statusFilter]);
+  }, [servers, networks, selectedDomainId, selectedNetworkId, searchQuery, envFilter, statusFilter, backupFilter]);
 
   // Apply sorting
   const sortedServers = useMemo(() => {
@@ -142,38 +164,34 @@ const Servers: React.FC = () => {
     setIsSubmitting(true);
     
     try {
+      const serverData = {
+        name: formData.name,
+        ip_address: formData.ip_address,
+        operating_system: formData.operating_system,
+        environment: formData.environment,
+        owner: formData.owner,
+        responsible_user: formData.responsible_user,
+        notes: formData.notes,
+        network_id: formData.network_id || null,
+        status: formData.status,
+        cpu: formData.cpu,
+        ram: formData.ram,
+        disk_space: formData.disk_space,
+        // New fields
+        beneficiary_department: formData.beneficiary_department || null,
+        primary_application: formData.primary_application || null,
+        business_owner: formData.business_owner || null,
+        is_backed_up_by_veeam: formData.is_backed_up_by_veeam,
+        backup_frequency: formData.backup_frequency,
+        backup_job_name: formData.backup_job_name || null,
+      };
+
       if (editingServer) {
-        const { error } = await updateServer(editingServer.id, {
-          name: formData.name,
-          ip_address: formData.ip_address,
-          operating_system: formData.operating_system,
-          environment: formData.environment,
-          owner: formData.owner,
-          responsible_user: formData.responsible_user,
-          notes: formData.notes,
-          network_id: formData.network_id || null,
-          status: formData.status,
-          cpu: formData.cpu,
-          ram: formData.ram,
-          disk_space: formData.disk_space,
-        });
+        const { error } = await updateServer(editingServer.id, serverData);
         if (error) throw error;
         toast({ title: t('common.success'), description: 'Server updated' });
       } else {
-        const { error } = await createServer({
-          name: formData.name,
-          ip_address: formData.ip_address,
-          operating_system: formData.operating_system,
-          environment: formData.environment,
-          owner: formData.owner,
-          responsible_user: formData.responsible_user,
-          notes: formData.notes,
-          network_id: formData.network_id || null,
-          status: formData.status,
-          cpu: formData.cpu,
-          ram: formData.ram,
-          disk_space: formData.disk_space,
-        });
+        const { error } = await createServer(serverData);
         if (error) throw error;
         toast({ title: t('common.success'), description: 'Server added' });
       }
@@ -198,15 +216,22 @@ const Servers: React.FC = () => {
       name: server.name,
       ip_address: server.ip_address || '',
       operating_system: server.operating_system || 'Windows Server 2022',
-      environment: server.environment,
+      environment: server.environment || 'production',
       owner: server.owner || '',
       responsible_user: server.responsible_user || '',
       notes: server.notes || '',
       network_id: server.network_id || '',
-      status: server.status,
+      status: server.status || 'active',
       cpu: server.cpu || '',
       ram: server.ram || '',
       disk_space: server.disk_space || '',
+      // New fields
+      beneficiary_department: (server as any).beneficiary_department || '',
+      primary_application: (server as any).primary_application || '',
+      business_owner: (server as any).business_owner || '',
+      is_backed_up_by_veeam: (server as any).is_backed_up_by_veeam || false,
+      backup_frequency: (server as any).backup_frequency || 'none',
+      backup_job_name: (server as any).backup_job_name || '',
     });
     setIsDialogOpen(true);
   };
@@ -477,6 +502,86 @@ const Servers: React.FC = () => {
                     placeholder="500 GB"
                   />
                 </div>
+
+                {/* Beneficiary Section */}
+                <div className="md:col-span-2 border-t pt-4 mt-2">
+                  <h4 className="font-medium mb-3">{t('servers.beneficiary')}</h4>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.beneficiary')}</Label>
+                  <Input
+                    value={formData.beneficiary_department}
+                    onChange={(e) => setFormData({ ...formData, beneficiary_department: e.target.value })}
+                    placeholder="e.g., Mechanical Department"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.primaryApp')}</Label>
+                  <Input
+                    value={formData.primary_application}
+                    onChange={(e) => setFormData({ ...formData, primary_application: e.target.value })}
+                    placeholder="e.g., SolidWorks, SAP"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.businessOwner')}</Label>
+                  <Input
+                    value={formData.business_owner}
+                    onChange={(e) => setFormData({ ...formData, business_owner: e.target.value })}
+                    placeholder="e.g., John Doe"
+                  />
+                </div>
+
+                {/* Veeam Backup Section */}
+                <div className="md:col-span-2 border-t pt-4 mt-2">
+                  <h4 className="font-medium mb-3">{t('servers.veeamBackup')}</h4>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.isBackedUp')}</Label>
+                  <Select
+                    value={formData.is_backed_up_by_veeam ? 'yes' : 'no'}
+                    onValueChange={(value) => setFormData({ 
+                      ...formData, 
+                      is_backed_up_by_veeam: value === 'yes',
+                      backup_frequency: value === 'no' ? 'none' : formData.backup_frequency === 'none' ? 'daily' : formData.backup_frequency
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="yes">{t('common.yes')}</SelectItem>
+                      <SelectItem value="no">{t('common.no')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.backupFrequency')}</Label>
+                  <Select
+                    value={formData.backup_frequency}
+                    onValueChange={(value) => setFormData({ ...formData, backup_frequency: value })}
+                    disabled={!formData.is_backed_up_by_veeam}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t('servers.backupNone')}</SelectItem>
+                      <SelectItem value="daily">{t('servers.backupDaily')}</SelectItem>
+                      <SelectItem value="weekly">{t('servers.backupWeekly')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.backupJobName')}</Label>
+                  <Input
+                    value={formData.backup_job_name}
+                    onChange={(e) => setFormData({ ...formData, backup_job_name: e.target.value })}
+                    placeholder="e.g., Daily-Backup-Job-01"
+                    disabled={!formData.is_backed_up_by_veeam}
+                  />
+                </div>
+
                 <div className="space-y-2 md:col-span-2">
                   <Label>{t('servers.description')}</Label>
                   <Textarea
@@ -564,6 +669,18 @@ const Servers: React.FC = () => {
                 <SelectItem value="active">{t('common.active')}</SelectItem>
                 <SelectItem value="inactive">{t('common.inactive')}</SelectItem>
                 <SelectItem value="maintenance">Maintenance</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Backup Filter */}
+            <Select value={backupFilter} onValueChange={setBackupFilter}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('common.all')} - Backup</SelectItem>
+                <SelectItem value="yes">{t('servers.backedUp')}</SelectItem>
+                <SelectItem value="no">{t('servers.notBackedUp')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
