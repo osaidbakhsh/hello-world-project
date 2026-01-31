@@ -293,11 +293,12 @@ const Employees: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="IT">IT</SelectItem>
-                      <SelectItem value="DevOps">DevOps</SelectItem>
-                      <SelectItem value="Security">Security</SelectItem>
-                      <SelectItem value="Network">Network</SelectItem>
-                      <SelectItem value="Support">Support</SelectItem>
+                      <SelectItem value="IT">{t('dept.it')}</SelectItem>
+                      <SelectItem value="DevOps">{t('dept.devops')}</SelectItem>
+                      <SelectItem value="Security">{t('dept.security')}</SelectItem>
+                      <SelectItem value="Network">{t('dept.network')}</SelectItem>
+                      <SelectItem value="Support">{t('dept.support')}</SelectItem>
+                      <SelectItem value="System Admin">{t('dept.sysadmin')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -14,9 +14,13 @@ import {
   Globe,
   ChevronLeft,
   ChevronRight,
+  Calendar,
+  FileSpreadsheet,
+  Wifi,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -31,9 +35,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { path: '/', icon: LayoutDashboard, label: 'nav.dashboard' },
     { path: '/servers', icon: Server, label: 'nav.servers' },
     { path: '/employees', icon: Users, label: 'nav.employees' },
+    { path: '/vacations', icon: Calendar, label: 'nav.vacations' },
     { path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
     { path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
     { path: '/networks', icon: Network, label: 'nav.networks' },
+    { path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports' },
     { path: '/reports', icon: FileBarChart, label: 'nav.reports' },
     { path: '/settings', icon: Settings, label: 'nav.settings' },
   ];
@@ -50,18 +56,24 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         collapsed ? 'w-16' : 'w-64'
       )}
     >
-      {/* Logo */}
+      {/* Logo & Offline Mode */}
       <div className={cn(
         'flex items-center h-16 px-4 border-b border-sidebar-border',
         collapsed ? 'justify-center' : 'gap-3'
       )}>
         <div className="w-8 h-8 rounded-lg stat-primary flex items-center justify-center">
-          <Server className="w-5 h-5 text-sidebar-primary-foreground" />
+          <Server className="w-5 h-5 text-primary-foreground" />
         </div>
         {!collapsed && (
-          <span className="font-bold text-lg text-sidebar-foreground whitespace-nowrap">
-            IT Manager
-          </span>
+          <div className="flex flex-col flex-1">
+            <span className="font-bold text-lg text-sidebar-foreground whitespace-nowrap">
+              IT <span className="text-accent">CMDB</span>
+            </span>
+            <Badge variant="outline" className="text-[10px] w-fit px-1.5 py-0 border-accent text-accent">
+              <Wifi className="w-2.5 h-2.5 me-1" />
+              {t('common.offlineMode')}
+            </Badge>
+          </div>
         )}
       </div>
 

@@ -8,9 +8,11 @@ import Layout from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import Servers from "./pages/Servers";
 import Employees from "./pages/Employees";
+import Vacations from "./pages/Vacations";
 import Licenses from "./pages/Licenses";
 import Tasks from "./pages/Tasks";
 import Networks from "./pages/Networks";
+import EmployeeReports from "./pages/EmployeeReports";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -29,9 +31,11 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/servers" element={<Servers />} />
               <Route path="/employees" element={<Employees />} />
+              <Route path="/vacations" element={<Vacations />} />
               <Route path="/licenses" element={<Licenses />} />
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/networks" element={<Networks />} />
+              <Route path="/employee-reports" element={<EmployeeReports />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

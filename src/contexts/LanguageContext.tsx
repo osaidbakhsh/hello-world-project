@@ -20,6 +20,8 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.networks': 'الشبكات',
     'nav.reports': 'التقارير',
     'nav.settings': 'الإعدادات',
+    'nav.vacations': 'الإجازات',
+    'nav.employeeReports': 'تقارير الموظفين',
     
     // Dashboard
     'dashboard.title': 'لوحة التحكم الرئيسية',
@@ -29,6 +31,8 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.pendingTasks': 'المهام المعلقة',
     'dashboard.employees': 'الموظفين',
     'dashboard.networks': 'الشبكات',
+    'dashboard.selectNetwork': 'اختر الشبكة',
+    'dashboard.allNetworks': 'جميع الشبكات',
     
     // Servers
     'servers.title': 'إدارة السيرفرات',
@@ -69,6 +73,40 @@ const translations: Record<Language, Record<string, string>> = {
     'employees.addVacation': 'إضافة إجازة',
     'employees.addTraining': 'إضافة دورة',
     
+    // Departments
+    'dept.it': 'تكنولوجيا المعلومات',
+    'dept.devops': 'DevOps',
+    'dept.security': 'الأمن السيبراني',
+    'dept.network': 'الشبكات',
+    'dept.support': 'الدعم الفني',
+    'dept.sysadmin': 'مدير النظام',
+    
+    // Vacations
+    'vacations.title': 'إدارة الإجازات',
+    'vacations.employee': 'الموظف',
+    'vacations.type': 'نوع الإجازة',
+    'vacations.annual': 'سنوية',
+    'vacations.sick': 'مرضية',
+    'vacations.emergency': 'طارئة',
+    'vacations.unpaid': 'بدون راتب',
+    'vacations.startDate': 'تاريخ البدء',
+    'vacations.endDate': 'تاريخ النهاية',
+    'vacations.status': 'الحالة',
+    'vacations.pending': 'معلقة',
+    'vacations.approved': 'مقبولة',
+    'vacations.rejected': 'مرفوضة',
+    'vacations.days': 'عدد الأيام',
+    
+    // Employee Reports
+    'employeeReports.title': 'تقارير الموظفين',
+    'employeeReports.upload': 'رفع تقرير',
+    'employeeReports.archive': 'أرشيف التقارير',
+    'employeeReports.date': 'تاريخ التقرير',
+    'employeeReports.uploadedBy': 'رفع بواسطة',
+    'employeeReports.notes': 'ملاحظات',
+    'employeeReports.file': 'الملف',
+    'employeeReports.download': 'تحميل',
+    
     // Licenses
     'licenses.title': 'إدارة التراخيص',
     'licenses.add': 'إضافة ترخيص',
@@ -92,6 +130,7 @@ const translations: Record<Language, Record<string, string>> = {
     'tasks.daily': 'يومية',
     'tasks.weekly': 'أسبوعية',
     'tasks.monthly': 'شهرية',
+    'tasks.once': 'مرة واحدة',
     'tasks.dueDate': 'تاريخ الاستحقاق',
     'tasks.completed': 'مكتملة',
     'tasks.pending': 'معلقة',
@@ -116,6 +155,7 @@ const translations: Record<Language, Record<string, string>> = {
     'common.days': 'يوم',
     'common.active': 'نشط',
     'common.inactive': 'غير نشط',
+    'common.offlineMode': 'وضع بدون اتصال',
   },
   en: {
     // Navigation
@@ -127,6 +167,8 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.networks': 'Networks',
     'nav.reports': 'Reports',
     'nav.settings': 'Settings',
+    'nav.vacations': 'Vacations',
+    'nav.employeeReports': 'Employee Reports',
     
     // Dashboard
     'dashboard.title': 'Main Dashboard',
@@ -136,6 +178,8 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.pendingTasks': 'Pending Tasks',
     'dashboard.employees': 'Employees',
     'dashboard.networks': 'Networks',
+    'dashboard.selectNetwork': 'Select Network',
+    'dashboard.allNetworks': 'All Networks',
     
     // Servers
     'servers.title': 'Server Management',
@@ -176,6 +220,40 @@ const translations: Record<Language, Record<string, string>> = {
     'employees.addVacation': 'Add Vacation',
     'employees.addTraining': 'Add Training',
     
+    // Departments
+    'dept.it': 'IT',
+    'dept.devops': 'DevOps',
+    'dept.security': 'Security',
+    'dept.network': 'Network',
+    'dept.support': 'Support',
+    'dept.sysadmin': 'System Admin',
+    
+    // Vacations
+    'vacations.title': 'Vacation Management',
+    'vacations.employee': 'Employee',
+    'vacations.type': 'Vacation Type',
+    'vacations.annual': 'Annual',
+    'vacations.sick': 'Sick',
+    'vacations.emergency': 'Emergency',
+    'vacations.unpaid': 'Unpaid',
+    'vacations.startDate': 'Start Date',
+    'vacations.endDate': 'End Date',
+    'vacations.status': 'Status',
+    'vacations.pending': 'Pending',
+    'vacations.approved': 'Approved',
+    'vacations.rejected': 'Rejected',
+    'vacations.days': 'Days',
+    
+    // Employee Reports
+    'employeeReports.title': 'Employee Reports',
+    'employeeReports.upload': 'Upload Report',
+    'employeeReports.archive': 'Reports Archive',
+    'employeeReports.date': 'Report Date',
+    'employeeReports.uploadedBy': 'Uploaded By',
+    'employeeReports.notes': 'Notes',
+    'employeeReports.file': 'File',
+    'employeeReports.download': 'Download',
+    
     // Licenses
     'licenses.title': 'License Management',
     'licenses.add': 'Add License',
@@ -199,6 +277,7 @@ const translations: Record<Language, Record<string, string>> = {
     'tasks.daily': 'Daily',
     'tasks.weekly': 'Weekly',
     'tasks.monthly': 'Monthly',
+    'tasks.once': 'Once',
     'tasks.dueDate': 'Due Date',
     'tasks.completed': 'Completed',
     'tasks.pending': 'Pending',
@@ -223,6 +302,7 @@ const translations: Record<Language, Record<string, string>> = {
     'common.days': 'days',
     'common.active': 'Active',
     'common.inactive': 'Inactive',
+    'common.offlineMode': 'Offline Mode',
   },
 };
 
