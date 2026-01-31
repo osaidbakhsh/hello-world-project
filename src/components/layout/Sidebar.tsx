@@ -53,6 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
     { path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
     { path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
+    { path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
     { path: '/web-apps', icon: Globe, label: 'nav.webApps', adminOnly: true },
     { path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports', adminOnly: true },
     { path: '/reports', icon: FileBarChart, label: 'nav.reports' },

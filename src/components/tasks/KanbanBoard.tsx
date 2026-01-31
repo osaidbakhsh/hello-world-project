@@ -75,8 +75,21 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       high: { class: 'bg-destructive/10 text-destructive border-destructive/20', label: t('priority.p1') },
       medium: { class: 'bg-warning/10 text-warning border-warning/20', label: t('priority.p3') },
       low: { class: 'bg-muted text-muted-foreground', label: t('priority.p4') },
+      critical: { class: 'bg-destructive text-destructive-foreground', label: t('priority.p1') },
     };
     return priorities[priority || 'medium'] || priorities.medium;
+  };
+
+  const getSLAStatus = (task: Task) => {
+    if (!task.due_date) return null;
+    const now = new Date();
+    const due = new Date(task.due_date);
+    const hoursLeft = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    if (hoursLeft < 0) return { status: 'breached', class: 'bg-destructive', label: t('tasks.slaBreach') };
+    if (hoursLeft < 4) return { status: 'critical', class: 'bg-destructive/80', label: t('priority.p1') };
+    if (hoursLeft < 24) return { status: 'warning', class: 'bg-warning', label: t('priority.p2') };
+    return { status: 'ok', class: 'bg-success', label: 'OK' };
   };
 
   const isOverdue = (dueDate: string | null | undefined) => {
@@ -105,6 +118,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   const priorityBadge = getPriorityBadge(task.priority);
                   const assignee = getAssigneeName(task.assigned_to);
                   const overdue = isOverdue(task.due_date);
+                  const slaStatus = getSLAStatus(task);
                   
                   return (
                     <Card
@@ -134,6 +148,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           <Badge className={cn('text-xs border', priorityBadge.class)}>
                             {priorityBadge.label}
                           </Badge>
+                          
+                          {slaStatus && status.key !== 'done' && (
+                            <div className={cn(
+                              'w-2 h-2 rounded-full',
+                              slaStatus.class
+                            )} title={slaStatus.label} />
+                          )}
                           
                           {task.due_date && (
                             <div className={cn(

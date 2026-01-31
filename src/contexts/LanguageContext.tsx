@@ -20,6 +20,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.tasks': 'المهام',
     'nav.networks': 'النطاقات',
     'nav.domains': 'النطاقات',
+    'nav.networkScan': 'فحص الشبكة',
     'nav.webApps': 'تطبيقات الويب',
     'nav.reports': 'التقارير',
     'nav.settings': 'الإعدادات',
@@ -217,6 +218,8 @@ const translations: Record<Language, Record<string, string>> = {
     'common.add': 'إضافة',
     'common.close': 'إغلاق',
     'common.required': 'مطلوب',
+    'common.more': 'المزيد',
+    'common.row': 'صف',
     'common.view': 'عرض',
     'common.permissions': 'صلاحيات',
     'common.resetPassword': 'إعادة تعيين كلمة المرور',
@@ -506,6 +509,38 @@ const translations: Record<Language, Record<string, string>> = {
     'priority.p2': 'عالية',
     'priority.p3': 'متوسطة',
     'priority.p4': 'منخفضة',
+    
+    // Additional Task Views
+    'tasks.listView': 'قائمة',
+    'tasks.kanbanView': 'Kanban',
+    'tasks.calendarView': 'تقويم',
+    'tasks.viewModes': 'طرق العرض',
+    'tasks.createFromTemplate': 'إنشاء من قالب',
+    'tasks.manageTemplates': 'إدارة القوالب',
+    'tasks.noTemplates': 'لا يوجد قوالب',
+    
+    // Import/Export
+    'import.review': 'مراجعة الاستيراد',
+    'import.newRecords': 'سجلات جديدة',
+    'import.toUpdate': 'للتحديث',
+    'import.errors': 'أخطاء',
+    'import.confirmImport': 'تأكيد الاستيراد',
+    'import.dryRun': 'معاينة فقط',
+    'import.downloadTemplate': 'تحميل القالب',
+    
+    'export.pdf': 'تصدير PDF',
+    'export.excel': 'تصدير Excel',
+    'export.fullReport': 'التقرير الكامل',
+    'export.filtered': 'البيانات المفلترة',
+    'export.summary': 'ملخص تنفيذي',
+    
+    // Reports Networks
+    'reports.networks': 'الشبكات',
+    
+    // Server Filters
+    'servers.selectDomain': 'اختر النطاق',
+    'servers.selectNetwork': 'اختر الشبكة',
+    'servers.filterByDomain': 'الفلترة حسب النطاق',
   },
   en: {
     // Navigation
@@ -517,6 +552,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.tasks': 'Tasks',
     'nav.networks': 'Domains',
     'nav.domains': 'Domains',
+    'nav.networkScan': 'Network Scan',
     'nav.webApps': 'Web Apps',
     'nav.reports': 'Reports',
     'nav.settings': 'Settings',
@@ -714,6 +750,8 @@ const translations: Record<Language, Record<string, string>> = {
     'common.add': 'Add',
     'common.close': 'Close',
     'common.required': 'Required',
+    'common.more': 'more',
+    'common.row': 'Row',
     'common.view': 'View',
     'common.permissions': 'Permissions',
     'common.resetPassword': 'Reset Password',
@@ -1003,6 +1041,38 @@ const translations: Record<Language, Record<string, string>> = {
     'priority.p2': 'High',
     'priority.p3': 'Medium',
     'priority.p4': 'Low',
+    
+    // Additional Task Views
+    'tasks.listView': 'List',
+    'tasks.kanbanView': 'Kanban',
+    'tasks.calendarView': 'Calendar',
+    'tasks.viewModes': 'View Modes',
+    'tasks.createFromTemplate': 'Create from Template',
+    'tasks.manageTemplates': 'Manage Templates',
+    'tasks.noTemplates': 'No templates',
+    
+    // Import/Export
+    'import.review': 'Import Review',
+    'import.newRecords': 'New Records',
+    'import.toUpdate': 'To Update',
+    'import.errors': 'Errors',
+    'import.confirmImport': 'Confirm Import',
+    'import.dryRun': 'Preview Only',
+    'import.downloadTemplate': 'Download Template',
+    
+    'export.pdf': 'Export PDF',
+    'export.excel': 'Export Excel',
+    'export.fullReport': 'Full Report',
+    'export.filtered': 'Filtered Data',
+    'export.summary': 'Executive Summary',
+    
+    // Reports Networks
+    'reports.networks': 'Networks',
+    
+    // Server Filters
+    'servers.selectDomain': 'Select Domain',
+    'servers.selectNetwork': 'Select Network',
+    'servers.filterByDomain': 'Filter by Domain',
   },
 };
 

@@ -31,10 +31,16 @@ import {
   FileSpreadsheet,
   FileText,
   Users,
+  LayoutGrid,
+  CalendarDays,
+  List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { exportToPDF } from '@/utils/pdfExport';
+import KanbanBoard from '@/components/tasks/KanbanBoard';
+import TaskCalendar from '@/components/tasks/TaskCalendar';
+import MyTasksWidget from '@/components/tasks/MyTasksWidget';
 
 const Tasks: React.FC = () => {
   const { t, dir, language } = useLanguage();
@@ -47,6 +53,7 @@ const Tasks: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [frequencyFilter, setFrequencyFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'my' | 'team'>('my');
+  const [displayMode, setDisplayMode] = useState<'list' | 'kanban' | 'calendar'>('list');
   const [employeeFilter, setEmployeeFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -619,85 +626,148 @@ const Tasks: React.FC = () => {
         </div>
       </Card>
 
-      {/* Tasks Board */}
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="all" className="gap-2">
-            <ListTodo className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('common.all')}</span>
-            <Badge variant="secondary" className="ms-1">{filteredTasks.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="pending" className="gap-2">
-            <Clock className="w-4 h-4 text-warning" />
-            <span className="hidden sm:inline">{t('tasks.pending')}</span>
-            <Badge variant="secondary" className="ms-1">{tasksByStatus.pending.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="overdue" className="gap-2">
-            <AlertTriangle className="w-4 h-4 text-destructive" />
-            <span className="hidden sm:inline">{t('tasks.overdue')}</span>
-            <Badge variant="secondary" className="ms-1">{tasksByStatus.overdue.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="gap-2">
-            <CheckCircle className="w-4 h-4 text-success" />
-            <span className="hidden sm:inline">{t('tasks.completed')}</span>
-            <Badge variant="secondary" className="ms-1">{tasksByStatus.completed.length}</Badge>
-          </TabsTrigger>
-        </TabsList>
+      {/* Display Mode Selector */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 bg-secondary/50 rounded-lg p-1">
+          <Button
+            variant={displayMode === 'list' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setDisplayMode('list')}
+            className="gap-2"
+          >
+            <List className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('tasks.listView')}</span>
+          </Button>
+          <Button
+            variant={displayMode === 'kanban' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setDisplayMode('kanban')}
+            className="gap-2"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('tasks.kanban')}</span>
+          </Button>
+          <Button
+            variant={displayMode === 'calendar' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setDisplayMode('calendar')}
+            className="gap-2"
+          >
+            <CalendarDays className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('tasks.calendar')}</span>
+          </Button>
+        </div>
+        
+        <Badge variant="secondary" className="text-sm">
+          {filteredTasks.length} {t('reports.records')}
+        </Badge>
+      </div>
 
-        <TabsContent value="all" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {isLoading ? (
-              <div className="col-span-full text-center py-12">جارٍ التحميل...</div>
-            ) : filteredTasks.length > 0 ? (
-              filteredTasks.map((task) => <TaskCard key={task.id} task={task} />)
-            ) : (
-              <div className="col-span-full text-center py-12">
-                <ListTodo className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
-                <p className="text-muted-foreground">{t('common.noData')}</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
+      {/* Conditional Display Based on Mode */}
+      {displayMode === 'kanban' ? (
+        <KanbanBoard 
+          tasks={filteredTasks} 
+          profiles={profiles}
+          onTaskClick={(task) => openEditDialog(task)}
+          onStatusChange={async (taskId, newStatus) => {
+            try {
+              await supabase
+                .from('tasks')
+                .update({ task_status: newStatus })
+                .eq('id', taskId);
+              refetch();
+            } catch (error) {
+              console.error('Error updating status:', error);
+            }
+          }}
+        />
+      ) : displayMode === 'calendar' ? (
+        <TaskCalendar 
+          tasks={filteredTasks} 
+          profiles={profiles}
+          onTaskClick={(task) => openEditDialog(task)}
+        />
+      ) : (
+        /* List View - Original Tabs */
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="all" className="gap-2">
+              <ListTodo className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('common.all')}</span>
+              <Badge variant="secondary" className="ms-1">{filteredTasks.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="gap-2">
+              <Clock className="w-4 h-4 text-warning" />
+              <span className="hidden sm:inline">{t('tasks.pending')}</span>
+              <Badge variant="secondary" className="ms-1">{tasksByStatus.pending.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="overdue" className="gap-2">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+              <span className="hidden sm:inline">{t('tasks.overdue')}</span>
+              <Badge variant="secondary" className="ms-1">{tasksByStatus.overdue.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="gap-2">
+              <CheckCircle className="w-4 h-4 text-success" />
+              <span className="hidden sm:inline">{t('tasks.completed')}</span>
+              <Badge variant="secondary" className="ms-1">{tasksByStatus.completed.length}</Badge>
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="pending" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tasksByStatus.pending.length > 0 ? (
-              tasksByStatus.pending.map((task) => <TaskCard key={task.id} task={task} />)
-            ) : (
-              <div className="col-span-full text-center py-12">
-                <CheckCircle className="w-12 h-12 mx-auto mb-2 text-success/50" />
-                <p className="text-muted-foreground">لا توجد مهام قيد التنفيذ!</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
+          <TabsContent value="all" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {isLoading ? (
+                <div className="col-span-full text-center py-12">جارٍ التحميل...</div>
+              ) : filteredTasks.length > 0 ? (
+                filteredTasks.map((task) => <TaskCard key={task.id} task={task} />)
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <ListTodo className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">{t('common.noData')}</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
-        <TabsContent value="overdue" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tasksByStatus.overdue.length > 0 ? (
-              tasksByStatus.overdue.map((task) => <TaskCard key={task.id} task={task} />)
-            ) : (
-              <div className="col-span-full text-center py-12">
-                <CheckCircle className="w-12 h-12 mx-auto mb-2 text-success/50" />
-                <p className="text-muted-foreground">لا توجد مهام متأخرة!</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
+          <TabsContent value="pending" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tasksByStatus.pending.length > 0 ? (
+                tasksByStatus.pending.map((task) => <TaskCard key={task.id} task={task} />)
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-success/50" />
+                  <p className="text-muted-foreground">لا توجد مهام قيد التنفيذ!</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
-        <TabsContent value="completed" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tasksByStatus.completed.length > 0 ? (
-              tasksByStatus.completed.map((task) => <TaskCard key={task.id} task={task} />)
-            ) : (
-              <div className="col-span-full text-center py-12">
-                <ListTodo className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
-                <p className="text-muted-foreground">لم يتم إكمال أي مهمة بعد</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="overdue" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tasksByStatus.overdue.length > 0 ? (
+                tasksByStatus.overdue.map((task) => <TaskCard key={task.id} task={task} />)
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-success/50" />
+                  <p className="text-muted-foreground">لا توجد مهام متأخرة!</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="completed" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tasksByStatus.completed.length > 0 ? (
+                tasksByStatus.completed.map((task) => <TaskCard key={task.id} task={task} />)
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <ListTodo className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">لم يتم إكمال أي مهمة بعد</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 };
