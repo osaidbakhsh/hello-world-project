@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useServers, useNetworks, useDomains, useServerMutations, useProfiles } from '@/hooks/useSupabaseData';
 import type { Server } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -86,6 +87,7 @@ const initialFormData: ServerFormData = {
 
 const Servers: React.FC = () => {
   const { t, dir } = useLanguage();
+  const { profile } = useAuth();
   const { toast } = useToast();
   
   // Supabase data
@@ -93,7 +95,7 @@ const Servers: React.FC = () => {
   const [selectedDomainId, setSelectedDomainId] = useState<string>('all');
   const { data: allNetworks, isLoading: networksLoading } = useNetworks();
   const { data: profiles } = useProfiles();
-  const { createServer, updateServer, deleteServer } = useServerMutations();
+  const { createServer, updateServer, deleteServer } = useServerMutations(profile?.id);
   
   // Filter networks based on selected domain
   const networks = useMemo(() => {
