@@ -243,6 +243,57 @@ export function useAppName() {
   return { appName, isLoading, updateAppName, refetch: fetch };
 }
 
+// App Settings - General
+export function useAppSettings() {
+  const getSetting = useCallback(async (key: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', key)
+        .maybeSingle();
+      
+      if (!error && data?.value) {
+        return data.value;
+      }
+      return null;
+    } catch (e) {
+      console.error(`Error fetching setting ${key}:`, e);
+      return null;
+    }
+  }, []);
+
+  const updateSetting = async (key: string, value: string): Promise<boolean> => {
+    try {
+      // Try to update first
+      const { data: existing } = await supabase
+        .from('app_settings')
+        .select('id')
+        .eq('key', key)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('app_settings')
+          .update({ value, updated_at: new Date().toISOString() })
+          .eq('key', key);
+        return !error;
+      } else {
+        // Insert new setting
+        const { error } = await supabase
+          .from('app_settings')
+          .insert({ key, value });
+        return !error;
+      }
+    } catch (e) {
+      console.error(`Error updating setting ${key}:`, e);
+      return false;
+    }
+  };
+
+  return { getSetting, updateSetting };
+}
+
 // Dashboard stats
 export function useDashboardStats(selectedDomainId?: string) {
   const { isAdmin } = useAuth();

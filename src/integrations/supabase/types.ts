@@ -212,6 +212,48 @@ export type Database = {
           },
         ]
       }
+      manager_assignments: {
+        Row: {
+          can_approve_purchases: boolean | null
+          can_approve_vacations: boolean | null
+          created_at: string | null
+          employee_id: string
+          id: string
+          manager_id: string
+        }
+        Insert: {
+          can_approve_purchases?: boolean | null
+          can_approve_vacations?: boolean | null
+          created_at?: string | null
+          employee_id: string
+          id?: string
+          manager_id: string
+        }
+        Update: {
+          can_approve_purchases?: boolean | null
+          can_approve_vacations?: boolean | null
+          created_at?: string | null
+          employee_id?: string
+          id?: string
+          manager_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_assignments_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       networks: {
         Row: {
           created_at: string | null
@@ -297,6 +339,69 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      purchase_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          estimated_cost: number | null
+          id: string
+          priority: string | null
+          profile_id: string
+          rejection_reason: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          estimated_cost?: number | null
+          id?: string
+          priority?: string | null
+          profile_id: string
+          rejection_reason?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          estimated_cost?: number | null
+          id?: string
+          priority?: string | null
+          profile_id?: string
+          rejection_reason?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_requests_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       servers: {
         Row: {
@@ -544,6 +649,7 @@ export type Database = {
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
       get_my_profile_id: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
+      is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "employee"
