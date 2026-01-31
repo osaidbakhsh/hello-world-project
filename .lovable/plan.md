@@ -1,271 +1,362 @@
 
 
-# خطة تطوير شاملة: نظام CMDB لإدارة البنية التحتية (Offline IT Infrastructure)
+# خطة التطوير الشاملة: Website Applications + ربط النطاقات + تحسينات متعددة
 
-## ملخص المشكلات الحالية والحلول المقترحة
+## ملخص الطلبات
 
-### 🚨 المشكلة الجذرية: تضارب مصادر البيانات (CRITICAL)
+### ✅ التوضيحات المهمة:
 
-**الوضع الحالي:**
-- صفحات `Servers.tsx` و `Employees.tsx` و `Licenses.tsx` تستخدم `localStorage` 
-- صفحات `Networks.tsx` و `Dashboard.tsx` و `EmployeePermissions.tsx` تستخدم Supabase
-- هذا يسبب عدم تزامن البيانات بين المستخدمين وفقدانها عند تغيير الجهاز
+1. **"النطاقات" (Domains) وليس مجرد تحديث الترجمة** - الدومين هو الأساس:
+   - كل سيرفر مرتبط بـ Network → والـ Network مرتبط بـ Domain
+   - التراخيص مرتبطة مباشرة بـ Domain
+   - الفلترة في Dashboard و Servers و Licenses تكون حسب الدومين
+   - إدارة كل دومين بشكل منفصل
 
-**الحل:**
-توحيد جميع الصفحات لاستخدام Supabase كمصدر وحيد للبيانات
+2. **Website Applications** - ميزة جديدة:
+   - إضافة روابط مواقع (اسم + URL + أيقونة)
+   - الموظف يضغط على الرابط ويفتح في تبويب جديد
+   - صلاحيات: تحديد من يرى كل تطبيق حسب الدومين
 
----
+3. **مهام الموظفين للمدير**:
+   - في Dashboard يرى المدير جميع مهام الفريق
+   - تصفية حسب الموظف أو القسم
+   - تقارير بالمهام لكل موظف
 
-## مخطط التنفيذ التفصيلي
+4. **إصلاح إضافة الموظف**:
+   - الخطأ: "Signups not allowed"
+   - الحل: Edge Function مع Admin API
 
-### المرحلة 1: توحيد مصادر البيانات (الأساس) ⚡
-
-#### 1.1 تحويل صفحة Servers
-- إزالة `useServers` من `useLocalStorage`
-- استخدام `useServers` من `useSupabaseData.ts` 
-- ربط السيرفرات بـ Networks و Domains
-- تفعيل فلترة السيرفرات حسب Domain/Network
-
-#### 1.2 تحويل صفحة Employees
-- دمج Employees مع profiles الموجودة في Supabase
-- صفحة الموظفين تعرض profiles من قاعدة البيانات
-- نقل إضافة الموظف وLDAP import لصفحة الموظفين
-- الموظف المضاف يظهر تلقائياً في صفحة الصلاحيات
-
-#### 1.3 تحويل صفحة Licenses
-- استخدام `useLicenses` من Supabase بدلاً من localStorage
-- ربط الترخيص بـ Domain و Server
+5. **رقم الهاتف**: يبدأ بـ `05` مباشرة (10 أرقام)
 
 ---
 
-### المرحلة 2: إنشاء بيانات تجريبية (Seed Data)
+## التنفيذ التفصيلي
 
-#### جداول البيانات التجريبية:
+### 1️⃣ Website Applications Widget
+
 ```
-Domains:
-├── osaidtest1.com (الدومين الأول)
-├── osaidtest2.com (الدومين الثاني)  
-└── osaidtest3.com (الدومين الثالث)
+src/components/dashboard/WebAppsWidget.tsx
 
-Networks (لكل Domain):
-├── LAN (10.0.x.0/24)
-├── DMZ (172.16.x.0/24)
-└── MGMT (192.168.x.0/24)
+الوظائف:
+- عرض التطبيقات كـ Tiles (6-8 تطبيقات)
+- كل Tile: أيقونة + اسم + وصف مختصر
+- عند الضغط: window.open(url, '_blank')
+- زر "إدارة" للأدمن
 
-Servers:
-├── DC01, DC02 (Domain Controllers)
-├── CA01 (Certificate Authority)
-├── DHCP01 (DHCP Server)
-├── FILESERVER01
-├── WEB-DEV-01, WEB-PROD-01
-└── DB-DEV-01, DB-PROD-01
-
-Employees (Profiles):
-├── Admin User (role: admin)
-├── IT Staff 1 (role: employee)
-└── IT Staff 2 (role: employee)
-
-Tasks:
-├── مهام صيانة يومية
-├── تحديثات أسبوعية
-└── مراجعات شهرية
-
-Licenses:
-├── Windows Server (منتهية قريباً)
-├── Microsoft 365 (نشطة)
-└── VMware vSphere (منتهية)
+الصلاحيات:
+- إضافة حقل visible_domains[] لجدول website_applications
+- إذا null = متاح للجميع
+- إذا array = متاح فقط للموظفين الذين لديهم صلاحية على هذه الدومينات
 ```
 
----
-
-### المرحلة 3: ميزات جديدة
-
-#### 3.1 Website Applications (روابط سريعة)
+**Database Migration:**
 ```sql
-CREATE TABLE website_applications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  url TEXT NOT NULL,
-  category TEXT,
-  icon TEXT,
-  description TEXT,
-  domain_id UUID REFERENCES domains(id),
-  is_active BOOLEAN DEFAULT true,
-  created_by UUID REFERENCES profiles(id),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-- ويدجت في Dashboard يعرض 6-8 تطبيقات كـ tiles
-- عند النقر يفتح الرابط في تبويب جديد
-- الأدمن يمكنه إضافة/تعديل/حذف الروابط
-
-#### 3.2 نظام الإشعارات (Notifications)
-```sql
-CREATE TABLE notifications (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES profiles(id),
-  title TEXT NOT NULL,
-  message TEXT,
-  type TEXT, -- 'license_expiring', 'task_overdue', 'maintenance'
-  is_read BOOLEAN DEFAULT false,
-  link TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-- Badge إشعارات في Sidebar
-- ويدجت تنبيهات في Dashboard
-- إشعارات تلقائية عند:
-  - اقتراب انتهاء التراخيص (30/14/7 أيام)
-  - تأخر المهام
-  - مواعيد الصيانة
-
-#### 3.3 Audit Log (سجل التغييرات)
-```sql
-CREATE TABLE audit_logs (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES profiles(id),
-  action TEXT NOT NULL, -- 'create', 'update', 'delete', 'login', 'logout'
-  table_name TEXT,
-  record_id UUID,
-  old_data JSONB,
-  new_data JSONB,
-  ip_address TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-- صفحة Audit Log جديدة
-- عرض "Recent Activity" في Dashboard
-- تسجيل تلقائي عبر Trigger functions
-
----
-
-### المرحلة 4: تحسينات الواجهة
-
-#### 4.1 تحسين Dashboard
-- إضافة رسوم بيانية تفاعلية (Recharts):
-  - Tasks by Status (Pie Chart)
-  - Servers by Domain (Bar Chart)  
-  - Licenses Expiry Timeline (Line Chart)
-- ويدجت "Recent Activity" من Audit Log
-- ويدجت "Server Health" (حالة السيرفرات)
-- ويدجت "Website Applications"
-
-#### 4.2 تحسين تجربة تسجيل الدخول
-- إضافة "Remember me" checkbox
-- تخزين الجلسة لفترة أطول (30 يوم مع remember me)
-- حل مشكلة loops/flicker عند تحميل الملف الشخصي
-- إظهار Spinner واضح أثناء التحميل
-
-#### 4.3 Dark Mode / Light Mode Toggle
-- إضافة زر تبديل في Settings وفي Navbar
-- حفظ التفضيل في localStorage
-
-#### 4.4 تحسين Loading States
-- Skeleton screens للجداول والبطاقات
-- Empty states واضحة مع أيقونات
-- Error toasts مفصلة
-
----
-
-### المرحلة 5: التقارير والتصدير
-
-#### 5.1 تقارير PDF احترافية
-- تقرير جرد السيرفرات (حسب Domain/Network)
-- تقرير التراخيص المنتهية
-- تقرير حالة المهام
-- تقرير أداء الموظفين (المهام المنجزة/المتأخرة)
-
-#### 5.2 تحسين Excel Import/Export
-- استيراد السيرفرات مع ربطها بـ Domain/Network
-- استيراد الموظفين
-- معاينة البيانات قبل الاستيراد
-- تنبيهات الأخطاء التفصيلية
-
----
-
-### المرحلة 6: النسخ الاحتياطي والاستعادة
-
-#### 6.1 Backup & Restore
-- تصدير كامل للبيانات (JSON/SQL)
-- استعادة البيانات من نسخة احتياطية
-- قسم خاص في Settings للأدمن
-
----
-
-## التفاصيل التقنية
-
-### الملفات التي سيتم تعديلها:
-
-```
-src/pages/
-├── Servers.tsx          → تحويل لـ Supabase + فلاتر Domain/Network
-├── Employees.tsx        → تحويل لـ Supabase + نقل Add Employee هنا
-├── Licenses.tsx         → تحويل لـ Supabase
-├── Dashboard.tsx        → إضافة charts + widgets جديدة
-├── EmployeePermissions.tsx → تبسيط (employees تُجلب من Employees page)
-├── AuditLog.tsx         → صفحة جديدة
-├── Login.tsx            → إضافة Remember Me
-└── Settings.tsx         → إضافة Backup/Restore + Dark Mode
-
-src/hooks/
-├── useSupabaseData.ts   → إضافة hooks جديدة
-├── useNotifications.ts  → جديد
-└── useAuditLog.ts       → جديد
-
-src/components/
-├── dashboard/
-│   ├── ChartsWidget.tsx → جديد
-│   ├── WebAppsWidget.tsx → جديد
-│   └── AlertsWidget.tsx → جديد
-├── layout/
-│   ├── Sidebar.tsx      → إضافة notification badge
-│   └── ThemeToggle.tsx  → جديد
-└── notifications/
-    └── NotificationCenter.tsx → جديد
-```
-
-### Database Migrations:
-
-```sql
--- 1. Website Applications table
--- 2. Notifications table
--- 3. Audit Logs table
--- 4. Triggers for audit logging
--- 5. Seed data for demo
+ALTER TABLE website_applications 
+ADD COLUMN IF NOT EXISTS visible_domains uuid[] DEFAULT NULL;
 ```
 
 ---
 
-## ترتيب التنفيذ (Priority Order)
+### 2️⃣ تحديث الترجمات (Networks → Domains/النطاقات)
 
-| المرحلة | الأولوية | الوقت المقدر |
-|---------|----------|--------------|
-| توحيد مصادر البيانات | 🔴 حرجة | أولاً |
-| Seed Data | 🔴 حرجة | مع المرحلة 1 |
-| تحسين Login | 🟡 عالية | ثانياً |
-| Website Applications | 🟢 متوسطة | ثالثاً |
-| Notifications | 🟢 متوسطة | رابعاً |
-| Audit Log | 🟢 متوسطة | خامساً |
-| Dashboard Charts | 🟢 متوسطة | سادساً |
-| PDF Reports | 🔵 اختيارية | سابعاً |
-| Backup/Restore | 🔵 اختيارية | ثامناً |
+```typescript
+// src/contexts/LanguageContext.tsx
+ar: {
+  'nav.networks': 'النطاقات',
+  'nav.domains': 'النطاقات', 
+  'nav.webApps': 'تطبيقات الويب',
+  'dashboard.networks': 'النطاقات',
+  'dashboard.allNetworks': 'جميع النطاقات',
+  'dashboard.domains': 'النطاقات',
+  'dashboard.allDomains': 'جميع النطاقات',
+  'dashboard.myTasks': 'مهامي',
+  'dashboard.teamTasks': 'مهام الفريق',
+  'webApps.title': 'تطبيقات الويب',
+  'webApps.add': 'إضافة تطبيق',
+  'webApps.manage': 'إدارة التطبيقات',
+  'webApps.openLink': 'فتح الرابط',
+}
+
+en: {
+  'nav.networks': 'Domains',
+  'nav.domains': 'Domains',
+  'nav.webApps': 'Web Apps',
+  'dashboard.networks': 'Domains',
+  'dashboard.allNetworks': 'All Domains',
+  'dashboard.domains': 'Domains',
+  'dashboard.allDomains': 'All Domains',
+  'dashboard.myTasks': 'My Tasks',
+  'dashboard.teamTasks': 'Team Tasks',
+  'webApps.title': 'Web Applications',
+  'webApps.add': 'Add Application',
+  'webApps.manage': 'Manage Apps',
+  'webApps.openLink': 'Open Link',
+}
+```
+
+---
+
+### 3️⃣ ربط السيرفرات والتراخيص بالدومين
+
+**الوضع الحالي (صحيح في Database):**
+```
+Domain → Networks → Servers
+Domain → Licenses
+```
+
+**التحسين المطلوب في الواجهة:**
+
+**صفحة Servers.tsx:**
+- فلتر Domain أولاً (الرئيسي)
+- فلتر Network ثانياً (يعتمد على الدومين المختار)
+- عند اختيار Domain → يظهر فقط سيرفرات هذا الدومين
+
+**صفحة Licenses.tsx:**
+- إضافة فلتر Domain 
+- عند الاختيار → يظهر فقط تراخيص هذا الدومين
+
+**صفحة Dashboard.tsx:**
+- فلتر Domain يؤثر على جميع الإحصائيات
+- السيرفرات، التراخيص، المهام كلها مفلترة حسب الدومين
+
+---
+
+### 4️⃣ مهام الفريق للمدير في Dashboard
+
+```tsx
+// src/pages/Dashboard.tsx - إضافات
+
+// فلتر نوع المهام
+const [taskViewMode, setTaskViewMode] = useState<'my' | 'team' | 'all'>('my');
+
+// جلب المهام مع اسم الموظف
+const { data: tasks } = useTasks();
+const { data: profiles } = useProfiles();
+
+// عرض المهام حسب الفلتر
+const displayedTasks = useMemo(() => {
+  if (taskViewMode === 'my') {
+    return tasks.filter(t => t.assigned_to === profile?.id);
+  }
+  if (taskViewMode === 'team' && isAdmin) {
+    return tasks; // المدير يرى كل المهام
+  }
+  return tasks;
+}, [tasks, taskViewMode, profile, isAdmin]);
+
+// إظهار اسم الموظف في كل مهمة
+const getEmployeeName = (profileId: string) => {
+  return profiles.find(p => p.id === profileId)?.full_name || 'غير محدد';
+};
+```
+
+---
+
+### 5️⃣ Edge Function لإضافة الموظفين
+
+```typescript
+// supabase/functions/create-employee/index.ts
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+Deno.serve(async (req) => {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
+
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    // Verify caller is admin
+    const authHeader = req.headers.get('Authorization')!
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401, headers: corsHeaders 
+      })
+    }
+
+    // Check if caller is admin
+    const { data: callerProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single()
+    
+    if (callerProfile?.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { 
+        status: 403, headers: corsHeaders 
+      })
+    }
+
+    const { email, password, full_name, department, position, phone, role } = await req.json()
+
+    // Create user with admin privileges
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email
+      user_metadata: { full_name, role }
+    })
+
+    if (createError) {
+      return new Response(JSON.stringify({ error: createError.message }), { 
+        status: 400, headers: corsHeaders 
+      })
+    }
+
+    // Update profile with additional info
+    if (newUser.user) {
+      await supabaseAdmin.from('profiles').update({
+        department, 
+        position, 
+        phone
+      }).eq('user_id', newUser.user.id)
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      user_id: newUser.user?.id 
+    }), { headers: corsHeaders })
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { 
+      status: 500, headers: corsHeaders 
+    })
+  }
+})
+```
+
+---
+
+### 6️⃣ تعديل حقل رقم الهاتف
+
+```tsx
+// src/pages/EmployeePermissions.tsx
+
+<div className="space-y-2">
+  <Label>رقم الهاتف</Label>
+  <Input
+    value={newEmployeeForm.phone}
+    onChange={(e) => {
+      // Accept only numbers, max 10 digits, must start with 05
+      let value = e.target.value.replace(/\D/g, '');
+      if (value.length > 10) value = value.slice(0, 10);
+      setNewEmployeeForm({ ...newEmployeeForm, phone: value });
+    }}
+    placeholder="05x xxx xxxx"
+    dir="ltr"
+    className="text-left font-mono"
+    maxLength={10}
+  />
+  <p className="text-xs text-muted-foreground">مثال: 0512345678</p>
+</div>
+```
+
+---
+
+## الملفات المطلوب إنشاؤها/تعديلها
+
+```
+إنشاء ملفات جديدة:
+├── supabase/functions/create-employee/index.ts
+├── src/components/dashboard/WebAppsWidget.tsx
+├── src/pages/WebApps.tsx (صفحة إدارة التطبيقات)
+
+تعديل ملفات موجودة:
+├── src/contexts/LanguageContext.tsx (الترجمات)
+├── src/pages/Dashboard.tsx (WebApps Widget + Team Tasks)
+├── src/pages/Servers.tsx (فلتر Domain أولاً)
+├── src/pages/Licenses.tsx (فلتر Domain)
+├── src/pages/EmployeePermissions.tsx (Edge Function + Phone)
+├── src/components/layout/Sidebar.tsx (رابط Web Apps)
+├── src/App.tsx (مسار Web Apps)
+├── src/hooks/useSupabaseData.ts (hooks جديدة)
+
+Database Migration:
+└── visible_domains column for website_applications
+```
+
+---
+
+## التحسينات الإضافية المقترحة
+
+### 🎨 تحسينات الواجهة:
+1. **Dark Mode Toggle** - زر تبديل في Header/Settings
+2. **Skeleton Screens** - تحميل سلس للجداول
+3. **Empty States** - رسائل واضحة عند عدم وجود بيانات
+4. **Toast Notifications** - إشعارات للعمليات الناجحة/الفاشلة
+
+### 📊 تحسينات Dashboard:
+1. **Recharts Integration** - رسوم بيانية تفاعلية:
+   - Tasks by Status (Pie Chart)
+   - Servers by Domain (Bar Chart)
+   - Licenses Expiry Timeline (Area Chart)
+2. **Recent Activity Widget** - آخر التغييرات من Audit Log
+3. **Server Health Summary** - Online/Offline/Unknown
+4. **Quick Actions** - أزرار سريعة للإضافة
+
+### 🔔 نظام الإشعارات:
+1. **License Expiry Alerts** - 30/14/7 أيام قبل الانتهاء
+2. **Overdue Tasks** - المهام المتأخرة
+3. **Notification Badge** - في Sidebar
+4. **Notification Center** - قائمة الإشعارات
+
+### 📑 التقارير:
+1. **PDF Export** - تقارير للطباعة
+2. **Server Inventory Report** - حسب Domain
+3. **License Status Report** - المنتهية والقريبة
+4. **Employee Performance** - المهام المنجزة/المتأخرة
+
+### 💾 Backup & Restore:
+1. **Full Data Export** - JSON/Excel
+2. **Data Restore** - استعادة من نسخة
+3. **Admin-only Access** - في Settings
+
+### 🔐 أمان إضافي:
+1. **Session Timeout** - انتهاء الجلسة بعد فترة
+2. **Activity Logging** - تسجيل كل العمليات
+3. **IP Tracking** - في Audit Log
+
+---
+
+## ترتيب التنفيذ
+
+| الخطوة | المهمة | الأولوية |
+|--------|--------|----------|
+| 1 | Edge Function لإضافة الموظفين | 🔴 Critical |
+| 2 | تحديث EmployeePermissions لاستخدام Edge Function | 🔴 Critical |
+| 3 | تحديث الترجمات (Networks → Domains) | 🟡 High |
+| 4 | إضافة فلتر Domain في Licenses | 🟡 High |
+| 5 | WebAppsWidget للـ Dashboard | 🟡 High |
+| 6 | صفحة إدارة Web Apps | 🟢 Medium |
+| 7 | Team Tasks في Dashboard | 🟢 Medium |
+| 8 | تعديل رقم الهاتف | 🟢 Medium |
+| 9 | Recharts في Dashboard | 🔵 Optional |
+| 10 | PDF Reports | 🔵 Optional |
 
 ---
 
 ## النتيجة المتوقعة
 
-بعد تنفيذ هذه الخطة:
+بعد التنفيذ:
 
-✅ **بيانات موحدة** - جميع الصفحات تستخدم Supabase  
-✅ **بيانات تجريبية** - 3 domains، شبكات، سيرفرات، مهام، تراخيص تظهر فوراً  
-✅ **Dashboard متكامل** - charts + widgets + filters  
-✅ **Login سريع ومستقر** - بدون loops أو تأخير  
-✅ **نظام إشعارات** - تنبيهات التراخيص والمهام  
-✅ **Audit Log** - تتبع جميع التغييرات  
-✅ **Website Apps** - روابط سريعة للتطبيقات  
-✅ **تقارير PDF** - تقارير احترافية للطباعة  
-✅ **Backup** - نسخ احتياطي واستعادة
+✅ **إضافة موظف تعمل** - عبر Edge Function مع Admin API
+✅ **Website Applications** - روابط سريعة مع صلاحيات
+✅ **النطاقات كأساس** - كل شيء مفلتر حسب Domain
+✅ **مهام الفريق** - المدير يرى كل المهام
+✅ **رقم الهاتف** - صيغة 05xxxxxxxx
+✅ **الترجمات محدثة** - Networks → Domains
+✅ **Dashboard محسّن** - charts + widgets
 
