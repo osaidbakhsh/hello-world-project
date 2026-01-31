@@ -14,6 +14,7 @@ import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Downlo
 import { useToast } from '@/hooks/use-toast';
 import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicenseTemplate, downloadNetworkTemplate, downloadEmployeeTemplate } from '@/utils/excelTemplates';
 import SectionOrderSettings from '@/components/settings/SectionOrderSettings';
+import SidebarOrderSettings from '@/components/settings/SidebarOrderSettings';
 
 const Settings: React.FC = () => {
   const { t, dir, language, setLanguage } = useLanguage();
@@ -363,6 +364,7 @@ const Settings: React.FC = () => {
         {/* Customization Tab */}
         <TabsContent value="customization" className="space-y-6 mt-6">
           <SectionOrderSettings />
+          <SidebarOrderSettings />
         </TabsContent>
 
         {/* Mail Settings Tab */}

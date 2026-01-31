@@ -48,7 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { path: '/', icon: LayoutDashboard, label: 'nav.dashboard' },
     { path: '/servers', icon: Server, label: 'nav.servers' },
     { path: '/employees', icon: Users, label: 'nav.employees', adminOnly: true },
-    { path: '/employee-permissions', icon: Shield, label: 'صلاحيات الموظفين', adminOnly: true, isArabic: true },
+    { path: '/employee-permissions', icon: Shield, label: 'nav.employeePermissions', adminOnly: true },
     { path: '/vacations', icon: Calendar, label: 'nav.vacations' },
     { path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
     { path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
@@ -118,7 +118,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                   isAdmin ? "border-accent text-accent" : "border-primary text-primary"
                 )}
               >
-                {isAdmin ? 'مدير' : 'موظف'}
+                {isAdmin ? t('employees.admin') : t('employees.employee')}
               </Badge>
             </div>
           </div>
@@ -146,7 +146,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {!collapsed && (
-                  <span className="truncate">{'isArabic' in item && item.isArabic ? item.label : t(item.label)}</span>
+                  <span className="truncate">{t(item.label)}</span>
                 )}
               </Link>
             );
@@ -184,7 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
           )}
         >
           {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          {!collapsed && (theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن')}
+          {!collapsed && (theme === 'dark' ? t('settings.lightMode') : t('settings.darkMode'))}
         </Button>
 
         {/* Language Toggle */}
@@ -214,7 +214,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
           )}
         >
           <LogOut className="w-4 h-4" />
-          {!collapsed && 'تسجيل الخروج'}
+          {!collapsed && t('common.signOut')}
         </Button>
 
         {/* Collapse Toggle */}
