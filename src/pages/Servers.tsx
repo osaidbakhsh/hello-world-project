@@ -30,11 +30,13 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Upload, Download, Edit, Trash2, HardDrive, Server as ServerIcon, Loader2 } from 'lucide-react';
+import { Plus, Search, Upload, Download, Edit, Trash2, HardDrive, Server as ServerIcon, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DataTableHeader, serverSortOptions, applySortToData } from '@/components/DataTableHeader';
+import { useSmartImport } from '@/hooks/useSmartImport';
 
 interface ServerFormData {
   name: string;
@@ -94,8 +96,12 @@ const Servers: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sortValue, setSortValue] = useState<string>('name-asc');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<{ toCreate: number; toUpdate: number; unchanged: number } | null>(null);
   
   const [formData, setFormData] = useState<ServerFormData>(initialFormData);
+  const { importServers, analyzeServerImport } = useSmartImport();
 
   // Filter servers based on domain if network is 'all'
   const filteredServers = useMemo(() => {
@@ -117,6 +123,11 @@ const Servers: React.FC = () => {
       return matchesSearch && matchesEnv && matchesStatus;
     });
   }, [servers, networks, selectedDomainId, selectedNetworkId, searchQuery, envFilter, statusFilter]);
+
+  // Apply sorting
+  const sortedServers = useMemo(() => {
+    return applySortToData(filteredServers, sortValue);
+  }, [filteredServers, sortValue]);
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.ip_address) {
@@ -243,6 +254,7 @@ const Servers: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setIsImporting(true);
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
@@ -252,36 +264,31 @@ const Servers: React.FC = () => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        let imported = 0;
-        for (const row of jsonData as any[]) {
-          const { error } = await createServer({
-            name: row.Name || row.name || '',
-            ip_address: row.IP || row.ipAddress || row['IP Address'] || '',
-            operating_system: row.OS || row.os || 'Windows Server',
-            environment: (row.Environment || row.environment || 'production').toLowerCase(),
-            owner: row.Owner || row.owner || '',
-            responsible_user: row.Responsible || row.responsible || '',
-            notes: row.Notes || row.notes || '',
-            network_id: null,
-            status: (row.Status || row.status || 'active').toLowerCase(),
-            cpu: row.CPU || '',
-            ram: row.RAM || '',
-            disk_space: row['Disk Space'] || '',
-          });
-          if (!error) imported++;
-        }
+        // Analyze first
+        const preview = await analyzeServerImport(jsonData);
+        setImportPreview(preview);
 
-        toast({
-          title: t('common.success'),
-          description: `Imported ${imported} servers`,
-        });
-        refetchServers();
+        // Show confirmation
+        const confirmMessage = `ملخص الاستيراد:\n\n✅ سجلات جديدة: ${preview.toCreate}\n✏️ سجلات للتحديث: ${preview.toUpdate}\n⏭️ بدون تغيير: ${preview.unchanged}\n⚠️ أخطاء: ${preview.errors.length}\n\nهل تريد المتابعة؟`;
+        
+        if (confirm(confirmMessage)) {
+          const results = await importServers(jsonData);
+
+          toast({
+            title: t('common.success'),
+            description: `تم الاستيراد: إضافة ${results.created} | تحديث ${results.updated} | أخطاء ${results.errors.length}`,
+          });
+          refetchServers();
+        }
       } catch (error) {
         toast({
           title: t('common.error'),
           description: 'Failed to import file',
           variant: 'destructive',
         });
+      } finally {
+        setIsImporting(false);
+        setImportPreview(null);
       }
     };
     reader.readAsArrayBuffer(file);
@@ -320,9 +327,9 @@ const Servers: React.FC = () => {
             onChange={handleImport}
             className="hidden"
           />
-          <Button variant="outline" onClick={() => document.getElementById('import-excel')?.click()}>
-            <Upload className="w-4 h-4 me-2" />
-            {t('servers.import')}
+          <Button variant="outline" onClick={() => document.getElementById('import-excel')?.click()} disabled={isImporting}>
+            {isImporting ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Upload className="w-4 h-4 me-2" />}
+            {isImporting ? 'جاري الاستيراد...' : t('servers.import')}
           </Button>
           <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 me-2" />
@@ -560,6 +567,15 @@ const Servers: React.FC = () => {
               </SelectContent>
             </Select>
           </div>
+          
+          {/* Sort Controls */}
+          <div className="mt-4">
+            <DataTableHeader
+              sortOptions={serverSortOptions}
+              currentSort={sortValue}
+              onSortChange={setSortValue}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -588,8 +604,8 @@ const Servers: React.FC = () => {
                       ))}
                     </TableRow>
                   ))
-                ) : filteredServers.length > 0 ? (
-                  filteredServers.map((server) => (
+                ) : sortedServers.length > 0 ? (
+                  sortedServers.map((server) => (
                     <TableRow key={server.id} className="stagger-item">
                       <TableCell>
                         <div className="flex items-center gap-2">
