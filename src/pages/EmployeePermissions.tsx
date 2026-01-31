@@ -71,7 +71,7 @@ interface NewEmployeeForm {
 }
 
 const EmployeePermissions: React.FC = () => {
-  const { t, dir } = useLanguage();
+  const { t, dir, language } = useLanguage();
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const { data: profiles, isLoading: profilesLoading, refetch: refetchProfiles } = useProfiles();
@@ -397,7 +397,7 @@ const EmployeePermissions: React.FC = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-4">
           <Shield className="w-16 h-16 text-muted-foreground mx-auto" />
-          <p className="text-muted-foreground text-lg">ليس لديك صلاحية للوصول لهذه الصفحة</p>
+          <p className="text-muted-foreground text-lg">{t('permissions.noAccess')}</p>
         </div>
       </div>
     );
@@ -412,19 +412,19 @@ const EmployeePermissions: React.FC = () => {
             <UserCog className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">إدارة الموظفين والصلاحيات</h1>
-            <p className="text-muted-foreground">إضافة موظفين جدد وتعيين صلاحياتهم على الدومينات</p>
+            <h1 className="text-3xl font-bold">{t('permissions.title')}</h1>
+            <p className="text-muted-foreground">{t('permissions.subtitle')}</p>
           </div>
         </div>
         
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setIsLdapImportOpen(true)}>
             <Download className="w-4 h-4 me-2" />
-            استيراد من LDAP
+            {t('permissions.ldapImport')}
           </Button>
           <Button onClick={() => setIsAddEmployeeOpen(true)}>
             <Plus className="w-4 h-4 me-2" />
-            إضافة موظف
+            {t('permissions.addEmployee')}
           </Button>
         </div>
       </div>
@@ -435,7 +435,7 @@ const EmployeePermissions: React.FC = () => {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">إجمالي الموظفين</p>
+                <p className="text-sm text-muted-foreground">{t('permissions.totalEmployees')}</p>
                 <p className="text-3xl font-bold">{profiles.length}</p>
               </div>
               <Users className="w-10 h-10 text-primary opacity-50" />
@@ -446,7 +446,7 @@ const EmployeePermissions: React.FC = () => {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">المسؤولون</p>
+                <p className="text-sm text-muted-foreground">{t('permissions.admins')}</p>
                 <p className="text-3xl font-bold text-accent">{profiles.filter(p => p.role === 'admin').length}</p>
               </div>
               <Shield className="w-10 h-10 text-accent opacity-50" />
@@ -457,7 +457,7 @@ const EmployeePermissions: React.FC = () => {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">الموظفون</p>
+                <p className="text-sm text-muted-foreground">{t('permissions.employees')}</p>
                 <p className="text-3xl font-bold">{profiles.filter(p => p.role === 'employee').length}</p>
               </div>
               <User className="w-10 h-10 text-muted-foreground opacity-50" />
@@ -470,9 +470,9 @@ const EmployeePermissions: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
           <TabsList>
-            <TabsTrigger value="all">الكل ({profiles.length})</TabsTrigger>
-            <TabsTrigger value="admins">المسؤولون ({profiles.filter(p => p.role === 'admin').length})</TabsTrigger>
-            <TabsTrigger value="employees">الموظفون ({profiles.filter(p => p.role === 'employee').length})</TabsTrigger>
+            <TabsTrigger value="all">{t('permissions.all')} ({profiles.length})</TabsTrigger>
+            <TabsTrigger value="admins">{t('permissions.admins')} ({profiles.filter(p => p.role === 'admin').length})</TabsTrigger>
+            <TabsTrigger value="employees">{t('permissions.employees')} ({profiles.filter(p => p.role === 'employee').length})</TabsTrigger>
           </TabsList>
         </Tabs>
         
@@ -481,7 +481,7 @@ const EmployeePermissions: React.FC = () => {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="البحث عن موظف..."
+            placeholder={t('permissions.searchEmployee')}
             className="ps-10"
           />
         </div>
@@ -494,10 +494,10 @@ const EmployeePermissions: React.FC = () => {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                قائمة الموظفين
+                {t('permissions.employeeList')}
               </CardTitle>
               <CardDescription>
-                عرض وإدارة جميع الموظفين المسجلين في النظام
+                {t('permissions.employeeListDesc')}
               </CardDescription>
             </div>
             <Button variant="ghost" size="icon" onClick={() => refetchProfiles()}>
@@ -509,15 +509,15 @@ const EmployeePermissions: React.FC = () => {
           {profilesLoading ? (
             <div className="py-12 text-center">
               <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
-              <p className="text-muted-foreground mt-2">جاري التحميل...</p>
+              <p className="text-muted-foreground mt-2">{t('common.loading')}</p>
             </div>
           ) : filteredProfiles.length === 0 ? (
             <div className="py-12 text-center">
               <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">لا يوجد موظفين</p>
+              <p className="text-muted-foreground">{t('permissions.noEmployees')}</p>
               <Button className="mt-4" onClick={() => setIsAddEmployeeOpen(true)}>
                 <Plus className="w-4 h-4 me-2" />
-                إضافة موظف جديد
+                {t('permissions.addNewEmployee')}
               </Button>
             </div>
           ) : (
@@ -525,12 +525,12 @@ const EmployeePermissions: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>الموظف</TableHead>
-                    <TableHead>البريد الإلكتروني</TableHead>
-                    <TableHead>القسم</TableHead>
-                    <TableHead>الدور</TableHead>
-                    <TableHead>الدومينات</TableHead>
-                    <TableHead className="text-end">الإجراءات</TableHead>
+                    <TableHead>{t('employees.name')}</TableHead>
+                    <TableHead>{t('form.email')}</TableHead>
+                    <TableHead>{t('form.department')}</TableHead>
+                    <TableHead>{t('form.role')}</TableHead>
+                    <TableHead>{t('permissions.domains')}</TableHead>
+                    <TableHead className="text-end">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -546,7 +546,7 @@ const EmployeePermissions: React.FC = () => {
                             </div>
                             <div>
                               <p className="font-medium">{profile.full_name}</p>
-                              <p className="text-xs text-muted-foreground">{profile.position || 'لم يحدد'}</p>
+                              <p className="text-xs text-muted-foreground">{profile.position || t('permissions.notSpecified')}</p>
                             </div>
                           </div>
                         </TableCell>
@@ -567,13 +567,13 @@ const EmployeePermissions: React.FC = () => {
                             variant={profile.role === 'admin' ? 'default' : 'secondary'}
                             className={profile.role === 'admin' ? 'bg-accent text-accent-foreground' : ''}
                           >
-                            {profile.role === 'admin' ? 'مسؤول' : 'موظف'}
+                            {profile.role === 'admin' ? t('permissions.admins') : t('permissions.employees')}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {profileDomains.length === 0 ? (
-                              <span className="text-muted-foreground text-sm">لا يوجد</span>
+                              <span className="text-muted-foreground text-sm">{t('permissions.notAssigned')}</span>
                             ) : (
                               <>
                                 {profileDomains.slice(0, 2).map((d, i) => (
@@ -602,7 +602,7 @@ const EmployeePermissions: React.FC = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleOpenPermissions(profile)}
-                              title="الصلاحيات"
+                              title={t('common.permissions')}
                             >
                               <Shield className="w-4 h-4" />
                             </Button>
@@ -610,7 +610,7 @@ const EmployeePermissions: React.FC = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleOpenResetPassword(profile)}
-                              title="إعادة تعيين كلمة المرور"
+                              title={t('common.resetPassword')}
                             >
                               <Key className="w-4 h-4" />
                             </Button>
@@ -619,7 +619,7 @@ const EmployeePermissions: React.FC = () => {
                               variant="ghost"
                               className="text-destructive hover:text-destructive"
                               onClick={() => handleOpenDeleteConfirm(profile)}
-                              title="حذف"
+                              title={t('common.delete')}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -641,26 +641,26 @@ const EmployeePermissions: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="w-5 h-5" />
-              إضافة موظف جديد
+              {t('permissions.addNewEmployee')}
             </DialogTitle>
             <DialogDescription>
-              أدخل بيانات الموظف الجديد. سيتم إرسال رابط تأكيد البريد الإلكتروني.
+              {t('permissions.addEmployeeDesc')}
             </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="full_name">الاسم الكامل *</Label>
+                <Label htmlFor="full_name">{t('form.fullName')} *</Label>
                 <Input
                   id="full_name"
                   value={newEmployeeForm.full_name}
                   onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, full_name: e.target.value })}
-                  placeholder="أحمد محمد"
+                  placeholder={language === 'ar' ? 'أحمد محمد' : 'John Doe'}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="role">الدور *</Label>
+                <Label htmlFor="role">{t('form.role')} *</Label>
                 <Select
                   value={newEmployeeForm.role}
                   onValueChange={(value: 'admin' | 'employee') => 
@@ -671,15 +671,15 @@ const EmployeePermissions: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="employee">موظف</SelectItem>
-                    <SelectItem value="admin">مسؤول</SelectItem>
+                    <SelectItem value="employee">{t('employees.employee')}</SelectItem>
+                    <SelectItem value="admin">{t('employees.admin')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني *</Label>
+              <Label htmlFor="email">{t('form.email')} *</Label>
               <Input
                 id="email"
                 type="email"
@@ -690,13 +690,13 @@ const EmployeePermissions: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">كلمة المرور *</Label>
+              <Label htmlFor="password">{t('form.password')} *</Label>
               <Input
                 id="password"
                 type="password"
                 value={newEmployeeForm.password}
                 onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, password: e.target.value })}
-                placeholder="6 أحرف على الأقل"
+                placeholder={language === 'ar' ? '6 أحرف على الأقل' : '6 characters minimum'}
               />
             </div>
 
@@ -704,7 +704,7 @@ const EmployeePermissions: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="department">القسم</Label>
+                <Label htmlFor="department">{t('form.department')}</Label>
                 <Select
                   value={newEmployeeForm.department}
                   onValueChange={(value) => setNewEmployeeForm({ ...newEmployeeForm, department: value })}
@@ -713,33 +713,32 @@ const EmployeePermissions: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="IT">تقنية المعلومات</SelectItem>
-                    <SelectItem value="DevOps">DevOps</SelectItem>
-                    <SelectItem value="Security">أمن المعلومات</SelectItem>
-                    <SelectItem value="Network">الشبكات</SelectItem>
-                    <SelectItem value="Support">الدعم الفني</SelectItem>
-                    <SelectItem value="System Admin">إدارة الأنظمة</SelectItem>
+                    <SelectItem value="IT">{t('dept.it')}</SelectItem>
+                    <SelectItem value="DevOps">{t('dept.devops')}</SelectItem>
+                    <SelectItem value="Security">{t('dept.security')}</SelectItem>
+                    <SelectItem value="Network">{t('dept.network')}</SelectItem>
+                    <SelectItem value="Support">{t('dept.support')}</SelectItem>
+                    <SelectItem value="System Admin">{t('dept.sysadmin')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="position">المسمى الوظيفي</Label>
+                <Label htmlFor="position">{t('form.position')}</Label>
                 <Input
                   id="position"
                   value={newEmployeeForm.position}
                   onChange={(e) => setNewEmployeeForm({ ...newEmployeeForm, position: e.target.value })}
-                  placeholder="مهندس أنظمة"
+                  placeholder={language === 'ar' ? 'مهندس أنظمة' : 'System Engineer'}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">رقم الهاتف</Label>
+              <Label htmlFor="phone">{t('form.phone')}</Label>
               <Input
                 id="phone"
                 value={newEmployeeForm.phone}
                 onChange={(e) => {
-                  // Accept only numbers, max 10 digits
                   let value = e.target.value.replace(/\D/g, '');
                   if (value.length > 10) value = value.slice(0, 10);
                   setNewEmployeeForm({ ...newEmployeeForm, phone: value });
@@ -749,24 +748,24 @@ const EmployeePermissions: React.FC = () => {
                 className="text-left font-mono"
                 maxLength={10}
               />
-              <p className="text-xs text-muted-foreground">مثال: 0512345678</p>
+              <p className="text-xs text-muted-foreground">{t('form.example')}: 0512345678</p>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddEmployeeOpen(false)}>
-              إلغاء
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleAddEmployee} disabled={isAddingEmployee}>
               {isAddingEmployee ? (
                 <>
                   <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                  جاري الإضافة...
+                  {t('permissions.adding')}
                 </>
               ) : (
                 <>
                   <Plus className="w-4 h-4 me-2" />
-                  إضافة الموظف
+                  {t('permissions.addEmployeeBtn')}
                 </>
               )}
             </Button>
@@ -780,10 +779,10 @@ const EmployeePermissions: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="w-5 h-5" />
-              صلاحيات الموظف: {selectedProfile?.full_name}
+              {t('permissions.permissionsFor')}: {selectedProfile?.full_name}
             </DialogTitle>
             <DialogDescription>
-              حدد الدومينات التي يمكن للموظف الوصول إليها. صلاحية "التعديل" تتيح له إضافة وتعديل السيرفرات والمهام.
+              {t('permissions.permissionsDesc')}
             </DialogDescription>
           </DialogHeader>
           
@@ -795,24 +794,24 @@ const EmployeePermissions: React.FC = () => {
             ) : domains.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
                 <Network className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>لا يوجد دومينات. قم بإضافة دومين أولاً من صفحة الشبكات.</p>
+                <p>{t('permissions.noDomains')}</p>
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>الدومين</TableHead>
+                      <TableHead>{t('permissions.domain')}</TableHead>
                       <TableHead className="text-center w-32">
                         <div className="flex items-center justify-center gap-1">
                           <Eye className="w-4 h-4" />
-                          عرض
+                          {t('permissions.canView')}
                         </div>
                       </TableHead>
                       <TableHead className="text-center w-32">
                         <div className="flex items-center justify-center gap-1">
                           <Pencil className="w-4 h-4" />
-                          تعديل
+                          {t('permissions.canEdit')}
                         </div>
                       </TableHead>
                     </TableRow>
@@ -857,18 +856,18 @@ const EmployeePermissions: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPermissionsOpen(false)}>
-              إلغاء
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSavePermissions} disabled={isSaving}>
               {isSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                  جاري الحفظ...
+                  {t('common.saving')}
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4 me-2" />
-                  حفظ الصلاحيات
+                  {t('permissions.savePermissions')}
                 </>
               )}
             </Button>
@@ -882,10 +881,10 @@ const EmployeePermissions: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Key className="w-5 h-5" />
-              إعادة تعيين كلمة المرور
+              {t('common.resetPassword')}
             </DialogTitle>
             <DialogDescription>
-              سيتم إرسال رابط إعادة تعيين كلمة المرور إلى البريد الإلكتروني للموظف.
+              {t('permissions.resetPasswordDesc')}
             </DialogDescription>
           </DialogHeader>
           
@@ -901,18 +900,18 @@ const EmployeePermissions: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsResetPasswordOpen(false)}>
-              إلغاء
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleResetPassword} disabled={isResettingPassword}>
               {isResettingPassword ? (
                 <>
                   <Loader2 className="w-4 h-4 me-2 animate-spin" />
-                  جاري الإرسال...
+                  {language === 'ar' ? 'جاري الإرسال...' : 'Sending...'}
                 </>
               ) : (
                 <>
                   <Mail className="w-4 h-4 me-2" />
-                  إرسال رابط إعادة التعيين
+                  {language === 'ar' ? 'إرسال رابط إعادة التعيين' : 'Send Reset Link'}
                 </>
               )}
             </Button>
@@ -926,21 +925,21 @@ const EmployeePermissions: React.FC = () => {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="w-5 h-5" />
-              تأكيد الحذف
+              {t('permissions.deleteEmployee')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف الموظف "{selectedProfile?.full_name}"؟ 
-              لا يمكن التراجع عن هذا الإجراء.
+              {t('permissions.deleteConfirm')} "{selectedProfile?.full_name}"? 
+              {t('permissions.deleteWarning')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteProfile}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               <Trash2 className="w-4 h-4 me-2" />
-              حذف الموظف
+              {t('permissions.deleteEmployee')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -952,10 +951,10 @@ const EmployeePermissions: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Download className="w-5 h-5" />
-              استيراد من Active Directory
+              {language === 'ar' ? 'استيراد من Active Directory' : 'Import from Active Directory'}
             </DialogTitle>
             <DialogDescription>
-              استيراد الموظفين من خادم LDAP / Active Directory
+              {language === 'ar' ? 'استيراد الموظفين من خادم LDAP / Active Directory' : 'Import employees from LDAP / Active Directory server'}
             </DialogDescription>
           </DialogHeader>
           
@@ -963,21 +962,20 @@ const EmployeePermissions: React.FC = () => {
             <div className="p-4 border border-dashed rounded-lg text-center">
               <Network className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-2">
-                لاستخدام هذه الميزة، تأكد من إعداد LDAP في صفحة الإعدادات أولاً.
+                {language === 'ar' ? 'لاستخدام هذه الميزة، تأكد من إعداد LDAP في صفحة الإعدادات أولاً.' : 'To use this feature, make sure to configure LDAP in the Settings page first.'}
               </p>
               <Button variant="outline" onClick={() => {
                 setIsLdapImportOpen(false);
-                // Navigate to settings
                 window.location.href = '/settings';
               }}>
-                الذهاب للإعدادات
+                {language === 'ar' ? 'الذهاب للإعدادات' : 'Go to Settings'}
               </Button>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsLdapImportOpen(false)}>
-              إغلاق
+              {t('common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
