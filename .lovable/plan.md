@@ -1,570 +1,516 @@
 
-# خطة التطوير الشاملة: نظام المهام Pro + Network Scan + تحسينات الاستيراد/التصدير
+# Comprehensive IT Infrastructure Management System Enhancement Plan
 
-## ملخص المتطلبات
+## Executive Summary
 
-| # | المتطلب | الحالة الحالية | المطلوب |
-|---|---------|---------------|---------|
-| 1 | نظام المهام Pro | ⚠️ بسيط | Kanban + Calendar + Templates |
-| 2 | Network Scan في القائمة | ❌ غير موجود | إضافة الرابط |
-| 3 | تغيير "النطاقات" إلى "الشبكات" | ⚠️ في التقارير | تصحيح المسمى |
-| 4 | فلتر Domain في السيرفرات | ⚠️ موجود جزئياً | تحسين UI |
-| 5 | Export/Import احترافي | ⚠️ بسيط | PDF/Excel محسن |
+This plan addresses a complete overhaul and enhancement of the IT Infrastructure Management web application. Based on the codebase analysis, the application already has a solid foundation with Supabase database integration, RTL/LTR support, and basic modules. The focus is on fixing critical issues, enhancing existing features, and adding new professional-grade capabilities.
 
----
+## Current State Analysis
 
-## 1️⃣ إضافة Network Scan للقائمة الجانبية
-
-### الملف: `src/components/layout/Sidebar.tsx`
-
-**التغيير المطلوب:**
-```typescript
-// إضافة في menuItems (بعد networks)
-{ path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
-```
-
-### الملف: `src/contexts/LanguageContext.tsx`
-
-**إضافة ترجمة:**
-```typescript
-ar: {
-  'nav.networkScan': 'فحص الشبكة',
-}
-en: {
-  'nav.networkScan': 'Network Scan',
-}
-```
+| Module | Status | Issues to Fix |
+|--------|--------|---------------|
+| Authentication | Partial | Has Remember Me, but needs session stability improvements |
+| Data Source | Good | Most pages use Supabase, localStorage deprecated |
+| Servers | Good | Has Veeam/Beneficiary fields, needs filter improvements |
+| Tasks | Basic | Has Kanban/Calendar, needs Jira-like drag-and-drop workflow |
+| Network Scan | Exists | UI present, needs Edge Function implementation |
+| PDF Export | Partial | Works for Vacations, needs global implementation |
+| Excel Export | Good | Professional formatting exists |
+| WebApps | Complete | Full CRUD working |
+| Audit Log | Complete | Working with filters |
+| Employees | Good | Shows tasks/vacations per employee |
+| Permissions | Good | Domain-based permissions working |
 
 ---
 
-## 2️⃣ تصحيح "النطاقات" إلى "الشبكات" في التقارير
+## Phase 1: Critical Fixes (Priority: Highest)
 
-### الملف: `src/pages/Reports.tsx`
+### 1.1 Authentication Stability Enhancements
 
-**المشكلة:** الصفحة تستخدم `t('nav.networks')` للعمود والفلتر، لكن الترجمة الحالية تُرجع "النطاقات"
+**Current Issues:**
+- Safety timeout at 15s may still be too short for slow connections
+- No clear session expiry notification
+- Tab close logic for non-Remember-Me needs improvement
 
-**الحل:** تحديث الترجمة لتكون أكثر دقة:
-```typescript
-// في LanguageContext.tsx
-ar: {
-  'nav.networks': 'الشبكات والدومينات', // للقائمة الجانبية
-  'reports.networks': 'الشبكات',       // للتقارير
-}
+**Implementation:**
+
+**File: `src/contexts/AuthContext.tsx`**
+```
+Changes:
+1. Increase safety timeout to 20 seconds
+2. Add session expiry detection and toast notification
+3. Implement proper cleanup when tab is closed without Remember Me
+4. Add session refresh indicator
+5. Better error handling for network timeouts
 ```
 
-**أو** استخدام مفتاح ترجمة مخصص للتقارير:
-```typescript
-// في Reports.tsx سطر 248
-<p className="text-sm text-muted-foreground">{t('table.networks')}</p>
+**File: `src/pages/Login.tsx`**
 ```
+Changes:
+1. Add loading skeleton during auth check
+2. Improve error messages for specific auth failures
+3. Add "Session expired, please login again" message support
+```
+
+### 1.2 PDF Export Global Fix
+
+**Current Issue:** PDF export works for Vacations but not consistently elsewhere
+
+**Implementation:**
+
+**File: `src/utils/pdfExport.ts`**
+```
+Enhancements:
+1. Add branded header with Primary Teal (#0B6B63) and Gold (#D4AF37)
+2. Add page numbers and footer
+3. Improve RTL Arabic text handling
+4. Add generic exportToPDF function for all modules
+5. Add status color coding (green for completed, red for overdue)
+```
+
+**New Export Functions to Add:**
+- `exportServersPDF(servers, networks, t, isArabic)`
+- `exportTasksPDF(tasks, profiles, t, isArabic)`
+- `exportLicensesPDF(licenses, domains, t, isArabic)`
+- `exportEmployeesPDF(profiles, t, isArabic)`
+- `exportAuditLogPDF(logs, profiles, t, isArabic)`
 
 ---
 
-## 3️⃣ إضافة فلتر Domain منفصل في صفحة السيرفرات
+## Phase 2: Server Module Enhancements
 
-### الملف: `src/pages/Servers.tsx`
+### 2.1 Server Form Improvements
 
-**الحالة الحالية:** يوجد فلتر Domain وNetwork لكن بحاجة لتحسين UI
+**Database:** Already has the required columns from previous migration:
+- `beneficiary_department`
+- `primary_application`
+- `business_owner`
+- `is_backed_up_by_veeam`
+- `backup_frequency`
+- `backup_job_name`
+- `last_backup_status`
+- `last_backup_date`
 
-**التحسينات المطلوبة:**
-1. إضافة Dropdown واضح للـ Domain
-2. تسلسل: اختر Domain → تظهر Networks الخاصة به
-3. تحسين التسميات
-
-**الكود الجديد:**
-```typescript
-// إضافة في Filter Card
-<div className="flex flex-wrap gap-2">
-  {/* Domain Filter - NEW */}
-  <Select value={selectedDomainId} onValueChange={setSelectedDomainId}>
-    <SelectTrigger className="w-48">
-      <Globe className="w-4 h-4 me-2" />
-      <SelectValue placeholder={t('servers.selectDomain')} />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all">{t('reports.allDomains')}</SelectItem>
-      {domains.map((d) => (
-        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-
-  {/* Network Filter (filtered by domain) */}
-  <Select value={selectedNetworkId} onValueChange={setSelectedNetworkId}>
-    <SelectTrigger className="w-48">
-      <Network className="w-4 h-4 me-2" />
-      <SelectValue placeholder={t('servers.selectNetwork')} />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all">{t('dashboard.allNetworks')}</SelectItem>
-      {networks.map((n) => (
-        <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
+**File: `src/pages/Servers.tsx`**
+```
+Enhancements:
+1. Add cascading Domain -> Network filter
+2. Improve filter UI with clear labels
+3. Add Veeam backup status display in table
+4. Add backup coverage stats in header cards
+5. Ensure all new fields are in the form dialog
 ```
 
-**ترجمات جديدة:**
-```typescript
-ar: {
-  'servers.selectDomain': 'اختر النطاق',
-  'servers.selectNetwork': 'اختر الشبكة',
-}
+### 2.2 Domain Filter Enhancement
+
 ```
-
----
-
-## 4️⃣ نظام المهام الاحترافي (Task System Pro)
-
-### أ. إنشاء مكون Task Calendar
-
-**ملف جديد:** `src/components/tasks/TaskCalendar.tsx`
-
-```typescript
-// مكون تقويم يعرض المهام حسب due_date
-// يستخدم date-fns للتعامل مع التواريخ
-// يعرض المهام بألوان حسب الأولوية
-
-interface TaskCalendarProps {
-  tasks: Task[];
-  profiles: Profile[];
-  onTaskClick?: (task: Task) => void;
-}
-```
-
-**الميزات:**
-- عرض شهري مع تنقل ◀ ▶
-- المهام تظهر ببطاقات صغيرة في اليوم المحدد
-- ألوان: P1 أحمر، P2 برتقالي، P3 أصفر، P4 رمادي
-- نقر على المهمة يفتح تفاصيلها
-
-### ب. تحسين Kanban Board
-
-**الملف:** `src/components/tasks/KanbanBoard.tsx`
-
-**التحسينات:**
-- دعم السحب والإفلات (Drag & Drop) - يمكن استخدام CSS لتغيير الحالة عند النقر
-- إضافة عداد SLA
-- عرض المرفقات والتعليقات
-
-```typescript
-// إضافة SLA indicator
-const getSLAStatus = (task: Task) => {
-  if (!task.due_date) return null;
-  const now = new Date();
-  const due = new Date(task.due_date);
-  const hoursLeft = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
-  
-  if (hoursLeft < 0) return 'breached';
-  if (hoursLeft < 4) return 'critical';
-  if (hoursLeft < 24) return 'warning';
-  return 'ok';
-};
-```
-
-### ج. صفحة Task Templates
-
-**ملف جديد:** `src/pages/TaskTemplates.tsx`
-
-**الميزات:**
-- عرض القوالب الموجودة
-- إضافة قالب جديد
-- تحديد:
-  - الاسم والوصف
-  - التكرار (daily, weekly, monthly)
-  - الأولوية الافتراضية
-  - Checklist افتراضي
-  - المسؤول الافتراضي
-
-### د. تحديث صفحة Tasks.tsx الرئيسية
-
-**إضافة Tabs للعرض:**
-```typescript
-<Tabs defaultValue="list">
-  <TabsList>
-    <TabsTrigger value="list">{t('common.all')}</TabsTrigger>
-    <TabsTrigger value="kanban">{t('tasks.kanban')}</TabsTrigger>
-    <TabsTrigger value="calendar">{t('tasks.calendar')}</TabsTrigger>
-    <TabsTrigger value="my">{t('tasks.myTasks')}</TabsTrigger>
-  </TabsList>
-  
-  <TabsContent value="list">
-    {/* العرض الحالي */}
-  </TabsContent>
-  
-  <TabsContent value="kanban">
-    <KanbanBoard tasks={filteredTasks} profiles={profiles} />
-  </TabsContent>
-  
-  <TabsContent value="calendar">
-    <TaskCalendar tasks={filteredTasks} profiles={profiles} />
-  </TabsContent>
-  
-  <TabsContent value="my">
-    <MyTasksWidget tasks={myTasks} />
-  </TabsContent>
-</Tabs>
+Filter Flow:
+1. User selects Domain (e.g., "osaidtest1.com")
+2. Network dropdown filters to show only networks in that domain
+3. Server list filters to show servers in selected network(s)
+4. "All" option available at each level
 ```
 
 ---
 
-## 5️⃣ نظام Export/Import الاحترافي
+## Phase 3: Network Scan Implementation
 
-### أ. تحسين PDF Export
+### 3.1 Edge Function for Network Scanning
 
-**الملف:** `src/utils/pdfExport.ts`
-
-**التحسينات:**
-1. إضافة شعار/هوية بصرية
-2. دعم RTL محسن
-3. ترقيم الصفحات
-4. تنسيق الألوان حسب الحالة
-
+**File: `supabase/functions/network-scan/index.ts`**
 ```typescript
-// إضافة branded header
-const addBrandedHeader = (doc: jsPDF, title: string, isArabic: boolean) => {
-  // الشريط الأخضر العلوي
-  doc.setFillColor(11, 107, 99); // #0B6B63
-  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 15, 'F');
-  
-  // الخط الذهبي
-  doc.setFillColor(217, 176, 71); // #D9B047
-  doc.rect(0, 15, doc.internal.pageSize.getWidth(), 2, 'F');
-  
-  // العنوان
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
-  doc.text('IT Infrastructure Manager', 15, 10);
-};
+// Implementation approach:
+// Since Edge Functions run on Deno in the cloud,
+// we'll implement a simulation-based scanner for demo
+// and document the agent-based approach for production
 
-// إضافة footer مع ترقيم
-const addFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text(
-    `Page ${pageNumber} of ${totalPages}`,
-    doc.internal.pageSize.getWidth() / 2,
-    doc.internal.pageSize.getHeight() - 10,
-    { align: 'center' }
-  );
-};
+Key functionality:
+1. Parse CIDR/IP range input
+2. Simulate device discovery (for demo)
+3. Port signature detection for device type guessing
+4. Save results to scan_results table
+5. Return job status and progress
 ```
 
-### ب. تحسين Excel Export
+**Important Note:** True network scanning requires a local agent because:
+- Edge Functions cannot ping internal network devices
+- Browser-based scanning is blocked by CORS/security
+- Solution: Provide downloadable scanner agent (future enhancement)
 
-**ملف جديد:** `src/utils/professionalExport.ts`
+For MVP, implement:
+- Manual IP entry with device type selection
+- Bulk import from CSV
+- Mock scan simulation for demo
 
-```typescript
-import * as XLSX from 'xlsx';
+### 3.2 Network Scan UI Enhancements
 
-interface ExportOptions {
-  data: any[];
-  filename: string;
-  sheetName: string;
-  headers: { key: string; label: string; width?: number }[];
-  colorRules?: { column: string; rules: ColorRule[] }[];
-  includeStats?: boolean;
-}
-
-interface ColorRule {
-  value: string;
-  color: string; // hex
-}
-
-export const exportProfessionalExcel = (options: ExportOptions) => {
-  const { data, filename, sheetName, headers, colorRules, includeStats } = options;
-  
-  const wb = XLSX.utils.book_new();
-  
-  // Main data sheet
-  const ws = XLSX.utils.json_to_sheet(data);
-  
-  // Set column widths
-  ws['!cols'] = headers.map(h => ({ wch: h.width || 15 }));
-  
-  // Add header styling (requires xlsx-style or similar)
-  // Note: Basic xlsx doesn't support styling, but we can structure data well
-  
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  
-  // Stats sheet if requested
-  if (includeStats) {
-    const stats = calculateStats(data);
-    const statsSheet = XLSX.utils.json_to_sheet(stats);
-    XLSX.utils.book_append_sheet(wb, statsSheet, 'Statistics');
-  }
-  
-  XLSX.writeFile(wb, filename);
-};
-
-// حساب الإحصائيات تلقائياً
-const calculateStats = (data: any[]) => {
-  return [
-    { Metric: 'Total Records', Value: data.length },
-    { Metric: 'Export Date', Value: new Date().toISOString() },
-    // ... المزيد
-  ];
-};
+**File: `src/pages/NetworkScan.tsx`**
 ```
-
-### ج. نظام Import Templates المحسن
-
-**تحديث:** `src/utils/excelTemplates.ts`
-
-**إضافات:**
-1. Templates مع data validation
-2. Instructions sheet مفصل
-3. دعم الحقول الجديدة (Veeam, Beneficiary)
-
-```typescript
-// Server template محدث
-export const downloadServerTemplateV3 = () => {
-  const templateData = [
-    {
-      'server_id': '',
-      'name': 'DC-01',
-      'ip_address': '192.168.1.10',
-      'operating_system': 'Windows Server 2022',
-      'environment': 'production',
-      'status': 'active',
-      // New fields
-      'beneficiary_department': 'Finance',
-      'primary_application': 'ERP System',
-      'business_owner': 'Ahmed',
-      'is_backed_up_by_veeam': 'Yes',
-      'backup_frequency': 'daily',
-      'backup_job_name': 'DC-Daily-Backup',
-      // ... existing fields
-    },
-  ];
-  
-  // Validation sheet
-  const validationData = [
-    { Field: 'is_backed_up_by_veeam', Values: 'Yes, No' },
-    { Field: 'backup_frequency', Values: 'none, daily, weekly' },
-    // ...
-  ];
-  
-  // ... create workbook
-};
-```
-
-### د. واجهة Import Review
-
-**ملف جديد:** `src/components/import/ImportReviewDialog.tsx`
-
-```typescript
-interface ImportReviewProps {
-  preview: {
-    toCreate: number;
-    toUpdate: number;
-    unchanged: number;
-    errors: { row: number; message: string }[];
-  };
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-const ImportReviewDialog: React.FC<ImportReviewProps> = ({
-  preview,
-  onConfirm,
-  onCancel,
-}) => {
-  return (
-    <Dialog open>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>مراجعة الاستيراد</DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="bg-success/10">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-success">{preview.toCreate}</p>
-                <p className="text-sm">سجلات جديدة</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-warning/10">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-warning">{preview.toUpdate}</p>
-                <p className="text-sm">للتحديث</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-destructive/10">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-destructive">{preview.errors.length}</p>
-                <p className="text-sm">أخطاء</p>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {preview.errors.length > 0 && (
-            <div className="bg-destructive/5 p-3 rounded-lg max-h-40 overflow-auto">
-              {preview.errors.map((err, i) => (
-                <p key={i} className="text-sm text-destructive">
-                  صف {err.row}: {err.message}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
-        
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>إلغاء</Button>
-          <Button onClick={onConfirm}>استيراد الآن</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
+Enhancements:
+1. Add scan job creation form
+2. Display scan jobs list with status
+3. Show scan results with checkboxes
+4. "Import Selected" functionality to create servers
+5. Progress indicator for running scans
 ```
 
 ---
 
-## 6️⃣ الترجمات الجديدة المطلوبة
+## Phase 4: Professional Task System (Jira-like)
 
-### في `LanguageContext.tsx`:
+### 4.1 Task Workflow Enhancements
 
-```typescript
-ar: {
-  // Navigation
-  'nav.networkScan': 'فحص الشبكة',
-  
-  // Servers
-  'servers.selectDomain': 'اختر النطاق',
-  'servers.selectNetwork': 'اختر الشبكة',
-  'servers.filterByDomain': 'الفلترة حسب النطاق',
-  
-  // Reports
-  'reports.networks': 'الشبكات',
-  
-  // Tasks Pro
-  'tasks.viewModes': 'طرق العرض',
-  'tasks.listView': 'قائمة',
-  'tasks.kanbanView': 'Kanban',
-  'tasks.calendarView': 'تقويم',
-  'tasks.createFromTemplate': 'إنشاء من قالب',
-  'tasks.manageTemplates': 'إدارة القوالب',
-  'tasks.noTemplates': 'لا يوجد قوالب',
-  
-  // Import/Export
-  'import.review': 'مراجعة الاستيراد',
-  'import.newRecords': 'سجلات جديدة',
-  'import.toUpdate': 'للتحديث',
-  'import.errors': 'أخطاء',
-  'import.confirmImport': 'تأكيد الاستيراد',
-  'import.dryRun': 'معاينة فقط',
-  'import.downloadTemplate': 'تحميل القالب',
-  
-  'export.pdf': 'تصدير PDF',
-  'export.excel': 'تصدير Excel',
-  'export.fullReport': 'التقرير الكامل',
-  'export.filtered': 'البيانات المفلترة',
-  'export.summary': 'ملخص تنفيذي',
-},
+**Current Database State:** Already has:
+- `task_status` (draft, assigned, in_progress, blocked, in_review, done, closed)
+- `sla_response_hours`, `sla_resolve_hours`, `sla_breached`
+- `requester_id`, `reviewer_id`, `watchers`
+- `checklist`, `evidence` (JSONB)
+- `parent_task_id` for subtasks
+- `linked_server_id`, `linked_network_id`, `linked_license_id`
 
-en: {
-  // Navigation
-  'nav.networkScan': 'Network Scan',
-  
-  // Servers
-  'servers.selectDomain': 'Select Domain',
-  'servers.selectNetwork': 'Select Network',
-  'servers.filterByDomain': 'Filter by Domain',
-  
-  // Reports
-  'reports.networks': 'Networks',
-  
-  // Tasks Pro
-  'tasks.viewModes': 'View Modes',
-  'tasks.listView': 'List',
-  'tasks.kanbanView': 'Kanban',
-  'tasks.calendarView': 'Calendar',
-  'tasks.createFromTemplate': 'Create from Template',
-  'tasks.manageTemplates': 'Manage Templates',
-  'tasks.noTemplates': 'No templates',
-  
-  // Import/Export
-  'import.review': 'Import Review',
-  'import.newRecords': 'New Records',
-  'import.toUpdate': 'To Update',
-  'import.errors': 'Errors',
-  'import.confirmImport': 'Confirm Import',
-  'import.dryRun': 'Preview Only',
-  'import.downloadTemplate': 'Download Template',
-  
-  'export.pdf': 'Export PDF',
-  'export.excel': 'Export Excel',
-  'export.fullReport': 'Full Report',
-  'export.filtered': 'Filtered Data',
-  'export.summary': 'Executive Summary',
-}
+### 4.2 Enhanced Kanban Board
+
+**File: `src/components/tasks/KanbanBoard.tsx`**
+```
+Enhancements:
+1. Add drag-and-drop functionality (using CSS transitions)
+2. Display SLA countdown timer
+3. Show assignee avatar
+4. Quick status change on card click
+5. Color coding by priority (P1=red, P2=orange, P3=yellow, P4=gray)
+```
+
+### 4.3 Task Templates & Recurrence
+
+**File: `src/pages/TaskTemplates.tsx`** (New)
+```
+Features:
+1. CRUD for task templates
+2. Define default assignee, priority, checklist
+3. Set frequency (daily, weekly, monthly)
+4. Manual trigger to create tasks from template
+```
+
+**Recurring Task Generation:**
+- Edge Function triggered daily via Cron
+- Creates tasks based on active templates
+- Round-robin assignment from on_call_schedules
+
+### 4.4 Task Comments & Attachments
+
+**File: `src/components/tasks/TaskComments.tsx`** (New)
+```
+Features:
+1. Comment timeline within task dialog
+2. Support for text comments
+3. Attachment links (screenshots, logs)
+4. Author and timestamp display
 ```
 
 ---
 
-## 7️⃣ الملفات المتأثرة
+## Phase 5: Export/Import Framework
 
-| الملف | التغيير |
-|-------|---------|
-| `src/components/layout/Sidebar.tsx` | إضافة Network Scan link |
-| `src/contexts/LanguageContext.tsx` | ترجمات جديدة |
-| `src/pages/Reports.tsx` | تصحيح "الشبكات" |
-| `src/pages/Servers.tsx` | تحسين فلاتر Domain |
-| `src/pages/Tasks.tsx` | إضافة Kanban/Calendar tabs |
-| `src/components/tasks/KanbanBoard.tsx` | تحسينات SLA |
-| `src/components/tasks/TaskCalendar.tsx` | **ملف جديد** |
-| `src/pages/TaskTemplates.tsx` | **ملف جديد** |
-| `src/utils/pdfExport.ts` | تحسينات branded |
-| `src/utils/professionalExport.ts` | **ملف جديد** |
-| `src/components/import/ImportReviewDialog.tsx` | **ملف جديد** |
-| `src/utils/excelTemplates.ts` | تحديث Templates |
+### 5.1 Universal Export Engine
+
+**File: `src/utils/professionalExport.ts`**
+```
+Existing functions (already implemented):
+- exportProfessionalExcel()
+- exportServersExcel()
+- exportTasksExcel()
+- exportLicensesExcel()
+
+New functions to add:
+- exportEmployeesExcel()
+- exportNetworksExcel()
+- exportVacationsExcel()
+- exportAuditLogExcel()
+```
+
+### 5.2 Import Templates & Workflow
+
+**File: `src/utils/excelTemplates.ts`**
+```
+Existing templates:
+- Server template (has instructions sheet)
+- License template
+- Task template
+- Employee template
+- Network template
+- Vacation template
+
+Enhancements needed:
+1. Add data validation dropdowns
+2. Include lookup sheets for valid values
+3. Better error messages in import review
+```
+
+**File: `src/components/import/ImportReviewDialog.tsx`** (Already exists)
+```
+Enhancements:
+1. Show row-by-row preview
+2. Highlight errors in red
+3. Allow editing before import
+4. Dry run mode (no DB changes)
+5. Generate import report
+```
+
+### 5.3 Weekly Upload Workflow
+
+```
+Process Flow:
+1. Admin downloads template with latest data
+2. Staff fills in updates
+3. Admin uploads filled template
+4. System shows Import Review:
+   - Green: New records to create
+   - Yellow: Existing records to update
+   - Red: Errors/invalid data
+5. Admin confirms import
+6. System executes upserts and logs to audit
+```
 
 ---
 
-## 8️⃣ ترتيب التنفيذ
+## Phase 6: Leave/Vacation Calendar View
 
-### المرحلة 1: Quick Fixes (سريع)
-```text
-□ 1.1 إضافة Network Scan للقائمة الجانبية
-□ 1.2 تصحيح "النطاقات" → "الشبكات" في التقارير
-□ 1.3 إضافة الترجمات الأساسية
+### 6.1 Calendar Enhancement
+
+**File: `src/pages/Vacations.tsx`**
+```
+Enhancements:
+1. Add month/week/day calendar view toggle
+2. Show leave entries as colored blocks
+3. Color by leave type (Annual=blue, Sick=red, etc.)
+4. Click to view/edit leave details
+5. Drag to create new leave requests
 ```
 
-### المرحلة 2: Server Filters (متوسط)
-```text
-□ 2.1 تحسين فلتر Domain في Servers.tsx
-□ 2.2 جعل Network يعتمد على Domain المختار
+**Calendar Component:** Use existing date-fns and react-day-picker
+
+---
+
+## Phase 7: Certificate & License Expiry Center
+
+### 7.1 Expiry Dashboard
+
+**File: `src/components/dashboard/ExpiryWidget.tsx`** (New)
+```
+Features:
+1. Show upcoming expirations (30/14/7 days)
+2. Categorized: Licenses, SSL Certs, Domains
+3. Color coded by urgency
+4. Quick link to manage each item
 ```
 
-### المرحلة 3: Task System Pro (كبير)
-```text
-□ 3.1 إنشاء TaskCalendar.tsx
-□ 3.2 تحديث Tasks.tsx لدعم الـ Tabs الجديدة
-□ 3.3 تحسين KanbanBoard.tsx
-□ 3.4 إنشاء TaskTemplates.tsx (اختياري)
+### 7.2 License Alerts
+
+**Implementation:**
+- Database trigger on license insert/update
+- Create notification when expiry_date < NOW() + 30 days
+- Show in notification bell
+
+---
+
+## Phase 8: Relationship Mapping & Impact Analysis
+
+### 8.1 Entity Relationships
+
+**Current Database Relationships:**
+```
+Domain -> Networks -> Servers -> Tasks
+         |                    -> Licenses
+         -> Website Applications
+         
+Server -> Tasks
+       -> Linked Licenses
+       
+Task -> Server/Network/License links
+     -> Comments
+     -> Parent/Child tasks
 ```
 
-### المرحلة 4: Export/Import Pro (كبير)
-```text
-□ 4.1 تحسين pdfExport.ts (branded)
-□ 4.2 إنشاء professionalExport.ts
-□ 4.3 تحديث excelTemplates.ts
-□ 4.4 إنشاء ImportReviewDialog.tsx
+### 8.2 Impact Analysis Feature
+
+**File: `src/components/servers/ImpactAnalysis.tsx`** (New)
+```
+Features:
+1. Select a server to analyze
+2. Show dependent entities:
+   - Tasks assigned to this server
+   - Licenses linked to this server
+   - Applications running on this server
+3. Criticality scoring based on dependencies
+4. "If this server goes down..." summary
 ```
 
 ---
 
-## 9️⃣ النتيجة المتوقعة
+## Phase 9: Notifications System Enhancement
 
-بعد التنفيذ:
-- ✅ Network Scan يظهر في القائمة الجانبية
-- ✅ "الشبكات" بدلاً من "النطاقات" في التقارير
-- ✅ فلتر Domain واضح ومتسلسل في السيرفرات
-- ✅ نظام مهام متقدم مع Kanban + Calendar
-- ✅ تصدير PDF احترافي مع هوية بصرية
-- ✅ استيراد Excel مع مراجعة قبل الحفظ
+### 9.1 In-App Notifications
+
+**File: `src/components/layout/NotificationBell.tsx`** (New)
+```
+Features:
+1. Bell icon in header with unread count
+2. Dropdown showing recent notifications
+3. Mark as read/unread
+4. Link to related entity
+5. "Mark all as read" action
+```
+
+### 9.2 Notification Triggers
+
+**Events that create notifications:**
+- Task assigned to user
+- Task approaching SLA deadline
+- Task overdue
+- License expiring in 30/14/7 days
+- Vacation request approved/rejected
+- Comment added to user's task
+
+---
+
+## Phase 10: Seed Data & Demo Content
+
+### 10.1 Demo Data Script
+
+**File: `supabase/seed.sql`** (New)
+```sql
+-- Create sample domains
+INSERT INTO domains (name, description) VALUES
+  ('osaidtest1.com', 'Main Production Domain'),
+  ('osaidtest2.com', 'Development Domain'),
+  ('osaidtest3.com', 'DR Domain');
+
+-- Create sample networks per domain
+-- Create sample servers per network
+-- Create sample licenses
+-- Create sample tasks
+-- Create sample website applications
+```
+
+---
+
+## Implementation Order
+
+### Week 1: Critical Fixes
+```
+Day 1-2:
+- [ ] Fix authentication stability issues
+- [ ] Enhance session management
+- [ ] Add session expiry notifications
+
+Day 3-4:
+- [ ] Implement global PDF export with branding
+- [ ] Test PDF export on all modules
+- [ ] Fix RTL Arabic text in PDFs
+
+Day 5:
+- [ ] Test and verify all critical fixes
+- [ ] Create seed data script
+```
+
+### Week 2: Server & Filters
+```
+Day 1-2:
+- [ ] Enhance Domain -> Network filter cascade
+- [ ] Improve Servers page UI
+- [ ] Add Veeam backup stats cards
+
+Day 3-4:
+- [ ] Network Scan Edge Function (simulation mode)
+- [ ] Network Scan UI improvements
+- [ ] Import from scan results flow
+
+Day 5:
+- [ ] Testing and bug fixes
+```
+
+### Week 3: Task System Pro
+```
+Day 1-2:
+- [ ] Enhance Kanban with drag-drop-like behavior
+- [ ] Add SLA countdown display
+- [ ] Priority color coding
+
+Day 3-4:
+- [ ] Task Templates page
+- [ ] Task Comments component
+- [ ] Task details dialog improvements
+
+Day 5:
+- [ ] Recurring task generation logic
+- [ ] Testing
+```
+
+### Week 4: Export/Import & Polish
+```
+Day 1-2:
+- [ ] Enhance import review dialog
+- [ ] Add row-level preview
+- [ ] Dry run mode
+
+Day 3-4:
+- [ ] Vacation calendar view
+- [ ] Expiry center widget
+- [ ] Notification bell component
+
+Day 5:
+- [ ] Impact analysis component
+- [ ] Final testing and polish
+```
+
+---
+
+## Technical Notes
+
+### Files to Create
+1. `supabase/functions/network-scan/index.ts`
+2. `src/components/dashboard/ExpiryWidget.tsx`
+3. `src/components/layout/NotificationBell.tsx`
+4. `src/components/servers/ImpactAnalysis.tsx`
+5. `src/components/tasks/TaskComments.tsx`
+6. `src/pages/TaskTemplates.tsx`
+7. `supabase/seed.sql`
+
+### Files to Modify
+1. `src/contexts/AuthContext.tsx` - Session stability
+2. `src/pages/Login.tsx` - Error handling
+3. `src/utils/pdfExport.ts` - Branded PDF for all modules
+4. `src/pages/Servers.tsx` - Filter enhancements
+5. `src/pages/NetworkScan.tsx` - Full implementation
+6. `src/components/tasks/KanbanBoard.tsx` - Drag-drop behavior
+7. `src/pages/Tasks.tsx` - Integration updates
+8. `src/pages/Vacations.tsx` - Calendar view
+9. `src/components/layout/Sidebar.tsx` - Notification bell integration
+10. `src/hooks/useSupabaseData.ts` - New hooks as needed
+
+### No Database Changes Required
+All required tables and columns already exist from previous migrations.
+
+---
+
+## Acceptance Criteria Checklist
+
+- [ ] No localStorage for core entities (Servers, Tasks, etc.)
+- [ ] Login is stable with "Remember Me" option
+- [ ] No redirect loops during login
+- [ ] PDF export works for all modules with branded design
+- [ ] Excel export is professionally formatted
+- [ ] Import templates have data validation
+- [ ] Import preview shows create/update/error counts
+- [ ] Servers can be filtered by Domain and Network
+- [ ] Veeam backup fields are visible and editable
+- [ ] Network Scan page allows device discovery
+- [ ] Task Kanban supports visual status management
+- [ ] Task Calendar shows tasks by due date
+- [ ] Task Templates can generate recurring tasks
+- [ ] Audit Log tracks all entity changes
+- [ ] Vacations have calendar view
+- [ ] Notifications show relevant alerts
+- [ ] Seed data populates demo content
+- [ ] Arabic RTL and English LTR fully supported
+- [ ] Theme uses Primary Teal (#0B6B63) + Gold (#D4AF37)
