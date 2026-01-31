@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppName, useAppSettings } from '@/hooks/useSupabaseData';
@@ -10,12 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock, ImageIcon, Loader2, LayoutDashboard, Lock, Upload } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock, ImageIcon, Loader2, LayoutDashboard, Lock, Upload, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicenseTemplate, downloadNetworkTemplate, downloadEmployeeTemplate } from '@/utils/excelTemplates';
 import SectionOrderSettings from '@/components/settings/SectionOrderSettings';
 import SidebarOrderSettings from '@/components/settings/SidebarOrderSettings';
 import HTTPSSettingsTab from '@/components/settings/HTTPSSettingsTab';
+import { seedAllData } from '@/utils/seedData';
 
 const Settings: React.FC = () => {
   const { t, dir, language, setLanguage } = useLanguage();
@@ -26,6 +27,7 @@ const Settings: React.FC = () => {
   const { backgroundUrl, uploadBackground } = useLoginBackground();
   const [localAppName, setLocalAppName] = React.useState(appName);
   const [isUploadingBg, setIsUploadingBg] = React.useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
   // Mail Settings State
@@ -163,6 +165,25 @@ const Settings: React.FC = () => {
     if (bgInputRef.current) bgInputRef.current.value = '';
   };
 
+  const handleSeedData = async () => {
+    setIsSeeding(true);
+    const result = await seedAllData();
+    setIsSeeding(false);
+    
+    if (result.success) {
+      toast({ 
+        title: t('common.success'), 
+        description: result.message 
+      });
+    } else {
+      toast({ 
+        title: t('common.error'), 
+        description: result.message, 
+        variant: 'destructive' 
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto" dir={dir}>
       {/* Header */}
@@ -172,7 +193,7 @@ const Settings: React.FC = () => {
         </div>
         <div>
           <h1 className="text-3xl font-bold">{t('nav.settings')}</h1>
-          <p className="text-muted-foreground">إدارة إعدادات التطبيق</p>
+          <p className="text-muted-foreground">{t('settings.manageSettings')}</p>
         </div>
       </div>
 
@@ -215,24 +236,24 @@ const Settings: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="w-5 h-5" />
-                معلومات الحساب
+                {t('settings.accountInfo')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">الاسم</span>
+                <span className="text-muted-foreground">{t('settings.name')}</span>
                 <span className="font-medium">{profile?.full_name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">البريد الإلكتروني</span>
+                <span className="text-muted-foreground">{t('settings.email')}</span>
                 <span className="font-medium">{profile?.email}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">الدور</span>
-                <span className="font-medium">{profile?.role === 'admin' ? 'مدير النظام' : 'موظف'}</span>
+                <span className="text-muted-foreground">{t('settings.role')}</span>
+                <span className="font-medium">{profile?.role === 'admin' ? t('settings.admin') : t('settings.employee')}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">القسم</span>
+                <span className="text-muted-foreground">{t('settings.department')}</span>
                 <span className="font-medium">{profile?.department || 'IT'}</span>
               </div>
             </CardContent>
@@ -244,15 +265,15 @@ const Settings: React.FC = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Palette className="w-5 h-5" />
-                  تخصيص التطبيق
+                  {t('settings.appBranding')}
                 </CardTitle>
                 <CardDescription>
-                  تخصيص اسم التطبيق والعلامة التجارية
+                  {t('settings.appBrandingDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>اسم التطبيق</Label>
+                  <Label>{t('settings.appName')}</Label>
                   <div className="flex gap-2">
                     <Input
                       value={localAppName}
@@ -260,9 +281,9 @@ const Settings: React.FC = () => {
                       placeholder="IT"
                       maxLength={20}
                     />
-                    <Button onClick={handleSaveAppName}>حفظ</Button>
+                    <Button onClick={handleSaveAppName}>{t('common.save')}</Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">يظهر هذا الاسم في الشريط الجانبي</p>
+                  <p className="text-xs text-muted-foreground">{t('settings.showsInSidebar')}</p>
                 </div>
 
                 <Separator className="my-4" />
@@ -271,7 +292,7 @@ const Settings: React.FC = () => {
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <ImageIcon className="w-4 h-4" />
-                    خلفية صفحة الدخول
+                    {t('settings.loginBackground')}
                   </Label>
                   <div className="flex gap-2 items-center">
                     <img
@@ -294,9 +315,9 @@ const Settings: React.FC = () => {
                         onClick={() => bgInputRef.current?.click()}
                       >
                         {isUploadingBg ? <Loader2 className="w-4 h-4 animate-spin me-1" /> : null}
-                        {isUploadingBg ? 'جارٍ الرفع...' : 'رفع صورة جديدة'}
+                        {isUploadingBg ? t('settings.uploading') : t('settings.uploadNewImage')}
                       </Button>
-                      <p className="text-xs text-muted-foreground">يُفضل صورة بدقة 1920×1080 أو أعلى</p>
+                      <p className="text-xs text-muted-foreground">{t('settings.preferredResolution')}</p>
                     </div>
                   </div>
                 </div>
@@ -309,16 +330,16 @@ const Settings: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5" />
-                إعدادات اللغة
+                {t('settings.languageSettings')}
               </CardTitle>
               <CardDescription>
-                اختر لغة الواجهة المفضلة
+                {t('settings.chooseLanguage')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>لغة الواجهة</Label>
+                  <Label>{t('settings.interfaceLanguage')}</Label>
                   <p className="text-sm text-muted-foreground">
                     {language === 'ar' ? 'العربية' : 'English'}
                   </p>
@@ -340,30 +361,57 @@ const Settings: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Info className="w-5 h-5" />
-                حول التطبيق
+                {t('settings.about')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">التطبيق</span>
+                  <span className="text-muted-foreground">{t('settings.application')}</span>
                   <span className="font-medium">IT Infrastructure Manager</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">الإصدار</span>
+                  <span className="text-muted-foreground">{t('settings.version')}</span>
                   <span className="font-medium">2.0.0</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">التخزين</span>
+                  <span className="text-muted-foreground">{t('settings.storage')}</span>
                   <span className="font-medium">Lovable Cloud</span>
                 </div>
                 <Separator />
                 <p className="text-sm text-muted-foreground">
-                  يتم تخزين جميع البيانات بشكل آمن في السحابة مع تشفير كامل.
+                  {t('settings.cloudStorageNote')}
                 </p>
               </div>
             </CardContent>
           </Card>
+
+          {/* Test Data - Admin Only */}
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="w-5 h-5" />
+                  {t('settings.testData')}
+                </CardTitle>
+                <CardDescription>
+                  {t('settings.testDataDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={handleSeedData} disabled={isSeeding}>
+                  {isSeeding ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin me-2" />
+                      {t('common.loading')}
+                    </>
+                  ) : (
+                    t('settings.createTestData')
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Customization Tab */}

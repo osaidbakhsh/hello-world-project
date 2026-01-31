@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppName } from '@/hooks/useSupabaseData';
+import { useAppName, useAppSettings } from '@/hooks/useSupabaseData';
 import { useTheme } from 'next-themes';
 import {
   LayoutDashboard,
@@ -39,33 +39,80 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
+interface MenuItem {
+  id: string;
+  path: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  adminOnly?: boolean;
+}
+
+const allMenuItems: MenuItem[] = [
+  { id: 'dashboard', path: '/', icon: LayoutDashboard, label: 'nav.dashboard' },
+  { id: 'servers', path: '/servers', icon: Server, label: 'nav.servers' },
+  { id: 'employees', path: '/employees', icon: Users, label: 'nav.employees', adminOnly: true },
+  { id: 'employeePermissions', path: '/employee-permissions', icon: Shield, label: 'nav.employeePermissions', adminOnly: true },
+  { id: 'vacations', path: '/vacations', icon: Calendar, label: 'nav.vacations' },
+  { id: 'licenses', path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
+  { id: 'tasks', path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
+  { id: 'vault', path: '/vault', icon: Lock, label: 'nav.vault' },
+  { id: 'networks', path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
+  { id: 'networkScan', path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
+  { id: 'webApps', path: '/web-apps', icon: Globe, label: 'nav.webApps', adminOnly: true },
+  { id: 'employeeReports', path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports', adminOnly: true },
+  { id: 'reports', path: '/reports', icon: FileBarChart, label: 'nav.reports' },
+  { id: 'auditLog', path: '/audit-log', icon: History, label: 'nav.auditLog', adminOnly: true },
+  { id: 'settings', path: '/settings', icon: Settings, label: 'nav.settings', adminOnly: true },
+];
+
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { t, language, setLanguage, dir } = useLanguage();
   const { profile, signOut, isAdmin } = useAuth();
   const { appName } = useAppName();
+  const { getSetting } = useAppSettings();
   const { theme, setTheme } = useTheme();
   const location = useLocation();
+  const [orderedMenuItems, setOrderedMenuItems] = useState<MenuItem[]>(allMenuItems);
 
-  const menuItems = [
-    { path: '/', icon: LayoutDashboard, label: 'nav.dashboard' },
-    { path: '/servers', icon: Server, label: 'nav.servers' },
-    { path: '/employees', icon: Users, label: 'nav.employees', adminOnly: true },
-    { path: '/employee-permissions', icon: Shield, label: 'nav.employeePermissions', adminOnly: true },
-    { path: '/vacations', icon: Calendar, label: 'nav.vacations' },
-    { path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
-    { path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
-    { path: '/vault', icon: Lock, label: 'nav.vault' },
-    { path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
-    { path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
-    { path: '/web-apps', icon: Globe, label: 'nav.webApps', adminOnly: true },
-    { path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports', adminOnly: true },
-    { path: '/reports', icon: FileBarChart, label: 'nav.reports' },
-    { path: '/audit-log', icon: History, label: 'nav.auditLog', adminOnly: true },
-    { path: '/settings', icon: Settings, label: 'nav.settings', adminOnly: true },
-  ];
+  // Load saved sidebar order from database
+  const loadSidebarOrder = useCallback(async () => {
+    const saved = await getSetting('sidebar_order');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Reorder items based on saved order and enabled status
+        const reordered: MenuItem[] = [];
+        parsed.forEach((savedItem: { id: string; enabled: boolean }) => {
+          if (savedItem.enabled) {
+            const menuItem = allMenuItems.find(m => m.id === savedItem.id);
+            if (menuItem) {
+              reordered.push(menuItem);
+            }
+          }
+        });
+        // Add any new items that might not be in the saved order
+        allMenuItems.forEach(item => {
+          if (!reordered.find(r => r.id === item.id)) {
+            const savedItem = parsed.find((p: { id: string }) => p.id === item.id);
+            if (!savedItem || savedItem.enabled !== false) {
+              reordered.push(item);
+            }
+          }
+        });
+        setOrderedMenuItems(reordered);
+      } catch (e) {
+        console.error('Failed to parse sidebar order');
+        setOrderedMenuItems(allMenuItems);
+      }
+    }
+  }, [getSetting]);
+
+  useEffect(() => {
+    loadSidebarOrder();
+  }, [loadSidebarOrder]);
 
   // Filter menu items based on admin status
-  const visibleMenuItems = menuItems.filter(item => !item.adminOnly || isAdmin);
+  const visibleMenuItems = orderedMenuItems.filter(item => !item.adminOnly || isAdmin);
 
   const CollapseIcon = dir === 'rtl' 
     ? (collapsed ? ChevronLeft : ChevronRight)
