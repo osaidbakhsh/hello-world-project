@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppName, useAppSettings } from '@/hooks/useSupabaseData';
+import { useLoginBackground } from '@/hooks/useLoginBackground';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock, ImageIcon, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicenseTemplate, downloadNetworkTemplate, downloadEmployeeTemplate } from '@/utils/excelTemplates';
 
@@ -19,7 +20,10 @@ const Settings: React.FC = () => {
   const { profile, isAdmin } = useAuth();
   const { appName, updateAppName } = useAppName();
   const { getSetting, updateSetting } = useAppSettings();
+  const { backgroundUrl, uploadBackground } = useLoginBackground();
   const [localAppName, setLocalAppName] = React.useState(appName);
+  const [isUploadingBg, setIsUploadingBg] = React.useState(false);
+  const bgInputRef = useRef<HTMLInputElement>(null);
 
   // Mail Settings State
   const [mailSettings, setMailSettings] = React.useState({
@@ -142,6 +146,20 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingBg(true);
+    const success = await uploadBackground(file);
+    setIsUploadingBg(false);
+    if (success) {
+      toast({ title: t('common.success'), description: 'تم رفع خلفية صفحة الدخول' });
+    } else {
+      toast({ title: t('common.error'), description: 'فشل رفع الخلفية', variant: 'destructive' });
+    }
+    if (bgInputRef.current) bgInputRef.current.value = '';
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto" dir={dir}>
       {/* Header */}
@@ -234,6 +252,42 @@ const Settings: React.FC = () => {
                     <Button onClick={handleSaveAppName}>حفظ</Button>
                   </div>
                   <p className="text-xs text-muted-foreground">يظهر هذا الاسم في الشريط الجانبي</p>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* Login Background Upload */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" />
+                    خلفية صفحة الدخول
+                  </Label>
+                  <div className="flex gap-2 items-center">
+                    <img
+                      src={backgroundUrl}
+                      alt="Login background preview"
+                      className="h-16 w-28 object-cover rounded border"
+                    />
+                    <div className="flex flex-col gap-1">
+                      <input
+                        ref={bgInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleBackgroundUpload}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isUploadingBg}
+                        onClick={() => bgInputRef.current?.click()}
+                      >
+                        {isUploadingBg ? <Loader2 className="w-4 h-4 animate-spin me-1" /> : null}
+                        {isUploadingBg ? 'جارٍ الرفع...' : 'رفع صورة جديدة'}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">يُفضل صورة بدقة 1920×1080 أو أعلى</p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
