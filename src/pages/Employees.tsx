@@ -15,12 +15,13 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Search, User, Calendar, GraduationCap, Mail, Phone, Award, Target, ListTodo } from 'lucide-react';
+import { Search, User, Calendar, GraduationCap, Mail, Phone, Award, Target, ListTodo, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import EmployeeTaskUpload from '@/components/employees/EmployeeTaskUpload';
 
 const Employees: React.FC = () => {
-  const { t, dir } = useLanguage();
+  const { t, dir, language } = useLanguage();
   const { isAdmin } = useAuth();
   
   // Supabase data
@@ -31,6 +32,7 @@ const Employees: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<Profile | null>(null);
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [isTaskUploadOpen, setIsTaskUploadOpen] = useState(false);
 
   const filteredEmployees = useMemo(() => {
     return profiles.filter((emp) =>
@@ -82,12 +84,27 @@ const Employees: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold">{t('employees.title')}</h1>
-        {isAdmin && (
-          <p className="text-sm text-muted-foreground">
-            لإضافة موظفين جدد، استخدم صفحة "صلاحيات الموظفين"
-          </p>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button variant="outline" onClick={() => setIsTaskUploadOpen(true)}>
+              <Upload className="w-4 h-4 me-2" />
+              {t('import.uploadEmployeeTasks')}
+            </Button>
+          )}
+          {isAdmin && (
+            <p className="text-sm text-muted-foreground">
+              {language === 'ar' ? 'لإضافة موظفين جدد، استخدم صفحة "صلاحيات الموظفين"' : 'To add new employees, use the "Employee Permissions" page'}
+            </p>
+          )}
+        </div>
       </div>
+
+      {/* Employee Task Upload Dialog */}
+      <EmployeeTaskUpload 
+        open={isTaskUploadOpen} 
+        onOpenChange={setIsTaskUploadOpen}
+        onSuccess={() => {}} 
+      />
 
       {/* Search */}
       <div className="relative max-w-md">

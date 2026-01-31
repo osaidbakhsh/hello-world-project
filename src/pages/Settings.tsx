@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicenseTemplate, downloadNetworkTemplate, downloadEmployeeTemplate } from '@/utils/excelTemplates';
 import SectionOrderSettings from '@/components/settings/SectionOrderSettings';
 import SidebarOrderSettings from '@/components/settings/SidebarOrderSettings';
+import HTTPSSettingsTab from '@/components/settings/HTTPSSettingsTab';
 
 const Settings: React.FC = () => {
   const { t, dir, language, setLanguage } = useLanguage();
@@ -725,79 +726,7 @@ const Settings: React.FC = () => {
 
         {/* HTTPS Settings Tab */}
         <TabsContent value="https" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="w-5 h-5" />
-                {t('settings.https') || 'HTTPS'} - {dir === 'rtl' ? 'شهادات SSL' : 'SSL Certificates'}
-              </CardTitle>
-              <CardDescription>
-                {dir === 'rtl' 
-                  ? 'رفع شهادات SSL لتفعيل HTTPS في بيئة Docker ذاتية الاستضافة'
-                  : 'Upload SSL certificates to enable HTTPS for self-hosted Docker deployment'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* PFX Option */}
-              <div className="p-4 border rounded-lg space-y-4">
-                <h4 className="font-medium">{dir === 'rtl' ? 'الخيار أ: ملف PFX' : 'Option A: PFX File'}</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{dir === 'rtl' ? 'ملف PFX' : 'PFX File'}</Label>
-                    <Input type="file" accept=".pfx,.p12" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{dir === 'rtl' ? 'كلمة مرور PFX' : 'PFX Password'}</Label>
-                    <Input type="password" placeholder="••••••••" />
-                  </div>
-                </div>
-              </div>
-
-              {/* PEM Option */}
-              <div className="p-4 border rounded-lg space-y-4">
-                <h4 className="font-medium">{dir === 'rtl' ? 'الخيار ب: ملفات PEM' : 'Option B: PEM Files'}</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{dir === 'rtl' ? 'ملف الشهادة (cert.pem)' : 'Certificate File (cert.pem)'}</Label>
-                    <Input type="file" accept=".pem,.crt" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{dir === 'rtl' ? 'ملف المفتاح (key.pem)' : 'Key File (key.pem)'}</Label>
-                    <Input type="file" accept=".pem,.key" />
-                  </div>
-                </div>
-              </div>
-
-              <Button className="gap-2">
-                <Upload className="w-4 h-4" />
-                {dir === 'rtl' ? 'رفع الشهادة' : 'Upload Certificate'}
-              </Button>
-
-              {/* Docker Guidance */}
-              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-                <h4 className="font-medium flex items-center gap-2">
-                  <Info className="w-4 h-4" />
-                  {dir === 'rtl' ? 'ملاحظة لبيئة Docker' : 'Docker Deployment Note'}
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  {dir === 'rtl' 
-                    ? 'لتفعيل HTTPS في Docker، يُنصح باستخدام Nginx أو Traefik كـ Reverse Proxy مع تحميل الشهادات. يمكنك استخدام الأمر التالي:'
-                    : 'For Docker HTTPS, use Nginx/Traefik as a reverse proxy with mounted certificates. Example:'}
-                </p>
-                <pre className="text-xs bg-background p-3 rounded border overflow-x-auto" dir="ltr">
-{`# docker-compose.yml
-services:
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "443:443"
-    volumes:
-      - ./certs:/etc/nginx/certs:ro
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro`}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
+          <HTTPSSettingsTab />
         </TabsContent>
       </Tabs>
     </div>
