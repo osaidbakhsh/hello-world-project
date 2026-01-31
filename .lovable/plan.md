@@ -1,662 +1,570 @@
 
-# خطة التنفيذ الشاملة لنظام إدارة البنية التحتية
+# خطة التطوير الشاملة: نظام المهام Pro + Network Scan + تحسينات الاستيراد/التصدير
 
-## ملخص تنفيذي
+## ملخص المتطلبات
 
-بناءً على تحليل الكود الحالي، هذه خطة شاملة لتنفيذ جميع الأهداف المطلوبة:
-
-| # | الهدف | الحالة الحالية | المطلوب |
-|---|-------|----------------|---------|
-| 1 | توحيد مصدر البيانات | ✅ معظم الصفحات تستخدم Supabase | تنظيف `useLocalStorage.ts` |
-| 2 | إصلاح الجلسات والمصادقة | ⚠️ لا يوجد "تذكرني" | إضافة Remember Me + تحسينات |
-| 3 | تطوير السيرفرات | ⚠️ ناقص | حقول Veeam + المستفيد + فلاتر |
-| 4 | Network Scan | ❌ غير موجود | ميزة جديدة كاملة |
-| 5 | نظام المهام Pro | ⚠️ بسيط | دورة حياة + SLA + Kanban |
-| 6 | Audit Log | ✅ موجود | تحسينات طفيفة |
-| 7 | الواجهة RTL/LTR | ✅ موجود | تحسينات |
+| # | المتطلب | الحالة الحالية | المطلوب |
+|---|---------|---------------|---------|
+| 1 | نظام المهام Pro | ⚠️ بسيط | Kanban + Calendar + Templates |
+| 2 | Network Scan في القائمة | ❌ غير موجود | إضافة الرابط |
+| 3 | تغيير "النطاقات" إلى "الشبكات" | ⚠️ في التقارير | تصحيح المسمى |
+| 4 | فلتر Domain في السيرفرات | ⚠️ موجود جزئياً | تحسين UI |
+| 5 | Export/Import احترافي | ⚠️ بسيط | PDF/Excel محسن |
 
 ---
 
-## 1️⃣ توحيد مصدر البيانات (Critical)
+## 1️⃣ إضافة Network Scan للقائمة الجانبية
 
-### الحالة الحالية
-```
-الملفات التي تستخدم localStorage:
-✅ useAppSettings.ts - للتفضيلات (مسموح)
-✅ LanguageContext.tsx - للغة (مسموح)
-✅ supabase/client.ts - لجلسة Auth (مطلوب)
-⚠️ useLocalStorage.ts - exports قديمة (تحتاج حذف)
-```
+### الملف: `src/components/layout/Sidebar.tsx`
 
-**أخبار جيدة:** جميع الصفحات الرئيسية تستخدم `useSupabaseData` بالفعل!
-
-### الإجراء المطلوب
-```text
-- حذف أو إهمال الـ exports في useLocalStorage.ts:
-  - useServers, useNetworks, useEmployees, useLicenses, useTasks
-  (هذه لم تعد مستخدمة في أي صفحة)
-```
-
----
-
-## 2️⃣ إصلاح المصادقة والجلسات (High Priority)
-
-### المشاكل المكتشفة
-1. **لا يوجد خيار "تذكرني"** في صفحة Login
-2. **Safety timeout قصير** (8 ثوان) قد يسبب logout مبكر
-3. **لا يوجد رسالة واضحة** عند انتهاء الجلسة
-
-### التعديلات المطلوبة
-
-#### أ. إضافة "تذكرني" في Login.tsx
+**التغيير المطلوب:**
 ```typescript
-// إضافة state
-const [rememberMe, setRememberMe] = useState(false);
+// إضافة في menuItems (بعد networks)
+{ path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
+```
 
-// تعديل signIn لتمرير الخيار
-const { error } = await signIn(email, password, rememberMe);
+### الملف: `src/contexts/LanguageContext.tsx`
 
-// إضافة UI
-<div className="flex items-center gap-2">
-  <Checkbox 
-    id="remember" 
-    checked={rememberMe} 
-    onCheckedChange={setRememberMe} 
-  />
-  <Label htmlFor="remember">{t('auth.rememberMe')}</Label>
+**إضافة ترجمة:**
+```typescript
+ar: {
+  'nav.networkScan': 'فحص الشبكة',
+}
+en: {
+  'nav.networkScan': 'Network Scan',
+}
+```
+
+---
+
+## 2️⃣ تصحيح "النطاقات" إلى "الشبكات" في التقارير
+
+### الملف: `src/pages/Reports.tsx`
+
+**المشكلة:** الصفحة تستخدم `t('nav.networks')` للعمود والفلتر، لكن الترجمة الحالية تُرجع "النطاقات"
+
+**الحل:** تحديث الترجمة لتكون أكثر دقة:
+```typescript
+// في LanguageContext.tsx
+ar: {
+  'nav.networks': 'الشبكات والدومينات', // للقائمة الجانبية
+  'reports.networks': 'الشبكات',       // للتقارير
+}
+```
+
+**أو** استخدام مفتاح ترجمة مخصص للتقارير:
+```typescript
+// في Reports.tsx سطر 248
+<p className="text-sm text-muted-foreground">{t('table.networks')}</p>
+```
+
+---
+
+## 3️⃣ إضافة فلتر Domain منفصل في صفحة السيرفرات
+
+### الملف: `src/pages/Servers.tsx`
+
+**الحالة الحالية:** يوجد فلتر Domain وNetwork لكن بحاجة لتحسين UI
+
+**التحسينات المطلوبة:**
+1. إضافة Dropdown واضح للـ Domain
+2. تسلسل: اختر Domain → تظهر Networks الخاصة به
+3. تحسين التسميات
+
+**الكود الجديد:**
+```typescript
+// إضافة في Filter Card
+<div className="flex flex-wrap gap-2">
+  {/* Domain Filter - NEW */}
+  <Select value={selectedDomainId} onValueChange={setSelectedDomainId}>
+    <SelectTrigger className="w-48">
+      <Globe className="w-4 h-4 me-2" />
+      <SelectValue placeholder={t('servers.selectDomain')} />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="all">{t('reports.allDomains')}</SelectItem>
+      {domains.map((d) => (
+        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+
+  {/* Network Filter (filtered by domain) */}
+  <Select value={selectedNetworkId} onValueChange={setSelectedNetworkId}>
+    <SelectTrigger className="w-48">
+      <Network className="w-4 h-4 me-2" />
+      <SelectValue placeholder={t('servers.selectNetwork')} />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="all">{t('dashboard.allNetworks')}</SelectItem>
+      {networks.map((n) => (
+        <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
 </div>
 ```
 
-#### ب. تعديل AuthContext.tsx
+**ترجمات جديدة:**
 ```typescript
-// تحديث signIn function
-const signIn = async (email: string, password: string, rememberMe = false) => {
-  // تعيين مدة الجلسة حسب rememberMe
-  // Supabase يدير هذا تلقائياً عبر persistSession
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  
-  // إذا كان rememberMe = false، نستخدم session storage بدلاً من localStorage
-  if (!rememberMe && !error) {
-    // Set a flag to clear on tab close
-    sessionStorage.setItem('session-only', 'true');
-  }
-  
-  return { error };
-};
-```
-
-#### ج. تحسين إدارة الجلسات
-```typescript
-// زيادة timeout الأمان
-const safetyTimeout = window.setTimeout(() => {
-  console.error('Auth init safety timeout hit');
-  setIsLoading(false);
-}, 15000); // زيادة من 8 ثوان إلى 15 ثانية
-
-// إضافة رسالة انتهاء الجلسة
-if (event === 'TOKEN_REFRESHED') {
-  console.log('Session refreshed successfully');
-} else if (event === 'SIGNED_OUT') {
-  toast({
-    title: t('auth.sessionExpired'),
-    description: t('auth.pleaseLoginAgain'),
-  });
+ar: {
+  'servers.selectDomain': 'اختر النطاق',
+  'servers.selectNetwork': 'اختر الشبكة',
 }
 ```
 
 ---
 
-## 3️⃣ تطوير السيرفرات (Medium Priority)
+## 4️⃣ نظام المهام الاحترافي (Task System Pro)
 
-### تغييرات قاعدة البيانات
-```sql
--- Migration: Add Veeam and Beneficiary fields to servers
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS beneficiary_department TEXT;
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS primary_application TEXT;
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS business_owner TEXT;
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS is_backed_up_by_veeam BOOLEAN DEFAULT FALSE;
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS backup_frequency TEXT DEFAULT 'none';
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS backup_job_name TEXT;
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS last_backup_status TEXT;
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS last_backup_date TIMESTAMP WITH TIME ZONE;
+### أ. إنشاء مكون Task Calendar
 
--- Check constraint for backup validation
-ALTER TABLE servers ADD CONSTRAINT check_backup_frequency 
-  CHECK (
-    (is_backed_up_by_veeam = FALSE) OR 
-    (is_backed_up_by_veeam = TRUE AND backup_frequency != 'none')
+**ملف جديد:** `src/components/tasks/TaskCalendar.tsx`
+
+```typescript
+// مكون تقويم يعرض المهام حسب due_date
+// يستخدم date-fns للتعامل مع التواريخ
+// يعرض المهام بألوان حسب الأولوية
+
+interface TaskCalendarProps {
+  tasks: Task[];
+  profiles: Profile[];
+  onTaskClick?: (task: Task) => void;
+}
+```
+
+**الميزات:**
+- عرض شهري مع تنقل ◀ ▶
+- المهام تظهر ببطاقات صغيرة في اليوم المحدد
+- ألوان: P1 أحمر، P2 برتقالي، P3 أصفر، P4 رمادي
+- نقر على المهمة يفتح تفاصيلها
+
+### ب. تحسين Kanban Board
+
+**الملف:** `src/components/tasks/KanbanBoard.tsx`
+
+**التحسينات:**
+- دعم السحب والإفلات (Drag & Drop) - يمكن استخدام CSS لتغيير الحالة عند النقر
+- إضافة عداد SLA
+- عرض المرفقات والتعليقات
+
+```typescript
+// إضافة SLA indicator
+const getSLAStatus = (task: Task) => {
+  if (!task.due_date) return null;
+  const now = new Date();
+  const due = new Date(task.due_date);
+  const hoursLeft = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
+  
+  if (hoursLeft < 0) return 'breached';
+  if (hoursLeft < 4) return 'critical';
+  if (hoursLeft < 24) return 'warning';
+  return 'ok';
+};
+```
+
+### ج. صفحة Task Templates
+
+**ملف جديد:** `src/pages/TaskTemplates.tsx`
+
+**الميزات:**
+- عرض القوالب الموجودة
+- إضافة قالب جديد
+- تحديد:
+  - الاسم والوصف
+  - التكرار (daily, weekly, monthly)
+  - الأولوية الافتراضية
+  - Checklist افتراضي
+  - المسؤول الافتراضي
+
+### د. تحديث صفحة Tasks.tsx الرئيسية
+
+**إضافة Tabs للعرض:**
+```typescript
+<Tabs defaultValue="list">
+  <TabsList>
+    <TabsTrigger value="list">{t('common.all')}</TabsTrigger>
+    <TabsTrigger value="kanban">{t('tasks.kanban')}</TabsTrigger>
+    <TabsTrigger value="calendar">{t('tasks.calendar')}</TabsTrigger>
+    <TabsTrigger value="my">{t('tasks.myTasks')}</TabsTrigger>
+  </TabsList>
+  
+  <TabsContent value="list">
+    {/* العرض الحالي */}
+  </TabsContent>
+  
+  <TabsContent value="kanban">
+    <KanbanBoard tasks={filteredTasks} profiles={profiles} />
+  </TabsContent>
+  
+  <TabsContent value="calendar">
+    <TaskCalendar tasks={filteredTasks} profiles={profiles} />
+  </TabsContent>
+  
+  <TabsContent value="my">
+    <MyTasksWidget tasks={myTasks} />
+  </TabsContent>
+</Tabs>
+```
+
+---
+
+## 5️⃣ نظام Export/Import الاحترافي
+
+### أ. تحسين PDF Export
+
+**الملف:** `src/utils/pdfExport.ts`
+
+**التحسينات:**
+1. إضافة شعار/هوية بصرية
+2. دعم RTL محسن
+3. ترقيم الصفحات
+4. تنسيق الألوان حسب الحالة
+
+```typescript
+// إضافة branded header
+const addBrandedHeader = (doc: jsPDF, title: string, isArabic: boolean) => {
+  // الشريط الأخضر العلوي
+  doc.setFillColor(11, 107, 99); // #0B6B63
+  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 15, 'F');
+  
+  // الخط الذهبي
+  doc.setFillColor(217, 176, 71); // #D9B047
+  doc.rect(0, 15, doc.internal.pageSize.getWidth(), 2, 'F');
+  
+  // العنوان
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.text('IT Infrastructure Manager', 15, 10);
+};
+
+// إضافة footer مع ترقيم
+const addFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text(
+    `Page ${pageNumber} of ${totalPages}`,
+    doc.internal.pageSize.getWidth() / 2,
+    doc.internal.pageSize.getHeight() - 10,
+    { align: 'center' }
   );
-```
-
-### تحديث ServerFormData في Servers.tsx
-```typescript
-interface ServerFormData {
-  // الحقول الحالية...
-  
-  // حقول جديدة - المستفيد
-  beneficiary_department: string;
-  primary_application: string;
-  business_owner: string;
-  
-  // حقول جديدة - Veeam
-  is_backed_up_by_veeam: boolean;
-  backup_frequency: 'none' | 'daily' | 'weekly';
-  backup_job_name: string;
-  last_backup_status: string;
-  last_backup_date: string;
-}
-```
-
-### إضافة فلاتر جديدة
-```typescript
-// في Servers.tsx
-const [backupFilter, setBackupFilter] = useState<string>('all');
-const [beneficiaryFilter, setBeneficiaryFilter] = useState<string>('all');
-
-// تطبيق الفلاتر
-const filteredServers = useMemo(() => {
-  let filtered = servers;
-  
-  // Veeam filter
-  if (backupFilter === 'yes') {
-    filtered = filtered.filter(s => s.is_backed_up_by_veeam);
-  } else if (backupFilter === 'no') {
-    filtered = filtered.filter(s => !s.is_backed_up_by_veeam);
-  }
-  
-  // Beneficiary filter
-  if (beneficiaryFilter !== 'all') {
-    filtered = filtered.filter(s => s.beneficiary_department === beneficiaryFilter);
-  }
-  
-  return filtered;
-}, [servers, backupFilter, beneficiaryFilter, /* existing filters */]);
-```
-
----
-
-## 4️⃣ ميزة Network Scan (New Feature)
-
-### نظرة عامة
-ميزة لاكتشاف الأجهزة في الشبكة وإضافتها للنظام بشكل اختياري.
-
-### هيكل قاعدة البيانات
-```sql
--- جدول وظائف الفحص
-CREATE TABLE scan_jobs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  domain_id UUID REFERENCES domains(id),
-  network_id UUID REFERENCES networks(id),
-  ip_range TEXT NOT NULL,
-  scan_mode TEXT DEFAULT 'basic', -- 'basic' or 'credentialed'
-  status TEXT DEFAULT 'pending', -- pending, running, completed, failed
-  started_at TIMESTAMP WITH TIME ZONE,
-  finished_at TIMESTAMP WITH TIME ZONE,
-  created_by UUID REFERENCES profiles(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  summary JSONB
-);
-
--- جدول نتائج الفحص
-CREATE TABLE scan_results (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  scan_job_id UUID REFERENCES scan_jobs(id) ON DELETE CASCADE,
-  ip_address TEXT NOT NULL,
-  hostname TEXT,
-  os_type TEXT,
-  os_version TEXT,
-  device_type TEXT, -- Server, Workstation, Network, Printer, Unknown
-  open_ports TEXT[],
-  vendor TEXT,
-  mac_address TEXT,
-  last_seen TIMESTAMP WITH TIME ZONE,
-  is_imported BOOLEAN DEFAULT FALSE,
-  raw_data JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- RLS Policies
-ALTER TABLE scan_jobs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE scan_results ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Admins can manage scan jobs"
-  ON scan_jobs FOR ALL USING (is_admin());
-
-CREATE POLICY "Admins can manage scan results"
-  ON scan_results FOR ALL USING (is_admin());
-```
-
-### Edge Function للفحص
-```typescript
-// supabase/functions/network-scan/index.ts
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-
-serve(async (req) => {
-  const { ipRange, scanMode, jobId } = await req.json();
-  
-  // Parse CIDR or range
-  const ips = parseCIDR(ipRange);
-  
-  const results = [];
-  
-  for (const ip of ips) {
-    // Basic mode: ping + port scan
-    const result = await scanIP(ip, scanMode);
-    results.push(result);
-  }
-  
-  // Save results to database
-  await saveResults(jobId, results);
-  
-  return new Response(JSON.stringify({ success: true, count: results.length }));
-});
-
-async function scanIP(ip: string, mode: string) {
-  // Ping check
-  const isAlive = await ping(ip);
-  if (!isAlive) return null;
-  
-  // Port scan for device detection
-  const openPorts = await scanPorts(ip, [22, 80, 443, 3389, 445, 5985, 135]);
-  
-  // Detect device type based on ports
-  const deviceType = detectDeviceType(openPorts);
-  
-  // DNS reverse lookup
-  const hostname = await reverseDNS(ip);
-  
-  return {
-    ip_address: ip,
-    hostname,
-    device_type: deviceType,
-    open_ports: openPorts,
-    os_type: guessOS(openPorts),
-  };
-}
-```
-
-### واجهة المستخدم
-```text
-صفحة جديدة: /network-scan
-
-1. نموذج بدء الفحص:
-   - اسم الفحص
-   - اختيار الدومين/الشبكة
-   - CIDR أو مدى IP (e.g., 192.168.1.0/24)
-   - وضع الفحص (Basic بدون credentials)
-
-2. عرض التقدم:
-   - شريط تقدم
-   - عداد الأجهزة المكتشفة
-
-3. جدول النتائج:
-   - Checkbox لكل صف
-   - IP, Hostname, OS, Device Type, Ports
-   - زر "استيراد المحدد"
-
-4. خطوة التأكيد:
-   - تعبئة الحقول الناقصة (Environment, Owner, Network)
-   - مراجعة نهائية
-   - زر "إضافة للنظام"
-```
-
----
-
-## 5️⃣ نظام المهام الاحترافي (Major Feature)
-
-### تغييرات قاعدة البيانات
-```sql
--- توسيع جدول المهام
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_status TEXT DEFAULT 'draft';
--- draft, assigned, in_progress, blocked, in_review, done, closed, cancelled
-
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sla_response_hours INTEGER;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sla_resolve_hours INTEGER;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sla_breached BOOLEAN DEFAULT FALSE;
-
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS requester_id UUID REFERENCES profiles(id);
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reviewer_id UUID REFERENCES profiles(id);
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS watchers UUID[];
-
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_task_id UUID REFERENCES tasks(id);
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS linked_server_id UUID REFERENCES servers(id);
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS linked_network_id UUID REFERENCES networks(id);
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS linked_license_id UUID REFERENCES licenses(id);
-
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS checklist JSONB DEFAULT '[]';
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS evidence JSONB DEFAULT '[]';
-
--- جدول قوالب المهام
-CREATE TABLE task_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT,
-  checklist JSONB DEFAULT '[]',
-  frequency TEXT, -- daily, weekly, monthly
-  priority TEXT DEFAULT 'medium',
-  default_assignee_id UUID REFERENCES profiles(id),
-  is_active BOOLEAN DEFAULT TRUE,
-  created_by UUID REFERENCES profiles(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- جدول التعليقات على المهام
-CREATE TABLE task_comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
-  author_id UUID REFERENCES profiles(id),
-  content TEXT NOT NULL,
-  attachments JSONB DEFAULT '[]',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- جدول المناوبات
-CREATE TABLE on_call_schedules (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  rotation_type TEXT DEFAULT 'round_robin', -- round_robin, manual
-  team_members UUID[],
-  current_index INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-### SLA حسب الأولوية
-```typescript
-const SLA_CONFIG = {
-  P1: { response: 1, resolve: 4 },   // Critical: 1h response, 4h resolve
-  P2: { response: 4, resolve: 24 },  // High: 4h response, 24h resolve
-  P3: { response: 8, resolve: 72 },  // Medium: 8h response, 72h resolve
-  P4: { response: 24, resolve: 168 }, // Low: 24h response, 1 week resolve
 };
 ```
 
-### واجهات جديدة
+### ب. تحسين Excel Export
 
-#### أ. صفحة "مهامي" (My Tasks)
-```text
-┌─────────────────────────────────────────────────────────┐
-│ 📋 مهامي اليوم                                          │
-├─────────────────────────────────────────────────────────┤
-│ 🔴 متأخرة (3)                                           │
-│ ├─ ✓ فحص Backup يومي                    ⏰ 08:00       │
-│ ├─ ✓ مراجعة صلاحيات AD                  ⏰ أمس         │
-│ └─ ✓ تحديث السيرفر DC01                 ⏰ منذ 3 أيام  │
-├─────────────────────────────────────────────────────────┤
-│ 🟡 قيد التنفيذ (2)                                      │
-│ ├─ ○ تثبيت تحديثات Windows              ⏱️ 2:30:00     │
-│ └─ ○ إعداد VM جديد للقسم المالي          ⏱️ 0:45:00     │
-├─────────────────────────────────────────────────────────┤
-│ 🔵 القادمة (5)                                          │
-│ └─ المزيد...                                             │
-└─────────────────────────────────────────────────────────┘
-```
+**ملف جديد:** `src/utils/professionalExport.ts`
 
-#### ب. Kanban Board
-```text
-┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-│ Draft   │ │Assigned │ │Progress │ │ Review  │ │  Done   │
-│   (2)   │ │   (5)   │ │   (3)   │ │   (1)   │ │  (12)   │
-├─────────┤ ├─────────┤ ├─────────┤ ├─────────┤ ├─────────┤
-│ Card 1  │ │ Card 3  │ │ Card 6  │ │ Card 9  │ │ Card 10 │
-│ Card 2  │ │ Card 4  │ │ Card 7  │ │         │ │ Card 11 │
-│         │ │ Card 5  │ │ Card 8  │ │         │ │   ...   │
-└─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
-```
-
-#### ج. Calendar View
-```text
-┌────────────────────────────────────────────────────────────┐
-│        يناير 2026                    ◀ ▶                  │
-├─────┬─────┬─────┬─────┬─────┬─────┬─────┤
-│ أحد │ إثن │ ثلا │ أرب │ خمي │ جمع │ سبت │
-├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
-│     │     │     │ 1   │ 2   │ 3   │ 4   │
-│     │     │     │ 🔴2 │     │     │     │
-├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
-│ 5   │ 6   │ 7   │ 8   │ 9   │ 10  │ 11  │
-│     │ 🟡3 │ 🟢1 │     │ 🔴1 │     │     │
-└─────┴─────┴─────┴─────┴─────┴─────┴─────┘
-```
-
-### المهام المتكررة
 ```typescript
-// Edge Function لتوليد المهام المتكررة
-// يعمل كـ Cron Job يومياً
+import * as XLSX from 'xlsx';
 
-async function generateRecurringTasks() {
-  const templates = await getActiveTemplates();
+interface ExportOptions {
+  data: any[];
+  filename: string;
+  sheetName: string;
+  headers: { key: string; label: string; width?: number }[];
+  colorRules?: { column: string; rules: ColorRule[] }[];
+  includeStats?: boolean;
+}
+
+interface ColorRule {
+  value: string;
+  color: string; // hex
+}
+
+export const exportProfessionalExcel = (options: ExportOptions) => {
+  const { data, filename, sheetName, headers, colorRules, includeStats } = options;
   
-  for (const template of templates) {
-    if (shouldGenerate(template.frequency)) {
-      const assignee = await getNextAssignee(template);
-      
-      await createTask({
-        title: template.name,
-        description: template.description,
-        checklist: template.checklist,
-        assigned_to: assignee,
-        priority: template.priority,
-        due_date: calculateDueDate(template.frequency),
-        frequency: template.frequency,
-      });
-    }
+  const wb = XLSX.utils.book_new();
+  
+  // Main data sheet
+  const ws = XLSX.utils.json_to_sheet(data);
+  
+  // Set column widths
+  ws['!cols'] = headers.map(h => ({ wch: h.width || 15 }));
+  
+  // Add header styling (requires xlsx-style or similar)
+  // Note: Basic xlsx doesn't support styling, but we can structure data well
+  
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  
+  // Stats sheet if requested
+  if (includeStats) {
+    const stats = calculateStats(data);
+    const statsSheet = XLSX.utils.json_to_sheet(stats);
+    XLSX.utils.book_append_sheet(wb, statsSheet, 'Statistics');
   }
-}
+  
+  XLSX.writeFile(wb, filename);
+};
+
+// حساب الإحصائيات تلقائياً
+const calculateStats = (data: any[]) => {
+  return [
+    { Metric: 'Total Records', Value: data.length },
+    { Metric: 'Export Date', Value: new Date().toISOString() },
+    // ... المزيد
+  ];
+};
 ```
 
----
+### ج. نظام Import Templates المحسن
 
-## 6️⃣ تحسينات Audit Log
+**تحديث:** `src/utils/excelTemplates.ts`
 
-### الحالة الحالية
-- ✅ جدول `audit_logs` موجود
-- ✅ دالة `logAuditAction` موجودة
-- ✅ صفحة عرض موجودة
+**إضافات:**
+1. Templates مع data validation
+2. Instructions sheet مفصل
+3. دعم الحقول الجديدة (Veeam, Beneficiary)
 
-### التحسينات المطلوبة
-```sql
--- إضافة indexes للأداء
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_table_name ON audit_logs(table_name);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
-
--- إضافة عمود للكيان المرتبط
-ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS entity_name TEXT;
-```
-
-### تحسين واجهة العرض
-```text
-إضافات للفلترة:
-- فلتر بتاريخ (من - إلى)
-- فلتر بالمستخدم
-- فلتر بنوع العملية
-- تصدير إلى Excel/PDF
-```
-
----
-
-## 7️⃣ نظام الإشعارات (In-App Notifications)
-
-### الإشعارات التلقائية
 ```typescript
-// Triggers للإشعارات
+// Server template محدث
+export const downloadServerTemplateV3 = () => {
+  const templateData = [
+    {
+      'server_id': '',
+      'name': 'DC-01',
+      'ip_address': '192.168.1.10',
+      'operating_system': 'Windows Server 2022',
+      'environment': 'production',
+      'status': 'active',
+      // New fields
+      'beneficiary_department': 'Finance',
+      'primary_application': 'ERP System',
+      'business_owner': 'Ahmed',
+      'is_backed_up_by_veeam': 'Yes',
+      'backup_frequency': 'daily',
+      'backup_job_name': 'DC-Daily-Backup',
+      // ... existing fields
+    },
+  ];
+  
+  // Validation sheet
+  const validationData = [
+    { Field: 'is_backed_up_by_veeam', Values: 'Yes, No' },
+    { Field: 'backup_frequency', Values: 'none, daily, weekly' },
+    // ...
+  ];
+  
+  // ... create workbook
+};
+```
 
-// 1. عند إسناد مهمة
-async function onTaskAssigned(task: Task) {
-  await createNotification({
-    user_id: task.assigned_to,
-    title: 'مهمة جديدة',
-    message: `تم إسنادك لمهمة: ${task.title}`,
-    type: 'task',
-    link: `/tasks?id=${task.id}`,
-  });
+### د. واجهة Import Review
+
+**ملف جديد:** `src/components/import/ImportReviewDialog.tsx`
+
+```typescript
+interface ImportReviewProps {
+  preview: {
+    toCreate: number;
+    toUpdate: number;
+    unchanged: number;
+    errors: { row: number; message: string }[];
+  };
+  onConfirm: () => void;
+  onCancel: () => void;
 }
 
-// 2. عند اقتراب SLA
-async function checkSLABreaches() {
-  const tasks = await getTasksNearingSLA();
-  for (const task of tasks) {
-    await createNotification({
-      user_id: task.assigned_to,
-      title: 'تنبيه SLA',
-      message: `المهمة "${task.title}" قاربت على انتهاء المهلة`,
-      type: 'warning',
-    });
-  }
-}
+const ImportReviewDialog: React.FC<ImportReviewProps> = ({
+  preview,
+  onConfirm,
+  onCancel,
+}) => {
+  return (
+    <Dialog open>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>مراجعة الاستيراد</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="bg-success/10">
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold text-success">{preview.toCreate}</p>
+                <p className="text-sm">سجلات جديدة</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-warning/10">
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold text-warning">{preview.toUpdate}</p>
+                <p className="text-sm">للتحديث</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-destructive/10">
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold text-destructive">{preview.errors.length}</p>
+                <p className="text-sm">أخطاء</p>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {preview.errors.length > 0 && (
+            <div className="bg-destructive/5 p-3 rounded-lg max-h-40 overflow-auto">
+              {preview.errors.map((err, i) => (
+                <p key={i} className="text-sm text-destructive">
+                  صف {err.row}: {err.message}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>إلغاء</Button>
+          <Button onClick={onConfirm}>استيراد الآن</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+```
 
-// 3. عند انتهاء ترخيص
-async function checkExpiringLicenses() {
-  const licenses = await getLicensesExpiringSoon(30); // 30 يوم
-  for (const license of licenses) {
-    await createNotification({
-      user_id: null, // للجميع
-      title: 'ترخيص قارب على الانتهاء',
-      message: `الترخيص "${license.name}" ينتهي في ${license.expiry_date}`,
-      type: 'license',
-    });
-  }
+---
+
+## 6️⃣ الترجمات الجديدة المطلوبة
+
+### في `LanguageContext.tsx`:
+
+```typescript
+ar: {
+  // Navigation
+  'nav.networkScan': 'فحص الشبكة',
+  
+  // Servers
+  'servers.selectDomain': 'اختر النطاق',
+  'servers.selectNetwork': 'اختر الشبكة',
+  'servers.filterByDomain': 'الفلترة حسب النطاق',
+  
+  // Reports
+  'reports.networks': 'الشبكات',
+  
+  // Tasks Pro
+  'tasks.viewModes': 'طرق العرض',
+  'tasks.listView': 'قائمة',
+  'tasks.kanbanView': 'Kanban',
+  'tasks.calendarView': 'تقويم',
+  'tasks.createFromTemplate': 'إنشاء من قالب',
+  'tasks.manageTemplates': 'إدارة القوالب',
+  'tasks.noTemplates': 'لا يوجد قوالب',
+  
+  // Import/Export
+  'import.review': 'مراجعة الاستيراد',
+  'import.newRecords': 'سجلات جديدة',
+  'import.toUpdate': 'للتحديث',
+  'import.errors': 'أخطاء',
+  'import.confirmImport': 'تأكيد الاستيراد',
+  'import.dryRun': 'معاينة فقط',
+  'import.downloadTemplate': 'تحميل القالب',
+  
+  'export.pdf': 'تصدير PDF',
+  'export.excel': 'تصدير Excel',
+  'export.fullReport': 'التقرير الكامل',
+  'export.filtered': 'البيانات المفلترة',
+  'export.summary': 'ملخص تنفيذي',
+},
+
+en: {
+  // Navigation
+  'nav.networkScan': 'Network Scan',
+  
+  // Servers
+  'servers.selectDomain': 'Select Domain',
+  'servers.selectNetwork': 'Select Network',
+  'servers.filterByDomain': 'Filter by Domain',
+  
+  // Reports
+  'reports.networks': 'Networks',
+  
+  // Tasks Pro
+  'tasks.viewModes': 'View Modes',
+  'tasks.listView': 'List',
+  'tasks.kanbanView': 'Kanban',
+  'tasks.calendarView': 'Calendar',
+  'tasks.createFromTemplate': 'Create from Template',
+  'tasks.manageTemplates': 'Manage Templates',
+  'tasks.noTemplates': 'No templates',
+  
+  // Import/Export
+  'import.review': 'Import Review',
+  'import.newRecords': 'New Records',
+  'import.toUpdate': 'To Update',
+  'import.errors': 'Errors',
+  'import.confirmImport': 'Confirm Import',
+  'import.dryRun': 'Preview Only',
+  'import.downloadTemplate': 'Download Template',
+  
+  'export.pdf': 'Export PDF',
+  'export.excel': 'Export Excel',
+  'export.fullReport': 'Full Report',
+  'export.filtered': 'Filtered Data',
+  'export.summary': 'Executive Summary',
 }
 ```
 
 ---
 
-## ترتيب التنفيذ
-
-### المرحلة 1: Critical (أسبوع 1)
-```text
-□ 1.1 تنظيف useLocalStorage.ts
-□ 1.2 إضافة "تذكرني" في Login
-□ 1.3 تحسين إدارة الجلسات
-□ 1.4 إضافة حقول Veeam/المستفيد للسيرفرات (DB + UI)
-```
-
-### المرحلة 2: High Priority (أسبوع 2)
-```text
-□ 2.1 إضافة فلاتر السيرفرات الجديدة
-□ 2.2 تحديث Excel Import/Export للحقول الجديدة
-□ 2.3 بداية نظام المهام Pro (دورة الحياة + SLA)
-```
-
-### المرحلة 3: Network Scan (أسبوع 3)
-```text
-□ 3.1 إنشاء جداول scan_jobs و scan_results
-□ 3.2 إنشاء Edge Function للفحص
-□ 3.3 صفحة Network Scan UI
-□ 3.4 خطوة المراجعة والاستيراد
-```
-
-### المرحلة 4: Task System Pro (أسبوع 4-5)
-```text
-□ 4.1 Kanban Board
-□ 4.2 صفحة My Tasks
-□ 4.3 قوالب المهام
-□ 4.4 المهام المتكررة (Cron)
-□ 4.5 التعليقات والمرفقات
-□ 4.6 Calendar View
-```
-
-### المرحلة 5: Polish (أسبوع 6)
-```text
-□ 5.1 نظام الإشعارات
-□ 5.2 تحسينات Audit Log
-□ 5.3 اختبار شامل
-□ 5.4 تحسينات الأداء
-```
-
----
-
-## الملفات المتأثرة
+## 7️⃣ الملفات المتأثرة
 
 | الملف | التغيير |
 |-------|---------|
-| `src/hooks/useLocalStorage.ts` | حذف أو إهمال exports |
-| `src/pages/Login.tsx` | إضافة Remember Me |
-| `src/contexts/AuthContext.tsx` | تحسين إدارة الجلسات |
-| `src/pages/Servers.tsx` | حقول + فلاتر جديدة |
-| `src/pages/Tasks.tsx` | إعادة بناء كاملة |
-| `src/pages/NetworkScan.tsx` | ملف جديد |
-| `supabase/functions/network-scan/` | Edge Function جديدة |
-| `supabase/functions/recurring-tasks/` | Edge Function جديدة |
-| `src/components/tasks/KanbanBoard.tsx` | مكون جديد |
-| `src/components/tasks/TaskCalendar.tsx` | مكون جديد |
-| `src/components/tasks/MyTasks.tsx` | مكون جديد |
+| `src/components/layout/Sidebar.tsx` | إضافة Network Scan link |
+| `src/contexts/LanguageContext.tsx` | ترجمات جديدة |
+| `src/pages/Reports.tsx` | تصحيح "الشبكات" |
+| `src/pages/Servers.tsx` | تحسين فلاتر Domain |
+| `src/pages/Tasks.tsx` | إضافة Kanban/Calendar tabs |
+| `src/components/tasks/KanbanBoard.tsx` | تحسينات SLA |
+| `src/components/tasks/TaskCalendar.tsx` | **ملف جديد** |
+| `src/pages/TaskTemplates.tsx` | **ملف جديد** |
+| `src/utils/pdfExport.ts` | تحسينات branded |
+| `src/utils/professionalExport.ts` | **ملف جديد** |
+| `src/components/import/ImportReviewDialog.tsx` | **ملف جديد** |
+| `src/utils/excelTemplates.ts` | تحديث Templates |
 
 ---
 
-## القسم التقني
+## 8️⃣ ترتيب التنفيذ
 
-### Database Migrations Summary
-```sql
--- 1. Servers enhancements
-ALTER TABLE servers ADD COLUMN beneficiary_department TEXT;
-ALTER TABLE servers ADD COLUMN primary_application TEXT;
-ALTER TABLE servers ADD COLUMN business_owner TEXT;
-ALTER TABLE servers ADD COLUMN is_backed_up_by_veeam BOOLEAN DEFAULT FALSE;
-ALTER TABLE servers ADD COLUMN backup_frequency TEXT DEFAULT 'none';
-ALTER TABLE servers ADD COLUMN backup_job_name TEXT;
-ALTER TABLE servers ADD COLUMN last_backup_status TEXT;
-ALTER TABLE servers ADD COLUMN last_backup_date TIMESTAMPTZ;
-
--- 2. Tasks enhancements
-ALTER TABLE tasks ADD COLUMN task_status TEXT DEFAULT 'draft';
-ALTER TABLE tasks ADD COLUMN sla_response_hours INTEGER;
-ALTER TABLE tasks ADD COLUMN sla_resolve_hours INTEGER;
-ALTER TABLE tasks ADD COLUMN sla_breached BOOLEAN DEFAULT FALSE;
-ALTER TABLE tasks ADD COLUMN requester_id UUID;
-ALTER TABLE tasks ADD COLUMN reviewer_id UUID;
-ALTER TABLE tasks ADD COLUMN watchers UUID[];
-ALTER TABLE tasks ADD COLUMN parent_task_id UUID;
-ALTER TABLE tasks ADD COLUMN linked_server_id UUID;
-ALTER TABLE tasks ADD COLUMN linked_network_id UUID;
-ALTER TABLE tasks ADD COLUMN linked_license_id UUID;
-ALTER TABLE tasks ADD COLUMN checklist JSONB DEFAULT '[]';
-ALTER TABLE tasks ADD COLUMN evidence JSONB DEFAULT '[]';
-
--- 3. New tables
-CREATE TABLE scan_jobs (...);
-CREATE TABLE scan_results (...);
-CREATE TABLE task_templates (...);
-CREATE TABLE task_comments (...);
-CREATE TABLE on_call_schedules (...);
+### المرحلة 1: Quick Fixes (سريع)
+```text
+□ 1.1 إضافة Network Scan للقائمة الجانبية
+□ 1.2 تصحيح "النطاقات" → "الشبكات" في التقارير
+□ 1.3 إضافة الترجمات الأساسية
 ```
 
-### New Translations Required
-```typescript
-// LanguageContext.tsx additions
-ar: {
-  'auth.rememberMe': 'تذكرني',
-  'auth.sessionExpired': 'انتهت الجلسة',
-  'auth.pleaseLoginAgain': 'يرجى تسجيل الدخول مجدداً',
-  
-  'servers.beneficiary': 'المستفيد/القسم',
-  'servers.primaryApp': 'التطبيق الأساسي',
-  'servers.businessOwner': 'مالك الخدمة',
-  'servers.veeamBackup': 'نسخ Veeam',
-  'servers.isBackedUp': 'يأخذ نسخة؟',
-  'servers.backupFrequency': 'تكرار النسخ',
-  'servers.backupJobName': 'اسم Job',
-  
-  'scan.title': 'فحص الشبكة',
-  'scan.startScan': 'بدء الفحص',
-  'scan.ipRange': 'نطاق IP',
-  'scan.scanMode': 'وضع الفحص',
-  'scan.basic': 'أساسي',
-  'scan.results': 'النتائج',
-  'scan.importSelected': 'استيراد المحدد',
-  
-  'tasks.kanban': 'لوحة Kanban',
-  'tasks.myTasks': 'مهامي',
-  'tasks.calendar': 'التقويم',
-  'tasks.sla': 'مستوى الخدمة',
-  'tasks.templates': 'القوالب',
-  'tasks.checklist': 'قائمة التحقق',
-  'tasks.comments': 'التعليقات',
-  'tasks.attachments': 'المرفقات',
-}
+### المرحلة 2: Server Filters (متوسط)
+```text
+□ 2.1 تحسين فلتر Domain في Servers.tsx
+□ 2.2 جعل Network يعتمد على Domain المختار
 ```
+
+### المرحلة 3: Task System Pro (كبير)
+```text
+□ 3.1 إنشاء TaskCalendar.tsx
+□ 3.2 تحديث Tasks.tsx لدعم الـ Tabs الجديدة
+□ 3.3 تحسين KanbanBoard.tsx
+□ 3.4 إنشاء TaskTemplates.tsx (اختياري)
+```
+
+### المرحلة 4: Export/Import Pro (كبير)
+```text
+□ 4.1 تحسين pdfExport.ts (branded)
+□ 4.2 إنشاء professionalExport.ts
+□ 4.3 تحديث excelTemplates.ts
+□ 4.4 إنشاء ImportReviewDialog.tsx
+```
+
+---
+
+## 9️⃣ النتيجة المتوقعة
+
+بعد التنفيذ:
+- ✅ Network Scan يظهر في القائمة الجانبية
+- ✅ "الشبكات" بدلاً من "النطاقات" في التقارير
+- ✅ فلتر Domain واضح ومتسلسل في السيرفرات
+- ✅ نظام مهام متقدم مع Kanban + Calendar
+- ✅ تصدير PDF احترافي مع هوية بصرية
+- ✅ استيراد Excel مع مراجعة قبل الحفظ
