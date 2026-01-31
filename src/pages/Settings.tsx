@@ -1,19 +1,23 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Settings as SettingsIcon, Globe, Database, Trash2, Download, Upload, Info } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Database, Trash2, Download, Upload, Info, Palette, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useServers, useNetworks, useEmployees, useLicenses, useTasks } from '@/hooks/useLocalStorage';
+import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicenseTemplate, downloadNetworkTemplate, downloadEmployeeTemplate } from '@/utils/excelTemplates';
 import * as XLSX from 'xlsx';
 
 const Settings: React.FC = () => {
   const { t, dir, language, setLanguage } = useLanguage();
   const { toast } = useToast();
+  const [appSettings, setAppSettings] = useAppSettings();
   const [servers, setServers] = useServers();
   const [networks, setNetworks] = useNetworks();
   const [employees, setEmployees] = useEmployees();
@@ -96,6 +100,40 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
+      {/* App Branding */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="w-5 h-5" />
+            App Branding
+          </CardTitle>
+          <CardDescription>
+            Customize the application name and branding
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Application Name</Label>
+            <Input
+              value={appSettings.appName}
+              onChange={(e) => setAppSettings({ appName: e.target.value })}
+              placeholder="IT"
+              maxLength={20}
+            />
+            <p className="text-xs text-muted-foreground">This name appears in the sidebar header</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Company Name (Optional)</Label>
+            <Input
+              value={appSettings.companyName || ''}
+              onChange={(e) => setAppSettings({ companyName: e.target.value })}
+              placeholder="Your Company"
+              maxLength={50}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Language Settings */}
       <Card>
         <CardHeader>
@@ -124,6 +162,47 @@ const Settings: React.FC = () => {
               <span className={language === 'ar' ? 'font-medium' : 'text-muted-foreground'}>AR</span>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Excel Templates */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="w-5 h-5" />
+            Excel Templates
+          </CardTitle>
+          <CardDescription>
+            Download pre-formatted templates for importing data
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Button variant="outline" onClick={downloadServerTemplate} className="gap-2 justify-start">
+              <Download className="w-4 h-4" />
+              Server Template
+            </Button>
+            <Button variant="outline" onClick={downloadNetworkTemplate} className="gap-2 justify-start">
+              <Download className="w-4 h-4" />
+              Network Template
+            </Button>
+            <Button variant="outline" onClick={downloadEmployeeTemplate} className="gap-2 justify-start">
+              <Download className="w-4 h-4" />
+              Employee Template
+            </Button>
+            <Button variant="outline" onClick={downloadLicenseTemplate} className="gap-2 justify-start">
+              <Download className="w-4 h-4" />
+              License Template
+            </Button>
+            <Button variant="outline" onClick={downloadEmployeeReportTemplate} className="gap-2 justify-start">
+              <Download className="w-4 h-4" />
+              Employee Report Template
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground flex items-start gap-2">
+            <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            Each template includes an instructions sheet explaining the required columns and data format.
+          </p>
         </CardContent>
       </Card>
 

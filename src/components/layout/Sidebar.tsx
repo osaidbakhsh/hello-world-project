@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import {
   LayoutDashboard,
   Server,
@@ -29,6 +30,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { t, language, setLanguage, dir } = useLanguage();
+  const [appSettings] = useAppSettings();
   const location = useLocation();
 
   const menuItems = [
@@ -67,7 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         {!collapsed && (
           <div className="flex flex-col flex-1">
             <span className="font-bold text-lg text-sidebar-foreground whitespace-nowrap">
-              IT <span className="text-accent">CMDB</span>
+              {appSettings.appName} <span className="text-accent">CMDB</span>
             </span>
             <Badge variant="outline" className="text-[10px] w-fit px-1.5 py-0 border-accent text-accent">
               <Wifi className="w-2.5 h-2.5 me-1" />

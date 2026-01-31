@@ -25,7 +25,7 @@ const StatCard: React.FC<StatCardProps> = ({
   const variantClasses = {
     primary: 'stat-primary',
     accent: 'stat-accent',
-    success: 'stat-success',
+    success: 'stat-primary', // Use primary color for consistency
     warning: 'stat-warning',
     danger: 'stat-danger',
   };

@@ -64,6 +64,15 @@ export interface Training {
   notes?: string;
 }
 
+export interface YearlyGoal {
+  id: string;
+  title: string;
+  description?: string;
+  year: number;
+  status: 'not-started' | 'in-progress' | 'completed';
+  progress: number;
+}
+
 export interface Employee {
   id: string;
   name: string;
@@ -77,6 +86,9 @@ export interface Employee {
   assignedServerIds: string[];
   status: 'active' | 'inactive';
   createdAt: string;
+  skills?: string[];
+  certifications?: string[];
+  yearlyGoals?: YearlyGoal[];
 }
 
 // License types
