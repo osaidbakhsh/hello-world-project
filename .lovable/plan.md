@@ -1,279 +1,471 @@
 
-# خطة الإصلاح: ربط حالات المهام مع Kanban ولوحة التحكم + تحسين الأداء والتصدير
+# Implementation Plan: IT Infrastructure Manager Enhancements
 
-## تحليل المشكلات المكتشفة
+## Analysis Summary
 
-### 1. مشكلة عدم تزامن حالات المهام
-**السبب الجذري:** يوجد حقلين للحالة في جدول المهام:
-- `status`: الحقل القديم (pending/completed/overdue)
-- `task_status`: الحقل الجديد (draft/assigned/in_progress/in_review/done)
-
-**النتيجة:**
-- لوحة Kanban تستخدم `task_status` 
-- لوحة التحكم (Dashboard) تستخدم `status`
-- عند تغيير الحالة في Kanban، يتم تحديث `task_status` فقط
-- لوحة التحكم لا ترى التغييرات لأنها تبحث في `status`
-
-### 2. مشكلة تأخير تسجيل الدخول
-**السبب:** الـ timeout الحالي جيد (20 ثانية) ولكن هناك حاجة لتحسين الـ caching
-
-### 3. مشكلة توافق التصدير/الاستيراد
-**المطلوب:** توحيد الأعمدة والتنسيق بين القوالب والتصدير
+Based on the codebase analysis, the application has a solid foundation with:
+- **Kanban Board**: Already exists with drag-and-drop but needs smooth animation and touch support
+- **Vacation Calendar**: Component exists (`VacationCalendar.tsx`) but not integrated into Vacations page  
+- **HTTPS Settings**: Tab exists but file upload is not functional (no actual upload/storage logic)
+- **Audit Log**: Shows "Unknown user" because `user_id` is sometimes NULL in the DB
+- **Auth**: Has profile caching but needs performance improvements
+- **i18n**: Good coverage but some hardcoded Arabic strings remain
 
 ---
 
-## الحلول المقترحة
+## Phase 1: Tasks - Jira-like Drag & Drop Enhancements
 
-### الإصلاح 1: توحيد حقل الحالة (الأهم)
+### 1.1 Enhance KanbanBoard Component
 
-**الملف: `src/components/tasks/KanbanBoard.tsx`**
+**File: `src/components/tasks/KanbanBoard.tsx`**
+
 ```text
-التغييرات:
-1. عند تغيير الحالة في Kanban، يجب تحديث حقل status أيضاً:
-   - done → status: 'completed'
-   - in_progress → status: 'pending'
-   - draft/assigned/in_review → status: 'pending'
-   
-2. تحسين دالة getTasksByStatus لتتعامل مع كلا الحقلين
+Current State: Has HTML5 drag-and-drop but lacks:
+- Touch support for mobile
+- Smooth CSS transitions during drag
+- "Overdue" status auto-detection
+
+Changes:
+1. Add touch event handlers (onTouchStart, onTouchMove, onTouchEnd)
+2. Add CSS transitions for smooth card movement
+3. Add "overdue" column that auto-populates based on due_date < now
+4. Improve drop zone visual feedback with animation
+5. Add "tags" display on cards if present
+6. Add "linked server" badge on cards
+7. Better mobile responsiveness for columns
 ```
 
-**الملف: `src/pages/Tasks.tsx`**
+### 1.2 Update Tasks.tsx Status Change Handler
+
+**File: `src/pages/Tasks.tsx`**
+
 ```text
-التغييرات في onStatusChange:
-1. تحديث task_status (للـ Kanban)
-2. تحديث status (للتوافق مع Dashboard):
-   - done → completed
-   - غير ذلك → pending
-3. تحديث completed_at عند الإتمام
+Current State: Has onStatusChange but update logic needs improvement
+
+Changes:
+1. Fix dual-field update (both task_status AND status for Dashboard sync)
+2. Add optimistic UI update with rollback on error
+3. Add audit log entry when status changes
+4. Ensure filters work correctly with new statuses
+5. Keep list/calendar views synchronized with Kanban changes
 ```
 
-**الملف: `src/hooks/useSupabaseData.ts`**
+### 1.3 Status Field Synchronization
+
 ```text
-التغييرات في useDashboardStats:
-1. تحديث حساب المهام المكتملة ليشمل:
-   - status === 'completed' OR task_status === 'done'
-2. تحديث حساب المهام قيد التنفيذ:
-   - task_status === 'in_progress'
-```
+Mapping Logic:
+- task_status: 'done' → status: 'completed'
+- task_status: 'in_progress' → status: 'pending'
+- task_status: other → status: 'pending'
 
----
-
-### الإصلاح 2: تحسين Kanban بمنهجية Jira
-
-**الملف: `src/components/tasks/KanbanBoard.tsx`**
-```text
-تحسينات Jira-like:
-1. إضافة عمود "Blocked" (معلقة)
-2. تحسين الـ drag visual feedback
-3. إضافة نظام الترقيم التلقائي للمهام (Task ID)
-4. تحسين بطاقة المهمة لتعرض:
-   - رقم المهمة (TASK-001)
-   - المسؤول مع صورة
-   - SLA countdown
-   - Labels/Tags
-5. إضافة إمكانية Clone المهمة
-```
-
-**STATUSES الجديدة:**
-```typescript
-const STATUSES = [
-  { key: 'draft', label: 'مسودة', color: 'bg-muted' },
-  { key: 'assigned', label: 'تم الإسناد', color: 'bg-info/20' },
-  { key: 'in_progress', label: 'قيد التنفيذ', color: 'bg-warning/20' },
-  { key: 'blocked', label: 'معلقة', color: 'bg-destructive/20' },
-  { key: 'in_review', label: 'في المراجعة', color: 'bg-primary/20' },
-  { key: 'done', label: 'مكتملة', color: 'bg-success/20' },
-];
+This ensures Dashboard stats remain accurate.
 ```
 
 ---
 
-### الإصلاح 3: ربط المهام بلوحة التحكم
+## Phase 2: Vacations - Calendar View Integration
 
-**الملف: `src/pages/Dashboard.tsx`**
+### 2.1 Integrate VacationCalendar Component
+
+**File: `src/pages/Vacations.tsx`**
+
 ```text
-التغييرات:
-1. تحديث حساب الإحصائيات ليستخدم task_status بدلاً من status
-2. إضافة widget للمهام مع Progress bar حقيقي
-3. تحسين عرض المهام حسب الأولوية
-4. إضافة رابط مباشر لـ Kanban board
+Current State: Has viewMode toggle but calendar may not be fully working
+
+Changes:
+1. Ensure VacationCalendar component receives proper data
+2. Add click handler to open vacation details
+3. Add filter by department
+4. Ensure color coding by vacation type is visible
+5. Ensure status indicators (approved/pending/rejected) show in calendar
+6. Fix any date range display issues
 ```
 
-**الملف: `src/hooks/useSupabaseData.ts` - useDashboardStats**
-```typescript
-// التعديل المطلوب
-setStats({
-  totalTasks: tasks?.length || 0,
-  // استخدام task_status بدلاً من status
-  completedTasks: tasks?.filter(t => 
-    t.task_status === 'done' || t.status === 'completed'
-  ).length || 0,
-  pendingTasks: tasks?.filter(t => 
-    t.task_status !== 'done' && t.status !== 'completed'
-  ).length || 0,
-  overdueTasks: tasks?.filter(t => 
-    t.due_date && 
-    new Date(t.due_date) < now && 
-    t.task_status !== 'done' && 
-    t.status !== 'completed'
-  ).length || 0,
-});
+### 2.2 Vacation Calendar Component Improvements
+
+**File: `src/components/vacations/VacationCalendar.tsx`**
+
+```text
+Current State: Exists and has basic implementation
+
+Changes:
+1. Ensure multi-day vacations span correctly
+2. Add tooltip showing employee name and vacation type
+3. Improve legend visibility
+4. Add navigation buttons with correct RTL support
 ```
 
 ---
 
-### الإصلاح 4: تحسين أداء تسجيل الدخول
+## Phase 3: Settings - HTTPS Certificate Upload
 
-**الملف: `src/contexts/AuthContext.tsx`**
+### 3.1 Create Functional Certificate Upload
+
+**File: `src/pages/Settings.tsx`**
+
 ```text
-التحسينات:
-1. Cache للـ profile في sessionStorage
-2. تقليل عدد requests عند تحميل الصفحة
-3. إضافة retry logic للشبكات البطيئة
-4. تحسين error handling
+Current State: Has UI for file inputs but no upload logic
+
+Changes:
+1. Create state for certificate files
+2. Implement file upload to Supabase Storage bucket
+3. Store certificate metadata in app_settings table
+4. Add validation for file types (.pfx, .p12, .pem, .crt, .key)
+5. Add password field validation for PFX
+6. Never log private key content
+7. Show current certificate status (uploaded/not uploaded)
+8. Add "Remove Certificate" option for admins
 ```
 
-**الملف: `src/components/auth/ProtectedRoute.tsx`**
+### 3.2 Create Certificates Storage Bucket
+
+**Database Migration:**
+```sql
+-- Create private bucket for certificates
+-- (handled via Supabase Storage API)
+```
+
+### 3.3 Docker Guidance Enhancement
+
 ```text
-التحسينات:
-1. عرض skeleton loading بدلاً من spinner
-2. تقليل flicker عند التحويل
+Add detailed instructions panel:
+1. Nginx reverse proxy example (complete)
+2. Traefik example
+3. Direct Kestrel/Node HTTPS setup
+4. Volume mounting for persistent storage
 ```
 
 ---
 
-### الإصلاح 5: توحيد نظام التصدير والاستيراد
+## Phase 4: Audit Log - Show Real User Names
 
-**الملف: `src/utils/professionalExport.ts`**
+### 4.1 Fix Audit Log User ID Issue
+
+**Root Cause Analysis:**
+The `user_id` in audit_logs is sometimes NULL because:
+1. Mutations don't always pass `profileId`
+2. Some pages call hooks without the profile ID parameter
+
+**Files to Fix:**
+
+1. **`src/pages/Servers.tsx`** - Pass profile?.id to mutations
+2. **`src/pages/Licenses.tsx`** - Pass profile?.id to mutations
+3. **`src/pages/Tasks.tsx`** - Ensure audit logging includes user
+4. **`src/pages/Vacations.tsx`** - Ensure audit logging includes user
+5. All other CRUD operations
+
+### 4.2 Enhance Audit Log Display
+
+**File: `src/pages/AuditLog.tsx`**
+
 ```text
-التوحيد مع القوالب:
-1. توحيد أسماء الأعمدة مع excelTemplates.ts
-2. إضافة sheet للتعليمات في كل export
-3. تحسين التنسيق RTL
-4. إضافة خيار تصدير مع Lookup values
+Current State: Already looks up user by profiles.find(p => p.id === log.user_id)
+
+Changes:
+1. Add email display alongside name
+2. Add fallback text for missing users
+3. Improve diff display for before/after data
+4. Add export to PDF/Excel for audit logs
 ```
 
-**الملف: `src/utils/excelTemplates.ts`**
-```text
-التحسينات:
-1. إضافة task_status في قالب المهام بدلاً من status فقط
-2. توحيد الأعمدة مع التصدير:
-   - title → عنوان المهمة (نفس التسمية في التصدير)
-   - task_status → الحالة الجديدة
-   - status → الحالة القديمة (للتوافق)
-3. إضافة validation rules
-```
+### 4.3 Optional: Add user_name Column
 
-**أعمدة قالب المهام الموحد:**
-```typescript
-const UNIFIED_TASK_COLUMNS = [
-  { key: 'task_id', export_label: 'معرف المهمة', import_label: 'task_id' },
-  { key: 'title', export_label: 'عنوان المهمة', import_label: 'title' },
-  { key: 'description', export_label: 'الوصف', import_label: 'description' },
-  { key: 'assignee_email', export_label: 'البريد الإلكتروني للمسؤول', import_label: 'assignee_email' },
-  { key: 'task_status', export_label: 'الحالة', import_label: 'task_status' },
-  { key: 'priority', export_label: 'الأولوية', import_label: 'priority' },
-  { key: 'frequency', export_label: 'التكرار', import_label: 'frequency' },
-  { key: 'due_date', export_label: 'تاريخ الاستحقاق', import_label: 'due_date' },
-];
+**Database Enhancement (optional):**
+```sql
+-- Store user_name directly in audit_logs for historical accuracy
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_name TEXT;
 ```
 
 ---
 
-## الملفات المتأثرة
+## Phase 5: Performance & Session Stability
 
-| الملف | نوع التغيير | الأولوية |
-|-------|------------|----------|
-| `src/pages/Tasks.tsx` | تعديل - onStatusChange لتحديث status + task_status | عالية |
-| `src/components/tasks/KanbanBoard.tsx` | تعديل - إضافة Blocked + Clone + تحسين UI | عالية |
-| `src/hooks/useSupabaseData.ts` | تعديل - useDashboardStats | عالية |
-| `src/pages/Dashboard.tsx` | تعديل - ربط الإحصائيات | عالية |
-| `src/contexts/AuthContext.tsx` | تعديل - caching + performance | متوسطة |
-| `src/utils/professionalExport.ts` | تعديل - توحيد الأعمدة | متوسطة |
-| `src/utils/excelTemplates.ts` | تعديل - إضافة task_status | متوسطة |
-| `src/contexts/LanguageContext.tsx` | تعديل - ترجمات جديدة | متوسطة |
+### 5.1 Auth Context Improvements
+
+**File: `src/contexts/AuthContext.tsx`**
+
+```text
+Current State: Has caching but can be improved
+
+Changes:
+1. Increase cache TTL from 5 minutes to 15 minutes for session
+2. Add debounced session refresh on API activity
+3. Improve error handling with specific error messages
+4. Add session expiry detection with toast notification
+5. Fix "Remember me" to properly persist session
+6. Add retry logic for slow networks
+```
+
+### 5.2 Protected Route Enhancement
+
+**File: `src/components/auth/ProtectedRoute.tsx`**
+
+```text
+Changes:
+1. Show skeleton layout instead of blank/spinner
+2. Reduce flicker during auth state transitions
+3. Add timeout handling with user feedback
+```
+
+### 5.3 Data Fetching Optimization
+
+**File: `src/hooks/useSupabaseData.ts`**
+
+```text
+Changes:
+1. Add debounced fetch for filter changes
+2. Implement stale-while-revalidate pattern
+3. Add pagination for large datasets (servers, tasks)
+4. Memoize query results to prevent duplicate requests
+```
 
 ---
 
-## الترجمات الجديدة
+## Phase 6: Language Switch Consistency (i18n)
+
+### 6.1 Fix Remaining Hardcoded Strings
+
+**File: `src/contexts/LanguageContext.tsx`**
+
+```text
+Add missing translations:
+1. "غير محدد" → 'common.notSpecified'
+2. "مرة واحدة" → 'tasks.once'
+3. Form placeholders like "أدخل عنوان المهمة"
+4. Confirmation dialogs like "هل أنت متأكد من حذف"
+5. Error messages
+6. Settings page labels
+```
+
+### 6.2 Audit All Pages for Hardcoded Text
+
+**Pages to Check:**
+- `src/pages/Tasks.tsx` - Several Arabic strings
+- `src/pages/Servers.tsx` - Form labels
+- `src/pages/Vacations.tsx` - Status labels
+- `src/pages/Settings.tsx` - Many hardcoded labels
+- `src/pages/AuditLog.tsx` - Mostly good
+- `src/pages/Employees.tsx` - Some hardcoded text
+- Dialog components
+
+### 6.3 RTL/LTR Switch Verification
+
+```text
+Ensure:
+1. All dir={dir} attributes are present
+2. Icons flip correctly (chevrons, arrows)
+3. Form layouts work in both directions
+4. Tables display correctly in RTL
+```
+
+---
+
+## Phase 7: Per-Employee Weekly Excel Upload
+
+### 7.1 Create Task Upload Component
+
+**File: `src/components/employees/EmployeeTaskUpload.tsx`** (New)
+
+```text
+Features:
+1. Employee selector dropdown
+2. File upload zone (drag & drop + click)
+3. Excel parsing with validation
+4. Preview table with:
+   - Green rows: New tasks
+   - Yellow rows: Updates
+   - Red rows: Errors
+5. Column mapping validation
+6. Confirm import button
+7. Import progress indicator
+8. Summary report after import
+```
+
+### 7.2 Create Task Import Template
+
+**Update: `src/utils/excelTemplates.ts`**
+
+```text
+Current State: downloadTaskTemplate() exists
+
+Ensure columns match exactly:
+- TaskTitle (required)
+- Description
+- DueDate (YYYY-MM-DD)
+- Priority (Low/Medium/High/Critical)
+- Status (Draft/Assigned/In Progress/In Review/Done/Blocked)
+- Recurrence (None/Daily/Weekly/Monthly)
+- Tags (comma separated)
+- LinkedServerName (optional)
+- Network/Domain (optional)
+- EvidenceRequired (Yes/No)
+```
+
+### 7.3 Import Batch Tracking
+
+**Database Migration:**
+```sql
+CREATE TABLE IF NOT EXISTS import_batches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  imported_by UUID REFERENCES profiles(id),
+  entity_type TEXT NOT NULL, -- 'tasks', 'servers', etc.
+  created_count INTEGER DEFAULT 0,
+  updated_count INTEGER DEFAULT 0,
+  failed_count INTEGER DEFAULT 0,
+  import_data JSONB, -- Store imported IDs for rollback
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 7.4 Rollback Functionality
+
+```text
+Features:
+1. Store created/updated record IDs in batch
+2. Admin can view import batches
+3. "Rollback" button deletes created records and reverts updates
+4. Confirmation dialog before rollback
+```
+
+---
+
+## Phase 8: Employee Profile Enrichment
+
+### 8.1 Skills & Certifications UI
+
+**File: `src/pages/Employees.tsx`**
+
+```text
+Current State: Shows skills/certifications badges
+
+Changes:
+1. Add edit modal for admins
+2. Skill entry: name, level (Beginner/Intermediate/Expert), notes
+3. Certification entry: name, vendor, issue date, expiry date, attachment URL
+4. Display expiring certifications with warning
+```
+
+### 8.2 Additional Profile Fields
+
+**File: `src/pages/EmployeePermissions.tsx`**
+
+```text
+Add to employee creation/edit form:
+1. Phone (with validation)
+2. Location/Office
+3. Shift/On-call status
+4. Manager (dropdown from other profiles)
+5. Department (standardized dropdown)
+```
+
+### 8.3 Permissions Enforcement
+
+```text
+Rules:
+- Only admins can edit employee profiles
+- Employees can view their own profile
+- Hide sensitive fields from non-admins
+- Protect phone/personal data display
+```
+
+---
+
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/components/employees/EmployeeTaskUpload.tsx` | Weekly task import |
+| `src/components/employees/SkillsEditor.tsx` | Skills management |
+| `src/components/employees/CertificationsEditor.tsx` | Certifications management |
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/components/tasks/KanbanBoard.tsx` | Touch support, animations, overdue column |
+| `src/pages/Tasks.tsx` | Fix status sync, add audit logging |
+| `src/pages/Vacations.tsx` | Fix calendar integration |
+| `src/pages/Settings.tsx` | Functional certificate upload |
+| `src/pages/Servers.tsx` | Fix audit user_id |
+| `src/pages/Licenses.tsx` | Fix audit user_id |
+| `src/pages/AuditLog.tsx` | Show email, improve diff display |
+| `src/contexts/AuthContext.tsx` | Performance improvements |
+| `src/components/auth/ProtectedRoute.tsx` | Skeleton loading |
+| `src/hooks/useSupabaseData.ts` | Debouncing, pagination |
+| `src/contexts/LanguageContext.tsx` | Add missing translations |
+| `src/pages/Employees.tsx` | Profile enrichment |
+| `src/pages/EmployeePermissions.tsx` | Additional fields |
+| `src/utils/excelTemplates.ts` | Update task template |
+
+---
+
+## Database Migrations Required
+
+1. **import_batches table** - For tracking and rollback of imports
+2. **Storage bucket: certificates** - Private bucket for TLS certificates
+3. **Optional: audit_logs.user_name** - Store user name for history
+
+---
+
+## Translation Keys to Add
 
 ```typescript
 ar: {
-  'tasks.blocked': 'معلقة',
-  'tasks.cloneTask': 'نسخ المهمة',
-  'tasks.taskId': 'رقم المهمة',
-  'tasks.slaBreached': 'تجاوز SLA',
-  'tasks.dragHint': 'اسحب لتغيير الحالة',
-}
-en: {
-  'tasks.blocked': 'Blocked',
-  'tasks.cloneTask': 'Clone Task',
-  'tasks.taskId': 'Task ID',
-  'tasks.slaBreached': 'SLA Breached',
-  'tasks.dragHint': 'Drag to change status',
+  'common.notSpecified': 'غير محدد',
+  'tasks.enterTitle': 'أدخل عنوان المهمة',
+  'common.confirmDelete': 'هل أنت متأكد من الحذف؟',
+  'import.uploadEmployeeTasks': 'رفع مهام الموظف',
+  'import.selectEmployee': 'اختر الموظف',
+  'import.parsePreview': 'معاينة البيانات',
+  'import.rollback': 'التراجع',
+  'import.batchHistory': 'سجل عمليات الاستيراد',
+  'skills.add': 'إضافة مهارة',
+  'skills.level': 'المستوى',
+  'certifications.issueDate': 'تاريخ الإصدار',
+  'certifications.expiryDate': 'تاريخ الانتهاء',
+  'certifications.vendor': 'جهة الإصدار',
 }
 ```
 
 ---
 
-## ترتيب التنفيذ
+## Implementation Order
 
-### المرحلة 1: إصلاح التزامن (الأهم)
-```text
-1. تحديث Tasks.tsx - onStatusChange ليحدث كلا الحقلين
-2. تحديث useSupabaseData.ts - useDashboardStats
-3. اختبار: تغيير حالة مهمة في Kanban ← التحقق من ظهورها صحيحة في Dashboard
-```
+### Week 1: Critical Fixes
+1. Fix audit log user_id in all CRUD operations
+2. Fix task status synchronization (task_status ↔ status)
+3. Improve auth performance and session stability
 
-### المرحلة 2: تحسين Kanban
-```text
-1. إضافة عمود Blocked
-2. إضافة زر Clone
-3. تحسين visual feedback للـ drag
-4. إضافة Jira-style task numbering
-```
+### Week 2: Drag & Drop + Calendar
+1. Enhance Kanban with touch support and animations
+2. Fix Vacation calendar integration
+3. Test and verify all views are synchronized
 
-### المرحلة 3: تحسين الأداء
-```text
-1. تحسين AuthContext مع caching
-2. تحسين ProtectedRoute مع skeleton
-```
+### Week 3: Import/Export + HTTPS
+1. Build per-employee task upload workflow
+2. Add import batch tracking and rollback
+3. Implement functional HTTPS certificate upload
+4. Add detailed Docker guidance
 
-### المرحلة 4: توحيد التصدير/الاستيراد
-```text
-1. توحيد أعمدة professionalExport
-2. تحديث excelTemplates
-3. اختبار التوافق
-```
+### Week 4: i18n + Profile Enrichment
+1. Audit and fix all hardcoded strings
+2. Add skills/certifications editor
+3. Add additional profile fields
+4. Final testing and polish
 
 ---
 
-## معايير القبول
+## Acceptance Criteria
 
-- [x] عند تغيير حالة مهمة في Kanban، تظهر التغييرات فوراً في لوحة التحكم
-- [x] إحصائيات المهام (مكتملة/قيد التنفيذ/متأخرة) صحيحة 100%
-- [x] إمكانية نسخ (Clone) المهمة مثل Jira
-- [x] وجود عمود "معلقة" (Blocked) في Kanban
-- [x] تسجيل الدخول أسرع بدون تأخير ملحوظ
-- [x] تصدير واستيراد المهام متوافق تماماً (نفس الأعمدة)
-- [x] لا يوجد تكرار عند استيراد ملف مُصدّر سابقاً
-
-## التغييرات المنجزة
-
-### 1. تزامن حالات المهام ✅
-- تحديث `onStatusChange` في `Tasks.tsx` ليحدّث كلا الحقلين: `task_status` و `status`
-- تحديث `useDashboardStats` ليحسب المهام من كلا الحقلين
-
-### 2. تحسينات Kanban على طريقة Jira ✅
-- إضافة عمود "Blocked" (معلقة)
-- إضافة زر Clone لنسخ المهام
-- إضافة ترقيم المهام (TASK-001)
-- تحسين بطاقات المهام مع avatar للمسؤول
-
-### 3. تحسين أداء تسجيل الدخول ✅
-- إضافة Profile caching في sessionStorage
-- تحسين ProtectedRoute مع skeleton loading
-
-### 4. توحيد التصدير والاستيراد ✅
-- توحيد أعمدة Excel بين professionalExport و excelTemplates
-- إضافة task_status بدلاً من status القديم
+- [ ] Drag-and-drop works smoothly on desktop and mobile
+- [ ] Task status persists after refresh and shows in Dashboard
+- [ ] Vacation calendar displays entries correctly with colors
+- [ ] HTTPS certificates can be uploaded and stored securely
+- [ ] Audit log shows real user names (not "Unknown user")
+- [ ] Login completes in under 2 seconds on LAN
+- [ ] No random logouts with "Remember me" enabled
+- [ ] All UI text switches correctly between Arabic and English
+- [ ] Weekly task Excel upload works with preview and validation
+- [ ] Import batches can be rolled back
+- [ ] Employee profiles show skills and certifications
+- [ ] All changes respect RLS and role-based permissions
