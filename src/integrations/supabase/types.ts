@@ -1104,6 +1104,238 @@ export type Database = {
           },
         ]
       }
+      vault_audit_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+          user_name: string | null
+          vault_item_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          vault_item_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          vault_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_audit_logs_vault_item_id_fkey"
+            columns: ["vault_item_id"]
+            isOneToOne: false
+            referencedRelation: "vault_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vault_items: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          item_type: string
+          last_password_reveal: string | null
+          linked_application_id: string | null
+          linked_network_id: string | null
+          linked_server_id: string | null
+          notes: string | null
+          owner_id: string
+          password_encrypted: string | null
+          password_iv: string | null
+          password_reveal_count: number | null
+          requires_2fa_reveal: boolean | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+          url: string | null
+          username: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          item_type?: string
+          last_password_reveal?: string | null
+          linked_application_id?: string | null
+          linked_network_id?: string | null
+          linked_server_id?: string | null
+          notes?: string | null
+          owner_id: string
+          password_encrypted?: string | null
+          password_iv?: string | null
+          password_reveal_count?: number | null
+          requires_2fa_reveal?: boolean | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+          url?: string | null
+          username?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          item_type?: string
+          last_password_reveal?: string | null
+          linked_application_id?: string | null
+          linked_network_id?: string | null
+          linked_server_id?: string | null
+          notes?: string | null
+          owner_id?: string
+          password_encrypted?: string | null
+          password_iv?: string | null
+          password_reveal_count?: number | null
+          requires_2fa_reveal?: boolean | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+          url?: string | null
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_items_linked_application_id_fkey"
+            columns: ["linked_application_id"]
+            isOneToOne: false
+            referencedRelation: "website_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_items_linked_network_id_fkey"
+            columns: ["linked_network_id"]
+            isOneToOne: false
+            referencedRelation: "networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_items_linked_server_id_fkey"
+            columns: ["linked_server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_items_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vault_permissions: {
+        Row: {
+          can_edit: boolean | null
+          can_reveal: boolean | null
+          can_view: boolean | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          profile_id: string
+          vault_item_id: string
+        }
+        Insert: {
+          can_edit?: boolean | null
+          can_reveal?: boolean | null
+          can_view?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          profile_id: string
+          vault_item_id: string
+        }
+        Update: {
+          can_edit?: boolean | null
+          can_reveal?: boolean | null
+          can_view?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          profile_id?: string
+          vault_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_permissions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_permissions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_permissions_vault_item_id_fkey"
+            columns: ["vault_item_id"]
+            isOneToOne: false
+            referencedRelation: "vault_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vault_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string | null
+          value: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       website_applications: {
         Row: {
           category: string | null
@@ -1207,11 +1439,17 @@ export type Database = {
       can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
       get_my_profile_id: { Args: never; Returns: string }
+      has_vault_permission: {
+        Args: { _permission: string; _vault_item_id: string }
+        Returns: boolean
+      }
       is_admin: { Args: never; Returns: boolean }
       is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
+      owns_vault_item: { Args: { _vault_item_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "employee"
+      vault_role: "vault_admin" | "vault_editor" | "vault_viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1340,6 +1578,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "employee"],
+      vault_role: ["vault_admin", "vault_editor", "vault_viewer"],
     },
   },
 } as const
