@@ -81,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         {!collapsed && (
           <div className="flex flex-col flex-1">
             <span className="font-bold text-lg text-sidebar-foreground whitespace-nowrap">
-              {appName} <span className="text-accent">CMDB</span>
+              {appName || 'IT Infrastructure'}
             </span>
             <Badge variant="outline" className="text-[10px] w-fit px-1.5 py-0 border-accent text-accent">
               <Wifi className="w-2.5 h-2.5 me-1" />
