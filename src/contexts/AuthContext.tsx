@@ -84,6 +84,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isMounted) return;
         
         console.log('Auth state changed:', event);
+
+        // IMPORTANT: avoid redirect flicker.
+        // ProtectedRoute requires both user and profile, so we keep isLoading=true
+        // until we finish fetching the profile for the new session.
+        setIsLoading(true);
         
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
@@ -97,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(null);
         }
         
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     );
 
