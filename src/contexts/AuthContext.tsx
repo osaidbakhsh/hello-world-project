@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, Profile } from '@/lib/supabase';
+import type { Profile } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextType {
   user: User | null;
@@ -41,6 +42,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const ensureProfile = async (u: User) => {
+    const existing = await fetchProfile(u.id);
+    if (existing) return existing;
+
+    try {
+      const fullName =
+        (u.user_metadata as any)?.full_name ||
+        (u.email ? u.email.split('@')[0] : 'User');
+
+      // If profile doesn't exist (e.g., no trigger created it), create it on first login.
+      const { error } = await supabase.from('profiles').insert({
+        user_id: u.id,
+        email: u.email ?? '',
+        full_name: fullName,
+        // Keep defaults for department/position/role if DB has defaults.
+      });
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        return null;
+      }
+
+      return await fetchProfile(u.id);
+    } catch (e) {
+      console.error('Error ensuring profile:', e);
+      return null;
+    }
+  };
+
   const refreshProfile = async () => {
     if (user) {
       const profileData = await fetchProfile(user.id);
@@ -62,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(initialSession?.user ?? null);
         
         if (initialSession?.user) {
-          const profileData = await fetchProfile(initialSession.user.id);
+          const profileData = await ensureProfile(initialSession.user);
           if (isMounted) {
             setProfile(profileData);
           }
@@ -94,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
-          const profileData = await fetchProfile(currentSession.user.id);
+          const profileData = await ensureProfile(currentSession.user);
           if (isMounted) {
             setProfile(profileData);
           }
