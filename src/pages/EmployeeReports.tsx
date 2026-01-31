@@ -96,7 +96,7 @@ const EmployeeReports: React.FC = () => {
       } catch (error) {
         toast({
           title: t('common.error'),
-          description: 'فشل في قراءة ملف Excel',
+          description: t('employeeReports.readError'),
           variant: 'destructive',
         });
       }
@@ -110,7 +110,7 @@ const EmployeeReports: React.FC = () => {
     if (!formData.profile_id || !selectedFile) {
       toast({
         title: t('common.error'),
-        description: 'يرجى اختيار الموظف والملف',
+        description: t('employeeReports.selectRequired'),
         variant: 'destructive',
       });
       return;
@@ -130,7 +130,7 @@ const EmployeeReports: React.FC = () => {
 
       if (error) throw error;
 
-      toast({ title: t('common.success'), description: 'تم رفع التقرير بنجاح' });
+      toast({ title: t('common.success'), description: t('employeeReports.uploadSuccess') });
       resetForm();
       setIsDialogOpen(false);
       refetch();
@@ -144,12 +144,12 @@ const EmployeeReports: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا التقرير؟')) return;
+    if (!confirm(t('employeeReports.deleteConfirm'))) return;
     
     try {
       const { error } = await supabase.from('employee_reports').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: t('common.success'), description: 'تم حذف التقرير' });
+      toast({ title: t('common.success'), description: t('employeeReports.deleteSuccess') });
       refetch();
     } catch (error: any) {
       toast({
@@ -171,6 +171,19 @@ const EmployeeReports: React.FC = () => {
     setPreviewData([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const getReportTypeLabel = (type: string) => {
+    switch (type) {
+      case 'daily':
+        return t('employeeReports.daily');
+      case 'weekly':
+        return t('employeeReports.weekly');
+      case 'monthly':
+        return t('employeeReports.monthly');
+      default:
+        return type;
     }
   };
 
@@ -233,7 +246,7 @@ const EmployeeReports: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>نوع التقرير</Label>
+                    <Label>{t('employeeReports.reportType')}</Label>
                     <Select
                       value={formData.report_type}
                       onValueChange={(value) => setFormData({ ...formData, report_type: value })}
@@ -242,9 +255,9 @@ const EmployeeReports: React.FC = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="daily">يومي</SelectItem>
-                        <SelectItem value="weekly">أسبوعي</SelectItem>
-                        <SelectItem value="monthly">شهري</SelectItem>
+                        <SelectItem value="daily">{t('employeeReports.daily')}</SelectItem>
+                        <SelectItem value="weekly">{t('employeeReports.weekly')}</SelectItem>
+                        <SelectItem value="monthly">{t('employeeReports.monthly')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -260,7 +273,7 @@ const EmployeeReports: React.FC = () => {
                 </div>
                 {previewData.length > 0 && (
                   <div className="space-y-2">
-                    <Label>معاينة (أول 5 صفوف)</Label>
+                    <Label>{t('employeeReports.preview')}</Label>
                     <div className="max-h-40 overflow-auto border rounded-md p-2 bg-muted/50">
                       <pre className="text-xs">
                         {JSON.stringify(previewData, null, 2)}
@@ -324,7 +337,7 @@ const EmployeeReports: React.FC = () => {
               <TableRow>
                 <TableHead>{t('vacations.employee')}</TableHead>
                 <TableHead>{t('employeeReports.file')}</TableHead>
-                <TableHead>نوع التقرير</TableHead>
+                <TableHead>{t('employeeReports.reportType')}</TableHead>
                 <TableHead>{t('employeeReports.date')}</TableHead>
                 <TableHead>{t('employeeReports.notes')}</TableHead>
                 {isAdmin && <TableHead>{t('common.actions')}</TableHead>}
@@ -334,7 +347,7 @@ const EmployeeReports: React.FC = () => {
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-12">
-                    جارٍ التحميل...
+                    {t('common.loading')}
                   </TableCell>
                 </TableRow>
               ) : sortedReports.length > 0 ? (
@@ -351,12 +364,11 @@ const EmployeeReports: React.FC = () => {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <FileSpreadsheet className="w-4 h-4 text-success" />
-                        <span className="text-sm">{report.file_name || 'تقرير'}</span>
+                        <span className="text-sm">{report.file_name || t('employeeReports.report')}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      {report.report_type === 'daily' ? 'يومي' :
-                       report.report_type === 'weekly' ? 'أسبوعي' : 'شهري'}
+                      {getReportTypeLabel(report.report_type || '')}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm">

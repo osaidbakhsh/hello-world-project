@@ -127,7 +127,7 @@ const initialFormData: WebAppForm = {
 };
 
 const iconOptions = [
-  // البنية التحتية
+  // Infrastructure
   { value: 'globe', label: 'Globe', icon: Globe },
   { value: 'server', label: 'Server', icon: Server },
   { value: 'database', label: 'Database', icon: Database },
@@ -137,29 +137,29 @@ const iconOptions = [
   { value: 'network', label: 'Network', icon: Network },
   { value: 'wifi', label: 'Wifi', icon: Wifi },
   { value: 'router', label: 'Router', icon: Router },
-  // الأمان
+  // Security
   { value: 'shield', label: 'Shield', icon: Shield },
   { value: 'lock', label: 'Lock', icon: Lock },
   { value: 'key', label: 'Key', icon: Key },
   { value: 'fingerprint', label: 'Fingerprint', icon: Fingerprint },
   { value: 'scan', label: 'Scan', icon: Scan },
-  // التواصل
+  // Communication
   { value: 'mail', label: 'Mail', icon: Mail },
   { value: 'message-square', label: 'Message', icon: MessageSquare },
   { value: 'phone', label: 'Phone', icon: Phone },
   { value: 'video', label: 'Video', icon: Video },
   { value: 'users', label: 'Users', icon: Users },
-  // الملفات
+  // Files
   { value: 'file', label: 'File', icon: FileText },
   { value: 'folder', label: 'Folder', icon: Folder },
   { value: 'archive', label: 'Archive', icon: Archive },
   { value: 'clipboard', label: 'Clipboard', icon: Clipboard },
-  // التطوير
+  // Development
   { value: 'code', label: 'Code', icon: Code },
   { value: 'terminal', label: 'Terminal', icon: Terminal },
   { value: 'git-branch', label: 'Git', icon: GitBranch },
   { value: 'box', label: 'Box', icon: Box },
-  // المراقبة
+  // Monitoring
   { value: 'monitor', label: 'Monitor', icon: Monitor },
   { value: 'activity', label: 'Activity', icon: Activity },
   { value: 'bar-chart', label: 'Chart', icon: BarChart },
@@ -186,15 +186,6 @@ const iconOptions = [
   { value: 'printer', label: 'Printer', icon: Printer },
 ];
 
-const categoryOptions = [
-  { value: 'infrastructure', label: 'البنية التحتية' },
-  { value: 'security', label: 'الأمان' },
-  { value: 'monitoring', label: 'المراقبة' },
-  { value: 'communication', label: 'التواصل' },
-  { value: 'development', label: 'التطوير' },
-  { value: 'other', label: 'أخرى' },
-];
-
 const WebApps: React.FC = () => {
   const { t, dir } = useLanguage();
   const { isAdmin, profile } = useAuth();
@@ -210,6 +201,34 @@ const WebApps: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<WebAppForm>(initialFormData);
 
+  const getCategoryLabel = (category: string) => {
+    switch (category) {
+      case 'infrastructure':
+        return t('category.infrastructure');
+      case 'security':
+        return t('category.security');
+      case 'monitoring':
+        return t('category.monitoring');
+      case 'communication':
+        return t('category.communication');
+      case 'development':
+        return t('category.development');
+      case 'other':
+        return t('category.other');
+      default:
+        return category;
+    }
+  };
+
+  const categoryOptions = [
+    { value: 'infrastructure', labelKey: 'category.infrastructure' },
+    { value: 'security', labelKey: 'category.security' },
+    { value: 'monitoring', labelKey: 'category.monitoring' },
+    { value: 'communication', labelKey: 'category.communication' },
+    { value: 'development', labelKey: 'category.development' },
+    { value: 'other', labelKey: 'category.other' },
+  ];
+
   const filteredApps = apps.filter((app) =>
     app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (app.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -219,8 +238,8 @@ const WebApps: React.FC = () => {
   const handleSubmit = async () => {
     if (!formData.name || !formData.url) {
       toast({
-        title: 'خطأ',
-        description: 'يرجى ملء الحقول المطلوبة',
+        title: t('common.error'),
+        description: t('validation.fillRequired'),
         variant: 'destructive',
       });
       return;
@@ -243,7 +262,7 @@ const WebApps: React.FC = () => {
           .eq('id', editingApp.id);
 
         if (error) throw error;
-        toast({ title: 'تم بنجاح', description: 'تم تحديث التطبيق' });
+        toast({ title: t('common.success'), description: t('webApps.updateSuccess') });
       } else {
         const { error } = await supabase
           .from('website_applications')
@@ -259,7 +278,7 @@ const WebApps: React.FC = () => {
           });
 
         if (error) throw error;
-        toast({ title: 'تم بنجاح', description: 'تم إضافة التطبيق' });
+        toast({ title: t('common.success'), description: t('webApps.addSuccess') });
       }
 
       resetForm();
@@ -267,8 +286,8 @@ const WebApps: React.FC = () => {
       refetch();
     } catch (error: any) {
       toast({
-        title: 'خطأ',
-        description: error.message || 'فشل في حفظ التطبيق',
+        title: t('common.error'),
+        description: error.message || t('webApps.saveFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -300,12 +319,12 @@ const WebApps: React.FC = () => {
         .eq('id', deletingApp.id);
 
       if (error) throw error;
-      toast({ title: 'تم بنجاح', description: 'تم حذف التطبيق' });
+      toast({ title: t('common.success'), description: t('webApps.deleteSuccess') });
       refetch();
     } catch (error: any) {
       toast({
-        title: 'خطأ',
-        description: error.message || 'فشل في حذف التطبيق',
+        title: t('common.error'),
+        description: error.message || t('webApps.deleteFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -329,7 +348,7 @@ const WebApps: React.FC = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-4">
           <Shield className="w-16 h-16 text-muted-foreground mx-auto" />
-          <p className="text-muted-foreground text-lg">ليس لديك صلاحية للوصول لهذه الصفحة</p>
+          <p className="text-muted-foreground text-lg">{t('permissions.noAccess')}</p>
         </div>
       </div>
     );
@@ -345,7 +364,7 @@ const WebApps: React.FC = () => {
           </div>
           <div>
             <h1 className="text-3xl font-bold">{t('webApps.title')}</h1>
-            <p className="text-muted-foreground">إدارة روابط تطبيقات الويب</p>
+            <p className="text-muted-foreground">{t('webApps.subtitle')}</p>
           </div>
         </div>
 
@@ -365,7 +384,7 @@ const WebApps: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{apps.length}</p>
-                <p className="text-sm text-muted-foreground">إجمالي التطبيقات</p>
+                <p className="text-sm text-muted-foreground">{t('webApps.totalApps')}</p>
               </div>
             </div>
           </CardContent>
@@ -378,7 +397,7 @@ const WebApps: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{apps.filter((a) => a.is_active).length}</p>
-                <p className="text-sm text-muted-foreground">نشط</p>
+                <p className="text-sm text-muted-foreground">{t('webApps.active')}</p>
               </div>
             </div>
           </CardContent>
@@ -393,7 +412,7 @@ const WebApps: React.FC = () => {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="البحث عن تطبيق..."
+              placeholder={t('webApps.searchPlaceholder')}
               className="ps-10"
             />
           </div>
@@ -407,12 +426,12 @@ const WebApps: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>التطبيق</TableHead>
-                  <TableHead>الرابط</TableHead>
-                  <TableHead>التصنيف</TableHead>
-                  <TableHead>النطاق</TableHead>
-                  <TableHead>الحالة</TableHead>
-                  <TableHead className="text-end">الإجراءات</TableHead>
+                  <TableHead>{t('webApps.app')}</TableHead>
+                  <TableHead>{t('webApps.url')}</TableHead>
+                  <TableHead>{t('webApps.category')}</TableHead>
+                  <TableHead>{t('webApps.domain')}</TableHead>
+                  <TableHead>{t('webApps.status')}</TableHead>
+                  <TableHead className="text-end">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -430,7 +449,7 @@ const WebApps: React.FC = () => {
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-12">
                       <Globe className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">لا توجد تطبيقات</p>
+                      <p className="text-muted-foreground">{t('webApps.noApps')}</p>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -468,19 +487,19 @@ const WebApps: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           {app.category && (
-                            <Badge variant="secondary">{app.category}</Badge>
+                            <Badge variant="secondary">{getCategoryLabel(app.category)}</Badge>
                           )}
                         </TableCell>
                         <TableCell>
                           {domain ? (
                             <Badge variant="outline">{domain.name}</Badge>
                           ) : (
-                            <span className="text-muted-foreground text-sm">عام</span>
+                            <span className="text-muted-foreground text-sm">{t('webApps.public')}</span>
                           )}
                         </TableCell>
                         <TableCell>
                           <Badge variant={app.is_active ? 'default' : 'secondary'}>
-                            {app.is_active ? 'نشط' : 'معطل'}
+                            {app.is_active ? t('webApps.active') : t('webApps.disabled')}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -527,28 +546,28 @@ const WebApps: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {editingApp ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-              {editingApp ? 'تعديل التطبيق' : 'إضافة تطبيق'}
+              {editingApp ? t('webApps.editApp') : t('webApps.addApp')}
             </DialogTitle>
             <DialogDescription>
-              أضف رابط لتطبيق ويب للوصول السريع من لوحة التحكم
+              {t('webApps.appDesc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>اسم التطبيق *</Label>
+                <Label>{t('webApps.appName')} *</Label>
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="مثال: Jira"
+                  placeholder={`${t('common.example')}: Jira`}
                 />
               </div>
             </div>
 
             {/* Icon Grid Selector */}
             <div className="space-y-2">
-              <Label>الأيقونة</Label>
+              <Label>{t('webApps.icon')}</Label>
               <div className="grid grid-cols-10 gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg bg-muted/20">
                 {iconOptions.map((opt) => {
                   const Icon = opt.icon;
@@ -573,7 +592,7 @@ const WebApps: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>الرابط (URL) *</Label>
+              <Label>{t('webApps.url')} (URL) *</Label>
               <Input
                 value={formData.url}
                 onChange={(e) => setFormData({ ...formData, url: e.target.value })}
@@ -584,45 +603,45 @@ const WebApps: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>الوصف</Label>
+              <Label>{t('webApps.description')}</Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="وصف مختصر للتطبيق"
+                placeholder={t('webApps.description')}
                 rows={2}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>التصنيف</Label>
+                <Label>{t('webApps.category')}</Label>
                 <Select
                   value={formData.category}
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="اختر التصنيف" />
+                    <SelectValue placeholder={t('webApps.selectCategory')} />
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
+                        {t(opt.labelKey)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>النطاق</Label>
+                <Label>{t('webApps.domain')}</Label>
                 <Select
                   value={formData.domain_id || "all"}
                   onValueChange={(value) => setFormData({ ...formData, domain_id: value === "all" ? "" : value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="عام للجميع" />
+                    <SelectValue placeholder={t('webApps.publicForAll')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">عام للجميع</SelectItem>
+                    <SelectItem value="all">{t('webApps.publicForAll')}</SelectItem>
                     {domains.map((domain) => (
                       <SelectItem key={domain.id} value={domain.id}>
                         {domain.name}
@@ -635,8 +654,8 @@ const WebApps: React.FC = () => {
 
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
               <div>
-                <Label>مفعّل</Label>
-                <p className="text-xs text-muted-foreground">إظهار التطبيق في لوحة التحكم</p>
+                <Label>{t('webApps.enabled')}</Label>
+                <p className="text-xs text-muted-foreground">{t('webApps.enabledDesc')}</p>
               </div>
               <Switch
                 checked={formData.is_active}
@@ -647,11 +666,11 @@ const WebApps: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              إلغاء
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="w-4 h-4 me-2 animate-spin" />}
-              {editingApp ? 'حفظ التعديلات' : 'إضافة'}
+              {editingApp ? t('webApps.saveChanges') : t('common.add')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -661,15 +680,15 @@ const WebApps: React.FC = () => {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+            <AlertDialogTitle>{t('webApps.deleteConfirm')}</AlertDialogTitle>
             <AlertDialogDescription>
-              سيتم حذف التطبيق "{deletingApp?.name}" نهائياً. لا يمكن التراجع عن هذا الإجراء.
+              {t('webApps.deleteWarning').replace('"{deletingApp?.name}"', `"${deletingApp?.name}"`)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              حذف
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

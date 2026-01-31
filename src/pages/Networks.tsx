@@ -78,7 +78,7 @@ const Networks: React.FC = () => {
   // Domain CRUD operations
   const handleDomainSubmit = async () => {
     if (!domainForm.name) {
-      toast({ title: t('common.error'), description: 'اسم الدومين مطلوب', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('networks.domainRequired'), variant: 'destructive' });
       return;
     }
 
@@ -90,14 +90,14 @@ const Networks: React.FC = () => {
           .eq('id', editingDomain.id);
         
         if (error) throw error;
-        toast({ title: t('common.success'), description: 'تم تحديث الدومين' });
+        toast({ title: t('common.success'), description: t('networks.domainUpdated') });
       } else {
         const { error } = await supabase
           .from('domains')
           .insert({ name: domainForm.name, description: domainForm.description });
         
         if (error) throw error;
-        toast({ title: t('common.success'), description: 'تم إضافة الدومين' });
+        toast({ title: t('common.success'), description: t('networks.domainAdded') });
       }
       
       resetDomainForm();
@@ -118,7 +118,7 @@ const Networks: React.FC = () => {
     try {
       const { error } = await supabase.from('domains').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: t('common.success'), description: 'تم حذف الدومين' });
+      toast({ title: t('common.success'), description: t('networks.domainDeleted') });
       refetchDomains();
     } catch (error: any) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
@@ -133,7 +133,7 @@ const Networks: React.FC = () => {
   // Network CRUD operations
   const handleNetworkSubmit = async () => {
     if (!networkForm.name || !networkForm.domain_id) {
-      toast({ title: t('common.error'), description: 'اسم الشبكة والدومين مطلوبين', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('networks.networkRequired'), variant: 'destructive' });
       return;
     }
 
@@ -156,7 +156,7 @@ const Networks: React.FC = () => {
           .eq('id', editingNetwork.id);
         
         if (error) throw error;
-        toast({ title: t('common.success'), description: 'تم تحديث الشبكة' });
+        toast({ title: t('common.success'), description: t('networks.networkUpdated') });
       } else {
         const { error } = await supabase
           .from('networks')
@@ -170,7 +170,7 @@ const Networks: React.FC = () => {
           });
         
         if (error) throw error;
-        toast({ title: t('common.success'), description: 'تم إضافة الشبكة' });
+        toast({ title: t('common.success'), description: t('networks.networkAdded') });
       }
       
       resetNetworkForm();
@@ -198,7 +198,7 @@ const Networks: React.FC = () => {
     try {
       const { error } = await supabase.from('networks').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: t('common.success'), description: 'تم حذف الشبكة' });
+      toast({ title: t('common.success'), description: t('networks.networkDeleted') });
       refetchNetworks();
     } catch (error: any) {
       toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
@@ -226,7 +226,7 @@ const Networks: React.FC = () => {
   };
 
   const getDomainName = (domainId: string) => {
-    return domains.find((d) => d.id === domainId)?.name || 'غير محدد';
+    return domains.find((d) => d.id === domainId)?.name || t('common.notSpecified');
   };
 
   return (
@@ -242,11 +242,11 @@ const Networks: React.FC = () => {
           <TabsList>
             <TabsTrigger value="domains" className="gap-2">
               <Building2 className="w-4 h-4" />
-              الدومينات ({domains.length})
+              {t('networks.domainsTab')} ({domains.length})
             </TabsTrigger>
             <TabsTrigger value="networks" className="gap-2">
               <NetworkIcon className="w-4 h-4" />
-              الشبكات ({networks.length})
+              {t('networks.networksTab')} ({networks.length})
             </TabsTrigger>
           </TabsList>
 
@@ -258,18 +258,18 @@ const Networks: React.FC = () => {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="w-4 h-4 me-2" />
-                  إضافة دومين
+                  {t('networks.addDomain')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>
-                    {editingDomain ? t('common.edit') : 'إضافة دومين جديد'}
+                    {editingDomain ? t('common.edit') : t('networks.addNewDomain')}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="space-y-2">
-                    <Label>اسم الدومين *</Label>
+                    <Label>{t('networks.domainName')} *</Label>
                     <Input
                       value={domainForm.name}
                       onChange={(e) => setDomainForm({ ...domainForm, name: e.target.value })}
@@ -277,12 +277,12 @@ const Networks: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>الوصف</Label>
+                    <Label>{t('common.descriptionLabel')}</Label>
                     <Textarea
                       value={domainForm.description}
                       onChange={(e) => setDomainForm({ ...domainForm, description: e.target.value })}
                       rows={3}
-                      placeholder="وصف الدومين..."
+                      placeholder={t('common.descriptionLabel')}
                     />
                   </div>
                 </div>
@@ -304,18 +304,18 @@ const Networks: React.FC = () => {
               <DialogTrigger asChild>
                 <Button disabled={domains.length === 0}>
                   <Plus className="w-4 h-4 me-2" />
-                  إضافة شبكة
+                  {t('networks.addNetwork')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>
-                    {editingNetwork ? t('common.edit') : 'إضافة شبكة جديدة'}
+                    {editingNetwork ? t('common.edit') : t('networks.addNewNetwork')}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="space-y-2">
-                    <Label>اسم الشبكة *</Label>
+                    <Label>{t('networks.networkName')} *</Label>
                     <Input
                       value={networkForm.name}
                       onChange={(e) => setNetworkForm({ ...networkForm, name: e.target.value })}
@@ -323,13 +323,13 @@ const Networks: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>الدومين *</Label>
+                    <Label>{t('networks.domain')} *</Label>
                     <Select
                       value={networkForm.domain_id}
                       onValueChange={(value) => setNetworkForm({ ...networkForm, domain_id: value })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="اختر الدومين" />
+                        <SelectValue placeholder={t('networks.selectDomain')} />
                       </SelectTrigger>
                       <SelectContent>
                         {domains.map((domain) => (
@@ -359,7 +359,7 @@ const Networks: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>DNS Servers (مفصولة بفواصل)</Label>
+                    <Label>{t('networks.dnsServers')}</Label>
                     <Input
                       value={networkForm.dns_servers}
                       onChange={(e) => setNetworkForm({ ...networkForm, dns_servers: e.target.value })}
@@ -367,7 +367,7 @@ const Networks: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>الوصف</Label>
+                    <Label>{t('common.descriptionLabel')}</Label>
                     <Textarea
                       value={networkForm.description}
                       onChange={(e) => setNetworkForm({ ...networkForm, description: e.target.value })}
@@ -431,7 +431,7 @@ const Networks: React.FC = () => {
                       <div className="flex items-center justify-between pt-4 border-t">
                         <Badge variant="outline" className="gap-1">
                           <NetworkIcon className="w-3 h-3" />
-                          {networkCount} شبكات
+                          {networkCount} {t('networks.networksCount')}
                         </Badge>
                         <div className="flex items-center gap-1">
                           <Button size="icon" variant="ghost" onClick={() => handleEditDomain(domain)}>
@@ -456,7 +456,7 @@ const Networks: React.FC = () => {
                 <Building2 className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
                 <p className="text-muted-foreground">{t('common.noData')}</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  قم بإضافة دومين للبدء
+                  {t('networks.addDomainFirst')}
                 </p>
               </div>
             )}
@@ -513,7 +513,7 @@ const Networks: React.FC = () => {
                       <div className="flex items-center justify-between pt-4 border-t">
                         <Badge variant="outline" className="gap-1">
                           <Server className="w-3 h-3" />
-                          {serverCount} سيرفر
+                          {serverCount} {t('networks.serversCount')}
                         </Badge>
                         <div className="flex items-center gap-1">
                           <Button size="icon" variant="ghost" onClick={() => handleEditNetwork(network)}>
@@ -539,8 +539,8 @@ const Networks: React.FC = () => {
                 <p className="text-muted-foreground">{t('common.noData')}</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   {domains.length === 0 
-                    ? 'قم بإضافة دومين أولاً ثم أضف شبكات'
-                    : 'قم بإضافة شبكة للبدء'}
+                    ? t('networks.addDomainThenNetwork')
+                    : t('networks.addNetworkToStart')}
                 </p>
               </div>
             )}
