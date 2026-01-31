@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock, ImageIcon, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock, ImageIcon, Loader2, LayoutDashboard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicenseTemplate, downloadNetworkTemplate, downloadEmployeeTemplate } from '@/utils/excelTemplates';
+import SectionOrderSettings from '@/components/settings/SectionOrderSettings';
 
 const Settings: React.FC = () => {
   const { t, dir, language, setLanguage } = useLanguage();
@@ -174,26 +175,30 @@ const Settings: React.FC = () => {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="general" className="gap-2">
             <SettingsIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">عام</span>
+            <span className="hidden sm:inline">{t('settings.general')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="customization" className="gap-2">
+            <LayoutDashboard className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('settings.customization')}</span>
           </TabsTrigger>
           <TabsTrigger value="mail" className="gap-2">
             <Mail className="w-4 h-4" />
-            <span className="hidden sm:inline">البريد</span>
+            <span className="hidden sm:inline">{t('settings.mail')}</span>
           </TabsTrigger>
           <TabsTrigger value="ldap" className="gap-2">
             <Shield className="w-4 h-4" />
-            <span className="hidden sm:inline">LDAP</span>
+            <span className="hidden sm:inline">{t('settings.ldap')}</span>
           </TabsTrigger>
           <TabsTrigger value="ntp" className="gap-2">
             <Clock className="w-4 h-4" />
-            <span className="hidden sm:inline">NTP</span>
+            <span className="hidden sm:inline">{t('settings.ntp')}</span>
           </TabsTrigger>
           <TabsTrigger value="templates" className="gap-2">
             <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden sm:inline">القوالب</span>
+            <span className="hidden sm:inline">{t('settings.templates')}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -353,6 +358,11 @@ const Settings: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Customization Tab */}
+        <TabsContent value="customization" className="space-y-6 mt-6">
+          <SectionOrderSettings />
         </TabsContent>
 
         {/* Mail Settings Tab */}

@@ -67,12 +67,17 @@ const translations: Record<Language, Record<string, string>> = {
     'servers.domain': 'النطاق',
     'servers.status': 'الحالة',
     'servers.lastUpdate': 'آخر تحديث',
+    'servers.notes': 'ملاحظات',
     
     // Environment types
     'env.production': 'إنتاج',
     'env.testing': 'اختبار',
     'env.development': 'تطوير',
     'env.staging': 'مرحلة ما قبل الإنتاج',
+    
+    // Status
+    'status.active': 'نشط',
+    'status.inactive': 'غير نشط',
     
     // Employees
     'employees.title': 'إدارة الموظفين',
@@ -87,6 +92,9 @@ const translations: Record<Language, Record<string, string>> = {
     'employees.assignedServers': 'السيرفرات المسندة',
     'employees.addVacation': 'إضافة إجازة',
     'employees.addTraining': 'إضافة دورة',
+    'employees.admin': 'مدير',
+    'employees.employee': 'موظف',
+    'employees.role': 'الدور',
     
     // Departments
     'dept.it': 'تكنولوجيا المعلومات',
@@ -111,6 +119,9 @@ const translations: Record<Language, Record<string, string>> = {
     'vacations.approved': 'مقبولة',
     'vacations.rejected': 'مرفوضة',
     'vacations.days': 'عدد الأيام',
+    'vacations.fillRequired': 'يرجى ملء جميع الحقول المطلوبة',
+    'vacations.selectEmployee': 'يرجى اختيار الموظف',
+    'vacations.addSuccess': 'تم إضافة الإجازة بنجاح',
     
     // Employee Reports
     'employeeReports.title': 'تقارير الموظفين',
@@ -136,11 +147,16 @@ const translations: Record<Language, Record<string, string>> = {
     'licenses.cost': 'التكلفة',
     'licenses.vendor': 'المورد',
     'licenses.notes': 'ملاحظات',
+    'licenses.purchaseDate': 'تاريخ الشراء',
+    'licenses.quantity': 'الكمية',
+    'licenses.status': 'الحالة',
     
     // Tasks
-    'tasks.title': 'إدارة المهام',
+    'tasks.pageTitle': 'إدارة المهام',
     'tasks.add': 'إضافة مهمة',
     'tasks.name': 'اسم المهمة',
+    'tasks.title': 'العنوان',
+    'tasks.description': 'الوصف',
     'tasks.assignee': 'المسؤول',
     'tasks.frequency': 'التكرار',
     'tasks.daily': 'يومية',
@@ -151,9 +167,30 @@ const translations: Record<Language, Record<string, string>> = {
     'tasks.completed': 'مكتملة',
     'tasks.pending': 'معلقة',
     'tasks.overdue': 'متأخرة',
+    'tasks.status': 'الحالة',
+    'tasks.priority': 'الأولوية',
+    
+    // Networks
+    'networks.name': 'اسم الشبكة',
+    'networks.subnet': 'الشبكة الفرعية',
+    'networks.gateway': 'البوابة',
+    'networks.description': 'الوصف',
+    
+    // Reports
+    'reports.exportFull': 'تصدير التقرير الكامل',
+    'reports.infrastructureSummary': 'ملخص البنية التحتية',
+    'reports.records': 'سجل',
+    'reports.report': 'تقرير',
+    'reports.serversByEnv': 'السيرفرات حسب البيئة',
+    'reports.tasksStatus': 'حالة المهام',
+    'reports.selectDomain': 'اختر النطاق',
+    'reports.allDomains': 'جميع النطاقات',
+    'reports.exportSuccess': 'تم تصدير التقرير بنجاح',
+    'reports.fullExportSuccess': 'تم تصدير التقرير الكامل بنجاح',
     
     // Common
     'common.save': 'حفظ',
+    'common.saving': 'جاري الحفظ...',
     'common.cancel': 'إلغاء',
     'common.delete': 'حذف',
     'common.edit': 'تعديل',
@@ -187,6 +224,8 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.lightMode': 'الوضع الفاتح',
     'settings.appNameAr': 'اسم التطبيق (عربي)',
     'settings.appNameEn': 'اسم التطبيق (English)',
+    'settings.customization': 'التخصيص',
+    'settings.sectionOrder': 'ترتيب الأقسام',
 
     // Audit Log
     'auditLog.title': 'سجل العمليات',
@@ -252,12 +291,17 @@ const translations: Record<Language, Record<string, string>> = {
     'servers.domain': 'Domain',
     'servers.status': 'Status',
     'servers.lastUpdate': 'Last Update',
+    'servers.notes': 'Notes',
     
     // Environment types
     'env.production': 'Production',
     'env.testing': 'Testing',
     'env.development': 'Development',
     'env.staging': 'Staging',
+    
+    // Status
+    'status.active': 'Active',
+    'status.inactive': 'Inactive',
     
     // Employees
     'employees.title': 'Employee Management',
@@ -272,6 +316,9 @@ const translations: Record<Language, Record<string, string>> = {
     'employees.assignedServers': 'Assigned Servers',
     'employees.addVacation': 'Add Vacation',
     'employees.addTraining': 'Add Training',
+    'employees.admin': 'Admin',
+    'employees.employee': 'Employee',
+    'employees.role': 'Role',
     
     // Departments
     'dept.it': 'IT',
@@ -296,6 +343,9 @@ const translations: Record<Language, Record<string, string>> = {
     'vacations.approved': 'Approved',
     'vacations.rejected': 'Rejected',
     'vacations.days': 'Days',
+    'vacations.fillRequired': 'Please fill all required fields',
+    'vacations.selectEmployee': 'Please select an employee',
+    'vacations.addSuccess': 'Vacation added successfully',
     
     // Employee Reports
     'employeeReports.title': 'Employee Reports',
@@ -321,11 +371,16 @@ const translations: Record<Language, Record<string, string>> = {
     'licenses.cost': 'Cost',
     'licenses.vendor': 'Vendor',
     'licenses.notes': 'Notes',
+    'licenses.purchaseDate': 'Purchase Date',
+    'licenses.quantity': 'Quantity',
+    'licenses.status': 'Status',
     
     // Tasks
-    'tasks.title': 'Task Management',
+    'tasks.pageTitle': 'Task Management',
     'tasks.add': 'Add Task',
     'tasks.name': 'Task Name',
+    'tasks.title': 'Title',
+    'tasks.description': 'Description',
     'tasks.assignee': 'Assignee',
     'tasks.frequency': 'Frequency',
     'tasks.daily': 'Daily',
@@ -336,9 +391,30 @@ const translations: Record<Language, Record<string, string>> = {
     'tasks.completed': 'Completed',
     'tasks.pending': 'Pending',
     'tasks.overdue': 'Overdue',
+    'tasks.status': 'Status',
+    'tasks.priority': 'Priority',
+    
+    // Networks
+    'networks.name': 'Network Name',
+    'networks.subnet': 'Subnet',
+    'networks.gateway': 'Gateway',
+    'networks.description': 'Description',
+    
+    // Reports
+    'reports.exportFull': 'Export Full Report',
+    'reports.infrastructureSummary': 'Infrastructure Summary',
+    'reports.records': 'records',
+    'reports.report': 'Report',
+    'reports.serversByEnv': 'Servers by Environment',
+    'reports.tasksStatus': 'Tasks Status',
+    'reports.selectDomain': 'Select Domain',
+    'reports.allDomains': 'All Domains',
+    'reports.exportSuccess': 'Report exported successfully',
+    'reports.fullExportSuccess': 'Full report exported successfully',
     
     // Common
     'common.save': 'Save',
+    'common.saving': 'Saving...',
     'common.cancel': 'Cancel',
     'common.delete': 'Delete',
     'common.edit': 'Edit',
@@ -372,6 +448,8 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.lightMode': 'Light Mode',
     'settings.appNameAr': 'App Name (Arabic)',
     'settings.appNameEn': 'App Name (English)',
+    'settings.customization': 'Customization',
+    'settings.sectionOrder': 'Section Order',
 
     // Audit Log
     'auditLog.title': 'Audit Log',

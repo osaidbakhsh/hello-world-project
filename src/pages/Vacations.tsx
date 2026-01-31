@@ -58,6 +58,7 @@ const Vacations: React.FC = () => {
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [sortValue, setSortValue] = useState<string>('start_date-desc');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     profile_id: '',
@@ -102,14 +103,29 @@ const Vacations: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent double submission
+    if (isSubmitting) return;
+    
     if (!formData.start_date || !formData.end_date) {
       toast({
         title: t('common.error'),
-        description: 'يرجى ملء جميع الحقول المطلوبة',
+        description: t('vacations.fillRequired'),
         variant: 'destructive',
       });
       return;
     }
+
+    // Check employee selection for admin
+    if (isAdmin && !formData.profile_id) {
+      toast({
+        title: t('common.error'),
+        description: t('vacations.selectEmployee'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const vacationData = {
@@ -126,16 +142,24 @@ const Vacations: React.FC = () => {
       
       if (error) throw error;
       
-      toast({ title: t('common.success'), description: 'تم إضافة الإجازة بنجاح' });
+      toast({ title: t('common.success'), description: t('vacations.addSuccess') });
       resetForm();
       setIsDialogOpen(false);
       refetch();
     } catch (error: any) {
+      // Ignore AbortError
+      if (error.name === 'AbortError') {
+        setIsSubmitting(false);
+        return;
+      }
+      
       toast({
         title: t('common.error'),
         description: error.message,
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -439,11 +463,11 @@ const Vacations: React.FC = () => {
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
                     {t('common.cancel')}
                   </Button>
-                  <Button type="submit">
-                    {t('common.save')}
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? t('common.saving') : t('common.save')}
                   </Button>
                 </div>
               </form>

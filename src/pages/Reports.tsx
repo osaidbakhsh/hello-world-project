@@ -1,21 +1,45 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useServers, useLicenses, useEmployees, useTasks, useNetworks } from '@/hooks/useLocalStorage';
+import { useServers, useLicenses, useTasks, useProfiles, useNetworks, useDomains } from '@/hooks/useSupabaseData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileBarChart, Download, Server, Users, KeyRound, ListTodo, Network } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FileBarChart, Download, Server, Users, KeyRound, ListTodo, Network, Globe } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 
 const Reports: React.FC = () => {
-  const { t, dir } = useLanguage();
-  const [servers] = useServers();
-  const [licenses] = useLicenses();
-  const [employees] = useEmployees();
-  const [tasks] = useTasks();
-  const [networks] = useNetworks();
+  const { t, dir, language } = useLanguage();
+  const { data: servers, isLoading: serversLoading } = useServers();
+  const { data: licenses, isLoading: licensesLoading } = useLicenses();
+  const { data: profiles, isLoading: profilesLoading } = useProfiles();
+  const { data: tasks, isLoading: tasksLoading } = useTasks();
+  const { data: networks, isLoading: networksLoading } = useNetworks();
+  const { data: domains } = useDomains();
   const { toast } = useToast();
+
+  const [selectedDomainId, setSelectedDomainId] = useState<string>('all');
+
+  // Filter data by domain
+  const filteredServers = useMemo(() => {
+    if (!selectedDomainId || selectedDomainId === 'all') return servers;
+    const domainNetworks = networks.filter(n => n.domain_id === selectedDomainId);
+    const networkIds = domainNetworks.map(n => n.id);
+    return servers.filter(s => s.network_id && networkIds.includes(s.network_id));
+  }, [servers, networks, selectedDomainId]);
+
+  const filteredLicenses = useMemo(() => {
+    if (!selectedDomainId || selectedDomainId === 'all') return licenses;
+    return licenses.filter(l => l.domain_id === selectedDomainId);
+  }, [licenses, selectedDomainId]);
+
+  const filteredNetworks = useMemo(() => {
+    if (!selectedDomainId || selectedDomainId === 'all') return networks;
+    return networks.filter(n => n.domain_id === selectedDomainId);
+  }, [networks, selectedDomainId]);
+
+  const isLoading = serversLoading || licensesLoading || profilesLoading || tasksLoading || networksLoading;
 
   const exportReport = (type: string) => {
     let data: any[] = [];
@@ -23,61 +47,53 @@ const Reports: React.FC = () => {
 
     switch (type) {
       case 'servers':
-        data = servers.map((s) => ({
-          Name: s.name,
-          'IP Address': s.ipAddress,
-          OS: s.os,
-          Version: s.osVersion,
-          Environment: s.environment,
-          Status: s.status,
-          Owner: employees.find((e) => e.id === s.owner)?.name || s.owner,
-          Responsible: employees.find((e) => e.id === s.responsible)?.name || s.responsible,
-          Network: networks.find((n) => n.id === s.networkId)?.name || '',
-          Description: s.description,
-          'Last Update': s.lastUpdate,
+        data = filteredServers.map((s) => ({
+          [t('servers.name')]: s.name,
+          [t('servers.ip')]: s.ip_address,
+          [t('servers.os')]: s.operating_system,
+          [t('servers.environment')]: t(`env.${s.environment}`),
+          [t('servers.status')]: s.status === 'active' ? t('status.active') : t('status.inactive'),
+          [t('servers.owner')]: s.owner,
+          [t('servers.responsible')]: s.responsible_user,
+          [t('nav.networks')]: networks.find((n) => n.id === s.network_id)?.name || '',
+          [t('servers.notes')]: s.notes,
         }));
         filename = 'servers-report.xlsx';
         break;
       case 'licenses':
-        data = licenses.map((l) => ({
-          Name: l.name,
-          Product: l.product,
-          Vendor: l.vendor,
-          'License Key': l.licenseKey,
-          'Start Date': l.startDate,
-          'Expiry Date': l.expiryDate,
-          Cost: l.cost,
-          Currency: l.currency,
-          Server: servers.find((s) => s.id === l.serverId)?.name || '',
-          Notes: l.notes,
+        data = filteredLicenses.map((l) => ({
+          [t('licenses.name')]: l.name,
+          [t('licenses.vendor')]: l.vendor,
+          [t('licenses.key')]: l.license_key,
+          [t('licenses.purchaseDate')]: l.purchase_date,
+          [t('licenses.expiryDate')]: l.expiry_date,
+          [t('licenses.cost')]: l.cost,
+          [t('licenses.quantity')]: l.quantity,
+          [t('licenses.status')]: l.status,
+          [t('servers.notes')]: l.notes,
         }));
         filename = 'licenses-report.xlsx';
         break;
       case 'employees':
-        data = employees.map((e) => ({
-          Name: e.name,
-          Position: e.position,
-          Email: e.email,
-          Phone: e.phone,
-          Department: e.department,
-          Status: e.status,
-          'Hire Date': e.hireDate,
-          'Total Vacations': e.vacations.length,
-          'Total Trainings': e.trainings.length,
-          'Assigned Servers': e.assignedServerIds.length,
+        data = profiles.map((e) => ({
+          [t('employees.name')]: e.full_name,
+          [t('employees.position')]: e.position,
+          [t('employees.email')]: e.email,
+          [t('employees.department')]: e.department,
+          [t('employees.role')]: e.role === 'admin' ? t('employees.admin') : t('employees.employee'),
+          [t('employees.phone')]: e.phone,
         }));
         filename = 'employees-report.xlsx';
         break;
       case 'tasks':
-        data = tasks.map((t) => ({
-          Name: t.name,
-          Description: t.description,
-          Assignee: employees.find((e) => e.id === t.assigneeId)?.name || '',
-          Frequency: t.frequency,
-          'Due Date': t.dueDate,
-          Status: t.status,
-          Server: servers.find((s) => s.id === t.serverId)?.name || '',
-          'Completed At': t.completedAt || '',
+        data = tasks.map((task) => ({
+          [t('tasks.title')]: task.title,
+          [t('tasks.description')]: task.description,
+          [t('tasks.assignee')]: profiles.find((p) => p.id === task.assigned_to)?.full_name || '',
+          [t('tasks.frequency')]: task.frequency,
+          [t('tasks.dueDate')]: task.due_date,
+          [t('tasks.status')]: t(`tasks.${task.status}`),
+          [t('tasks.priority')]: task.priority,
         }));
         filename = 'tasks-report.xlsx';
         break;
@@ -89,85 +105,82 @@ const Reports: React.FC = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, type.charAt(0).toUpperCase() + type.slice(1));
     XLSX.writeFile(wb, filename);
-    toast({ title: t('common.success'), description: `${type} report exported` });
+    toast({ title: t('common.success'), description: t('reports.exportSuccess') });
   };
 
   const exportFullReport = () => {
     const wb = XLSX.utils.book_new();
 
     // Servers sheet
-    const serversData = servers.map((s) => ({
-      Name: s.name,
-      'IP Address': s.ipAddress,
-      OS: s.os,
-      Version: s.osVersion,
-      Environment: s.environment,
-      Status: s.status,
-      Network: networks.find((n) => n.id === s.networkId)?.name || '',
+    const serversData = filteredServers.map((s) => ({
+      [t('servers.name')]: s.name,
+      [t('servers.ip')]: s.ip_address,
+      [t('servers.os')]: s.operating_system,
+      [t('servers.environment')]: t(`env.${s.environment}`),
+      [t('servers.status')]: s.status === 'active' ? t('status.active') : t('status.inactive'),
+      [t('nav.networks')]: networks.find((n) => n.id === s.network_id)?.name || '',
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(serversData), 'Servers');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(serversData), t('nav.servers'));
 
     // Licenses sheet
-    const licensesData = licenses.map((l) => ({
-      Name: l.name,
-      Product: l.product,
-      Vendor: l.vendor,
-      'Expiry Date': l.expiryDate,
-      Cost: `${l.cost} ${l.currency}`,
+    const licensesData = filteredLicenses.map((l) => ({
+      [t('licenses.name')]: l.name,
+      [t('licenses.vendor')]: l.vendor,
+      [t('licenses.expiryDate')]: l.expiry_date,
+      [t('licenses.cost')]: l.cost,
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(licensesData), 'Licenses');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(licensesData), t('nav.licenses'));
 
     // Employees sheet
-    const employeesData = employees.map((e) => ({
-      Name: e.name,
-      Position: e.position,
-      Email: e.email,
-      Department: e.department,
-      Status: e.status,
+    const employeesData = profiles.map((e) => ({
+      [t('employees.name')]: e.full_name,
+      [t('employees.position')]: e.position,
+      [t('employees.email')]: e.email,
+      [t('employees.department')]: e.department,
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(employeesData), 'Employees');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(employeesData), t('nav.employees'));
 
     // Tasks sheet
-    const tasksData = tasks.map((t) => ({
-      Name: t.name,
-      Frequency: t.frequency,
-      'Due Date': t.dueDate,
-      Status: t.status,
+    const tasksData = tasks.map((task) => ({
+      [t('tasks.title')]: task.title,
+      [t('tasks.frequency')]: task.frequency,
+      [t('tasks.dueDate')]: task.due_date,
+      [t('tasks.status')]: t(`tasks.${task.status}`),
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tasksData), 'Tasks');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tasksData), t('nav.tasks'));
 
     // Networks sheet
-    const networksData = networks.map((n) => ({
-      Name: n.name,
-      Domain: n.domain,
-      'IP Range': n.ipRange,
-      Description: n.description,
+    const networksData = filteredNetworks.map((n) => ({
+      [t('networks.name')]: n.name,
+      [t('networks.subnet')]: n.subnet,
+      [t('networks.gateway')]: n.gateway,
+      [t('networks.description')]: n.description,
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(networksData), 'Networks');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(networksData), t('nav.networks'));
 
     XLSX.writeFile(wb, 'full-infrastructure-report.xlsx');
-    toast({ title: t('common.success'), description: 'Full report exported' });
+    toast({ title: t('common.success'), description: t('reports.fullExportSuccess') });
   };
 
   const reportCards = [
     {
       title: t('nav.servers'),
       icon: Server,
-      count: servers.length,
+      count: filteredServers.length,
       type: 'servers',
       color: 'stat-primary',
     },
     {
       title: t('nav.licenses'),
       icon: KeyRound,
-      count: licenses.length,
+      count: filteredLicenses.length,
       type: 'licenses',
       color: 'stat-warning',
     },
     {
       title: t('nav.employees'),
       icon: Users,
-      count: employees.length,
+      count: profiles.length,
       type: 'employees',
       color: 'stat-accent',
     },
@@ -180,15 +193,38 @@ const Reports: React.FC = () => {
     },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6" dir={dir}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold">{t('nav.reports')}</h1>
-        <Button onClick={exportFullReport} className="gap-2">
-          <Download className="w-4 h-4" />
-          Export Full Report
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          {/* Domain Filter */}
+          <Select value={selectedDomainId} onValueChange={setSelectedDomainId}>
+            <SelectTrigger className="w-[180px]">
+              <Globe className="w-4 h-4 me-2" />
+              <SelectValue placeholder={t('reports.allDomains')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('reports.allDomains')}</SelectItem>
+              {domains.map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={exportFullReport} className="gap-2">
+            <Download className="w-4 h-4" />
+            {t('reports.exportFull')}
+          </Button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -196,29 +232,29 @@ const Reports: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileBarChart className="w-5 h-5 text-primary" />
-            Infrastructure Summary
+            {t('reports.infrastructureSummary')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-4 rounded-lg bg-secondary/50">
               <Server className="w-8 h-8 mx-auto mb-2 text-primary" />
-              <p className="text-2xl font-bold">{servers.length}</p>
+              <p className="text-2xl font-bold">{filteredServers.length}</p>
               <p className="text-sm text-muted-foreground">{t('nav.servers')}</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-secondary/50">
               <Network className="w-8 h-8 mx-auto mb-2 text-primary" />
-              <p className="text-2xl font-bold">{networks.length}</p>
+              <p className="text-2xl font-bold">{filteredNetworks.length}</p>
               <p className="text-sm text-muted-foreground">{t('nav.networks')}</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-secondary/50">
               <KeyRound className="w-8 h-8 mx-auto mb-2 text-warning" />
-              <p className="text-2xl font-bold">{licenses.length}</p>
+              <p className="text-2xl font-bold">{filteredLicenses.length}</p>
               <p className="text-sm text-muted-foreground">{t('nav.licenses')}</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-secondary/50">
               <Users className="w-8 h-8 mx-auto mb-2 text-accent" />
-              <p className="text-2xl font-bold">{employees.length}</p>
+              <p className="text-2xl font-bold">{profiles.length}</p>
               <p className="text-sm text-muted-foreground">{t('nav.employees')}</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-secondary/50">
@@ -242,16 +278,16 @@ const Reports: React.FC = () => {
                   <div className="p-3 rounded-xl bg-secondary">
                     <Icon className="w-6 h-6 text-foreground" />
                   </div>
-                  <Badge variant="secondary">{card.count} records</Badge>
+                  <Badge variant="secondary">{card.count} {t('reports.records')}</Badge>
                 </div>
-                <h3 className="font-semibold mb-3">{card.title} Report</h3>
+                <h3 className="font-semibold mb-3">{card.title} {t('reports.report')}</h3>
                 <Button
                   variant="outline"
                   className="w-full gap-2"
                   onClick={() => exportReport(card.type)}
                 >
                   <Download className="w-4 h-4" />
-                  Export
+                  {t('common.export')}
                 </Button>
               </CardContent>
             </Card>
@@ -264,13 +300,13 @@ const Reports: React.FC = () => {
         {/* Servers by Environment */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Servers by Environment</CardTitle>
+            <CardTitle className="text-lg">{t('reports.serversByEnv')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {(['production', 'testing', 'development', 'staging'] as const).map((env) => {
-                const count = servers.filter((s) => s.environment === env).length;
-                const percentage = servers.length > 0 ? Math.round((count / servers.length) * 100) : 0;
+                const count = filteredServers.filter((s) => s.environment === env).length;
+                const percentage = filteredServers.length > 0 ? Math.round((count / filteredServers.length) * 100) : 0;
                 
                 const envColors = {
                   production: { bar: 'bg-destructive', badge: 'badge-production' },
@@ -301,12 +337,12 @@ const Reports: React.FC = () => {
         {/* Tasks Status */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Tasks Status</CardTitle>
+            <CardTitle className="text-lg">{t('reports.tasksStatus')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {(['pending', 'completed', 'overdue'] as const).map((status) => {
-                const count = tasks.filter((t) => t.status === status).length;
+                const count = tasks.filter((task) => task.status === status).length;
                 const percentage = tasks.length > 0 ? Math.round((count / tasks.length) * 100) : 0;
                 
                 const statusColors = {
