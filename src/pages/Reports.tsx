@@ -245,7 +245,7 @@ const Reports: React.FC = () => {
             <div className="text-center p-4 rounded-lg bg-secondary/50">
               <Network className="w-8 h-8 mx-auto mb-2 text-primary" />
               <p className="text-2xl font-bold">{filteredNetworks.length}</p>
-              <p className="text-sm text-muted-foreground">{t('nav.networks')}</p>
+              <p className="text-sm text-muted-foreground">{t('reports.networks')}</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-secondary/50">
               <KeyRound className="w-8 h-8 mx-auto mb-2 text-warning" />
