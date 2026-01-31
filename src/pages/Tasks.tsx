@@ -1,68 +1,82 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useTasks, useEmployees, useServers } from '@/hooks/useLocalStorage';
-import { Task, TaskFrequency, TaskStatus } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTasks, useServers, useProfiles } from '@/hooks/useSupabaseData';
+import { supabase } from '@/lib/supabase';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Edit, Trash2, ListTodo, CheckCircle, Clock, AlertTriangle, Calendar, User } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import {
+  ListTodo,
+  Plus,
+  Search,
+  Calendar,
+  Server,
+  User,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Trash2,
+  Edit,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const Tasks: React.FC = () => {
   const { t, dir } = useLanguage();
-  const [tasks, setTasks] = useTasks();
-  const [employees] = useEmployees();
-  const [servers] = useServers();
+  const { profile, isAdmin } = useAuth();
   const { toast } = useToast();
+  const { data: tasks, isLoading, refetch } = useTasks();
+  const { data: servers } = useServers();
+  const { data: profiles } = useProfiles();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [frequencyFilter, setFrequencyFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<any>(null);
   
-  const [formData, setFormData] = useState<Partial<Task>>({
-    name: '',
+  // Form state
+  const [formData, setFormData] = useState({
+    title: '',
     description: '',
-    assigneeId: '',
+    server_id: '',
+    assigned_to: '',
+    priority: 'medium',
     frequency: 'once',
-    dueDate: new Date().toISOString().split('T')[0],
-    status: 'pending',
-    serverId: '',
+    due_date: '',
   });
 
   const now = new Date();
 
-  const getTaskStatus = (task: Task): TaskStatus => {
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      server_id: '',
+      assigned_to: '',
+      priority: 'medium',
+      frequency: 'once',
+      due_date: '',
+    });
+    setEditingTask(null);
+  };
+
+  const getTaskStatus = (task: any) => {
     if (task.status === 'completed') return 'completed';
-    const dueDate = new Date(task.dueDate);
-    if (dueDate < now) return 'overdue';
+    if (task.due_date && new Date(task.due_date) < now) return 'overdue';
     return 'pending';
   };
 
   const filteredTasks = tasks.filter((task) => {
-    const matchesSearch =
-      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.description?.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesFrequency = frequencyFilter === 'all' || task.frequency === frequencyFilter;
     return matchesSearch && matchesFrequency;
   });
@@ -73,94 +87,124 @@ const Tasks: React.FC = () => {
     completed: filteredTasks.filter((t) => getTaskStatus(t) === 'completed'),
   };
 
-  const handleSubmit = () => {
-    if (!formData.name || !formData.dueDate) {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.title) {
       toast({
         title: t('common.error'),
-        description: 'Please fill in required fields',
+        description: 'يرجى إدخال عنوان المهمة',
         variant: 'destructive',
       });
       return;
     }
 
-    const now = new Date().toISOString();
-    
-    if (editingTask) {
-      setTasks(tasks.map((t) =>
-        t.id === editingTask.id
-          ? { ...t, ...formData } as Task
-          : t
-      ));
-      toast({ title: t('common.success'), description: 'Task updated' });
-    } else {
-      const newTask: Task = {
-        id: crypto.randomUUID(),
-        name: formData.name || '',
-        description: formData.description || '',
-        assigneeId: formData.assigneeId || '',
-        frequency: formData.frequency as TaskFrequency || 'once',
-        dueDate: formData.dueDate || '',
+    try {
+      const taskData = {
+        title: formData.title,
+        description: formData.description || null,
+        server_id: formData.server_id || null,
+        assigned_to: formData.assigned_to || profile?.id || null,
+        priority: formData.priority,
+        frequency: formData.frequency,
+        due_date: formData.due_date || null,
         status: 'pending',
-        serverId: formData.serverId,
-        createdAt: now,
+        created_by: profile?.id,
       };
-      setTasks([...tasks, newTask]);
-      toast({ title: t('common.success'), description: 'Task added' });
-    }
 
-    resetForm();
-    setIsDialogOpen(false);
-  };
-
-  const handleToggleComplete = (taskId: string) => {
-    setTasks(tasks.map((t) => {
-      if (t.id === taskId) {
-        const newStatus = t.status === 'completed' ? 'pending' : 'completed';
-        return {
-          ...t,
-          status: newStatus,
-          completedAt: newStatus === 'completed' ? new Date().toISOString() : undefined,
-        };
+      if (editingTask) {
+        const { error } = await supabase
+          .from('tasks')
+          .update(taskData)
+          .eq('id', editingTask.id);
+        
+        if (error) throw error;
+        toast({ title: t('common.success'), description: 'تم تحديث المهمة بنجاح' });
+      } else {
+        const { error } = await supabase
+          .from('tasks')
+          .insert([taskData]);
+        
+        if (error) throw error;
+        toast({ title: t('common.success'), description: 'تم إضافة المهمة بنجاح' });
       }
-      return t;
-    }));
+
+      resetForm();
+      setIsDialogOpen(false);
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleEdit = (task: Task) => {
+  const handleToggleComplete = async (taskId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: newStatus,
+          completed_at: newStatus === 'completed' ? new Date().toISOString() : null
+        })
+        .eq('id', taskId);
+      
+      if (error) throw error;
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذه المهمة؟')) return;
+    
+    try {
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: t('common.success'), description: 'تم حذف المهمة بنجاح' });
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const openEditDialog = (task: any) => {
     setEditingTask(task);
-    setFormData(task);
+    setFormData({
+      title: task.title,
+      description: task.description || '',
+      server_id: task.server_id || '',
+      assigned_to: task.assigned_to || '',
+      priority: task.priority,
+      frequency: task.frequency,
+      due_date: task.due_date || '',
+    });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setTasks(tasks.filter((t) => t.id !== id));
-    toast({ title: t('common.success'), description: 'Task deleted' });
-  };
-
-  const resetForm = () => {
-    setEditingTask(null);
-    setFormData({
-      name: '',
-      description: '',
-      assigneeId: '',
-      frequency: 'once',
-      dueDate: new Date().toISOString().split('T')[0],
-      status: 'pending',
-      serverId: '',
-    });
-  };
-
-  const getFrequencyBadge = (frequency: TaskFrequency) => {
-    const badges = {
+  const getFrequencyBadge = (frequency: string) => {
+    const badges: Record<string, { class: string; label: string }> = {
       daily: { class: 'bg-info/10 text-info border-info/20', label: t('tasks.daily') },
       weekly: { class: 'bg-primary/10 text-primary border-primary/20', label: t('tasks.weekly') },
       monthly: { class: 'bg-accent/10 text-accent border-accent/20', label: t('tasks.monthly') },
-      once: { class: 'bg-muted text-muted-foreground border-border', label: 'Once' },
+      once: { class: 'bg-muted text-muted-foreground border-border', label: 'مرة واحدة' },
     };
-    return badges[frequency];
+    return badges[frequency] || badges.once;
   };
 
-  const getStatusStyles = (status: TaskStatus) => {
+  const getStatusStyles = (status: string) => {
     switch (status) {
       case 'completed':
         return { bg: 'bg-success/10', border: 'border-success/20', icon: CheckCircle, iconColor: 'text-success' };
@@ -171,21 +215,21 @@ const Tasks: React.FC = () => {
     }
   };
 
-  const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
+  const TaskCard: React.FC<{ task: any }> = ({ task }) => {
     const status = getTaskStatus(task);
     const styles = getStatusStyles(status);
     const StatusIcon = styles.icon;
-    const assignee = employees.find((e) => e.id === task.assigneeId);
-    const server = servers.find((s) => s.id === task.serverId);
+    const assignee = profiles.find((p) => p.id === task.assigned_to);
+    const server = servers.find((s) => s.id === task.server_id);
     const frequencyBadge = getFrequencyBadge(task.frequency);
 
     return (
       <Card className={cn('card-hover stagger-item', styles.bg, 'border', styles.border)}>
-        <CardContent className="pt-4">
+        <div className="pt-4 px-4 pb-4">
           <div className="flex items-start gap-3">
             <Checkbox
               checked={status === 'completed'}
-              onCheckedChange={() => handleToggleComplete(task.id)}
+              onCheckedChange={() => handleToggleComplete(task.id, task.status)}
               className="mt-1"
             />
             <div className="flex-1 min-w-0">
@@ -194,20 +238,22 @@ const Tasks: React.FC = () => {
                   'font-medium',
                   status === 'completed' && 'line-through text-muted-foreground'
                 )}>
-                  {task.name}
+                  {task.title}
                 </h4>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEdit(task)}>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEditDialog(task)}>
                     <Edit className="w-3 h-3" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-destructive"
-                    onClick={() => handleDelete(task.id)}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => handleDelete(task.id)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  )}
                 </div>
               </div>
               
@@ -222,27 +268,30 @@ const Tasks: React.FC = () => {
                   {frequencyBadge.label}
                 </Badge>
                 
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Calendar className="w-3 h-3" />
-                  {new Date(task.dueDate).toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US')}
-                </div>
+                {task.due_date && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(task.due_date).toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US')}
+                  </div>
+                )}
 
                 {assignee && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <User className="w-3 h-3" />
-                    {assignee.name}
+                    {assignee.full_name}
                   </div>
                 )}
 
                 {server && (
                   <Badge variant="outline" className="text-xs">
+                    <Server className="w-3 h-3 me-1" />
                     {server.name}
                   </Badge>
                 )}
               </div>
             </div>
           </div>
-        </CardContent>
+        </div>
       </Card>
     );
   };
@@ -251,7 +300,16 @@ const Tasks: React.FC = () => {
     <div className="space-y-6" dir={dir}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">{t('tasks.title')}</h1>
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-primary/10">
+            <ListTodo className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">{t('tasks.title')}</h1>
+            <p className="text-muted-foreground">{filteredTasks.length} مهمة</p>
+          </div>
+        </div>
+        
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) resetForm();
@@ -268,20 +326,23 @@ const Tasks: React.FC = () => {
                 {editingTask ? t('common.edit') : t('tasks.add')}
               </DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <form onSubmit={handleSubmit} className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label>{t('tasks.name')} *</Label>
                 <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="أدخل عنوان المهمة"
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>الوصف</Label>
                 <Textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
+                  placeholder="وصف تفصيلي للمهمة"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -289,13 +350,13 @@ const Tasks: React.FC = () => {
                   <Label>{t('tasks.frequency')}</Label>
                   <Select
                     value={formData.frequency}
-                    onValueChange={(value) => setFormData({ ...formData, frequency: value as TaskFrequency })}
+                    onValueChange={(value) => setFormData({ ...formData, frequency: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="once">Once</SelectItem>
+                      <SelectItem value="once">مرة واحدة</SelectItem>
                       <SelectItem value="daily">{t('tasks.daily')}</SelectItem>
                       <SelectItem value="weekly">{t('tasks.weekly')}</SelectItem>
                       <SelectItem value="monthly">{t('tasks.monthly')}</SelectItem>
@@ -303,64 +364,68 @@ const Tasks: React.FC = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('tasks.dueDate')} *</Label>
+                  <Label>{t('tasks.dueDate')}</Label>
                   <Input
                     type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    value={formData.due_date}
+                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t('tasks.assignee')}</Label>
+                  <Label>السيرفر (اختياري)</Label>
                   <Select
-                    value={formData.assigneeId || ''}
-                    onValueChange={(value) => setFormData({ ...formData, assigneeId: value })}
+                    value={formData.server_id || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, server_id: value === 'none' ? '' : value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select assignee" />
+                      <SelectValue placeholder="اختر السيرفر" />
                     </SelectTrigger>
                     <SelectContent>
-                      {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Server</Label>
-                  <Select
-                    value={formData.serverId || ''}
-                    onValueChange={(value) => setFormData({ ...formData, serverId: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select server" />
-                    </SelectTrigger>
-                    <SelectContent>
+                      <SelectItem value="none">بدون سيرفر</SelectItem>
                       {servers.map((server) => (
                         <SelectItem key={server.id} value={server.id}>{server.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+                {isAdmin && (
+                  <div className="space-y-2">
+                    <Label>{t('tasks.assignee')}</Label>
+                    <Select
+                      value={formData.assigned_to || 'none'}
+                      onValueChange={(value) => setFormData({ ...formData, assigned_to: value === 'none' ? '' : value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر الموظف" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">بدون تعيين</SelectItem>
+                        {profiles.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={handleSubmit}>
-                {t('common.save')}
-              </Button>
-            </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit">
+                  {t('common.save')}
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <div className="pt-6 px-6 pb-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -380,11 +445,11 @@ const Tasks: React.FC = () => {
                 <SelectItem value="daily">{t('tasks.daily')}</SelectItem>
                 <SelectItem value="weekly">{t('tasks.weekly')}</SelectItem>
                 <SelectItem value="monthly">{t('tasks.monthly')}</SelectItem>
-                <SelectItem value="once">Once</SelectItem>
+                <SelectItem value="once">مرة واحدة</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
       {/* Tasks Board */}
@@ -414,7 +479,9 @@ const Tasks: React.FC = () => {
 
         <TabsContent value="all" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTasks.length > 0 ? (
+            {isLoading ? (
+              <div className="col-span-full text-center py-12">جارٍ التحميل...</div>
+            ) : filteredTasks.length > 0 ? (
               filteredTasks.map((task) => <TaskCard key={task.id} task={task} />)
             ) : (
               <div className="col-span-full text-center py-12">
@@ -432,7 +499,7 @@ const Tasks: React.FC = () => {
             ) : (
               <div className="col-span-full text-center py-12">
                 <CheckCircle className="w-12 h-12 mx-auto mb-2 text-success/50" />
-                <p className="text-muted-foreground">No pending tasks!</p>
+                <p className="text-muted-foreground">لا توجد مهام قيد التنفيذ!</p>
               </div>
             )}
           </div>
@@ -445,7 +512,7 @@ const Tasks: React.FC = () => {
             ) : (
               <div className="col-span-full text-center py-12">
                 <CheckCircle className="w-12 h-12 mx-auto mb-2 text-success/50" />
-                <p className="text-muted-foreground">No overdue tasks!</p>
+                <p className="text-muted-foreground">لا توجد مهام متأخرة!</p>
               </div>
             )}
           </div>
@@ -458,7 +525,7 @@ const Tasks: React.FC = () => {
             ) : (
               <div className="col-span-full text-center py-12">
                 <ListTodo className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
-                <p className="text-muted-foreground">No completed tasks yet</p>
+                <p className="text-muted-foreground">لم يتم إكمال أي مهمة بعد</p>
               </div>
             )}
           </div>

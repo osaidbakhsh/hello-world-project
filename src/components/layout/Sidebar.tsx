@@ -2,7 +2,8 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAppSettings } from '@/hooks/useAppSettings';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAppName } from '@/hooks/useSupabaseData';
 import {
   LayoutDashboard,
   Server,
@@ -18,10 +19,13 @@ import {
   Calendar,
   FileSpreadsheet,
   Wifi,
+  LogOut,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -30,25 +34,33 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { t, language, setLanguage, dir } = useLanguage();
-  const [appSettings] = useAppSettings();
+  const { profile, signOut, isAdmin } = useAuth();
+  const { appName } = useAppName();
   const location = useLocation();
 
   const menuItems = [
     { path: '/', icon: LayoutDashboard, label: 'nav.dashboard' },
     { path: '/servers', icon: Server, label: 'nav.servers' },
-    { path: '/employees', icon: Users, label: 'nav.employees' },
+    { path: '/employees', icon: Users, label: 'nav.employees', adminOnly: true },
     { path: '/vacations', icon: Calendar, label: 'nav.vacations' },
     { path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
     { path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
-    { path: '/networks', icon: Network, label: 'nav.networks' },
-    { path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports' },
+    { path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
+    { path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports', adminOnly: true },
     { path: '/reports', icon: FileBarChart, label: 'nav.reports' },
-    { path: '/settings', icon: Settings, label: 'nav.settings' },
+    { path: '/settings', icon: Settings, label: 'nav.settings', adminOnly: true },
   ];
+
+  // Filter menu items based on admin status
+  const visibleMenuItems = menuItems.filter(item => !item.adminOnly || isAdmin);
 
   const CollapseIcon = dir === 'rtl' 
     ? (collapsed ? ChevronLeft : ChevronRight)
     : (collapsed ? ChevronRight : ChevronLeft);
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <aside
@@ -69,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         {!collapsed && (
           <div className="flex flex-col flex-1">
             <span className="font-bold text-lg text-sidebar-foreground whitespace-nowrap">
-              {appSettings.appName} <span className="text-accent">CMDB</span>
+              {appName} <span className="text-accent">CMDB</span>
             </span>
             <Badge variant="outline" className="text-[10px] w-fit px-1.5 py-0 border-accent text-accent">
               <Wifi className="w-2.5 h-2.5 me-1" />
@@ -79,10 +91,35 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         )}
       </div>
 
+      {/* User Info */}
+      {profile && !collapsed && (
+        <div className="px-4 py-3 border-b border-sidebar-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+              <User className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {profile.full_name}
+              </p>
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-[10px] px-1.5 py-0",
+                  isAdmin ? "border-accent text-accent" : "border-primary text-primary"
+                )}
+              >
+                {isAdmin ? 'مدير' : 'موظف'}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="flex-1 py-4 px-2 overflow-y-auto">
         <ul className="space-y-1">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
 
@@ -139,6 +176,22 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         >
           <Globe className="w-4 h-4" />
           {!collapsed && (language === 'ar' ? 'English' : 'العربية')}
+        </Button>
+
+        <Separator className="bg-sidebar-border" />
+
+        {/* Sign Out */}
+        <Button
+          variant="ghost"
+          size={collapsed ? 'icon' : 'default'}
+          onClick={handleSignOut}
+          className={cn(
+            'w-full text-sidebar-foreground hover:bg-destructive/20 hover:text-destructive',
+            collapsed ? 'justify-center' : 'justify-start gap-2'
+          )}
+        >
+          <LogOut className="w-4 h-4" />
+          {!collapsed && 'تسجيل الخروج'}
         </Button>
 
         {/* Collapse Toggle */}
