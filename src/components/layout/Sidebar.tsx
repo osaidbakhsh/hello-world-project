@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import NotificationBell from './NotificationBell';
@@ -188,8 +189,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-2 overflow-y-auto">
-        <ul className="space-y-1">
+      <ScrollArea className="flex-1">
+        <nav className="py-4 px-2">
+          <ul className="space-y-1">
           {visibleMenuItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
@@ -230,8 +232,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
               </li>
             );
           })}
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      </ScrollArea>
 
       {/* Footer */}
       <div className="p-4 border-t border-sidebar-border space-y-2">
