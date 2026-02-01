@@ -46,7 +46,7 @@ const OpenGraphGenerator: React.FC = () => {
     <div className="space-y-6">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>{t('itTools.title')}</Label>
+          <Label>{t('itTools.ogTitle')}</Label>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -55,7 +55,7 @@ const OpenGraphGenerator: React.FC = () => {
         </div>
 
         <div className="space-y-2">
-          <Label>{t('itTools.description')}</Label>
+          <Label>{t('itTools.ogDescription')}</Label>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
