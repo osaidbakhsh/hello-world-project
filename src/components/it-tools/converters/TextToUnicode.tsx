@@ -57,7 +57,7 @@ const TextToUnicode: React.FC = () => {
     <div className="space-y-6">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>{t('itTools.text')}</Label>
+          <Label>{t('itTools.textInput')}</Label>
           {text && (
             <Button variant="ghost" size="sm" onClick={() => copyToClipboard(text)}>
               <Copy className="h-4 w-4" />
