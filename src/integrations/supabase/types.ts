@@ -2460,7 +2460,7 @@ export type Database = {
       owns_vault_item: { Args: { _vault_item_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "employee"
+      app_role: "super_admin" | "admin" | "employee"
       vault_role: "vault_admin" | "vault_editor" | "vault_viewer"
     }
     CompositeTypes: {
@@ -2589,7 +2589,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "employee"],
+      app_role: ["super_admin", "admin", "employee"],
       vault_role: ["vault_admin", "vault_editor", "vault_viewer"],
     },
   },
