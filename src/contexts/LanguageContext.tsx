@@ -779,6 +779,10 @@ const translations: Record<Language, Record<string, string>> = {
     'vacations.fillRequired': 'يرجى ملء جميع الحقول المطلوبة',
     'vacations.selectEmployee': 'يرجى اختيار الموظف',
     'vacations.addSuccess': 'تم إضافة الإجازة بنجاح',
+    'vacations.profileNotFound': 'لم يتم العثور على بيانات حسابك. يرجى تسجيل الخروج والدخول مجدداً.',
+    'vacations.addError': 'فشل في إضافة الإجازة',
+    'vacations.listView': 'عرض القائمة',
+    'vacations.calendarView': 'عرض التقويم',
     
     // Employee Reports
     'employeeReports.title': 'تقارير الموظفين',
@@ -826,6 +830,8 @@ const translations: Record<Language, Record<string, string>> = {
     'tasks.overdue': 'متأخرة',
     'tasks.status': 'الحالة',
     'tasks.priority': 'الأولوية',
+    'tasks.addSubtask': 'إضافة مهمة فرعية',
+    'tasks.subtaskProgress': 'تقدم المهام الفرعية',
     
     // Networks
     'networks.name': 'اسم الشبكة',
@@ -2238,6 +2244,10 @@ const translations: Record<Language, Record<string, string>> = {
     'vacations.fillRequired': 'Please fill all required fields',
     'vacations.selectEmployee': 'Please select an employee',
     'vacations.addSuccess': 'Vacation added successfully',
+    'vacations.profileNotFound': 'Your profile was not found. Please log out and log in again.',
+    'vacations.addError': 'Failed to add vacation',
+    'vacations.listView': 'List View',
+    'vacations.calendarView': 'Calendar View',
     
     // Employee Reports
     'employeeReports.title': 'Employee Reports',

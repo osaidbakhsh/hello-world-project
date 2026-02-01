@@ -505,15 +505,26 @@ const EmployeePermissions: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-muted/50 to-muted border-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">{t('permissions.totalEmployees')}</p>
                 <p className="text-3xl font-bold">{profiles.length}</p>
               </div>
-              <Users className="w-10 h-10 text-primary opacity-50" />
+              <Users className="w-10 h-10 text-muted-foreground opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{t('employees.superAdmin')}</p>
+                <p className="text-3xl font-bold text-primary">{profiles.filter(p => p.role === 'super_admin').length}</p>
+              </div>
+              <ShieldCheck className="w-10 h-10 text-primary opacity-50" />
             </div>
           </CardContent>
         </Card>
@@ -546,6 +557,7 @@ const EmployeePermissions: React.FC = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
           <TabsList>
             <TabsTrigger value="all">{t('permissions.all')} ({profiles.length})</TabsTrigger>
+            <TabsTrigger value="superAdmins">{t('employees.superAdmin')} ({profiles.filter(p => p.role === 'super_admin').length})</TabsTrigger>
             <TabsTrigger value="admins">{t('permissions.admins')} ({profiles.filter(p => p.role === 'admin').length})</TabsTrigger>
             <TabsTrigger value="employees">{t('permissions.employees')} ({profiles.filter(p => p.role === 'employee').length})</TabsTrigger>
           </TabsList>
@@ -639,10 +651,17 @@ const EmployeePermissions: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Badge 
-                            variant={profile.role === 'admin' ? 'default' : 'secondary'}
-                            className={profile.role === 'admin' ? 'bg-accent text-accent-foreground' : ''}
+                            variant={profile.role === 'super_admin' ? 'default' : profile.role === 'admin' ? 'default' : 'secondary'}
+                            className={cn(
+                              profile.role === 'super_admin' && 'bg-primary text-primary-foreground',
+                              profile.role === 'admin' && 'bg-accent text-accent-foreground'
+                            )}
                           >
-                            {profile.role === 'admin' ? t('permissions.admins') : t('permissions.employees')}
+                            {profile.role === 'super_admin' 
+                              ? t('employees.superAdmin') 
+                              : profile.role === 'admin' 
+                                ? t('permissions.admins') 
+                                : t('permissions.employees')}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -1091,10 +1110,17 @@ const EmployeePermissions: React.FC = () => {
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-sm text-muted-foreground">{t('permissions.currentRole')}:</span>
                   <Badge 
-                    variant={selectedProfile?.role === 'admin' ? 'default' : 'secondary'}
-                    className={selectedProfile?.role === 'admin' ? 'bg-accent text-accent-foreground' : ''}
+                    variant={selectedProfile?.role === 'super_admin' || selectedProfile?.role === 'admin' ? 'default' : 'secondary'}
+                    className={cn(
+                      selectedProfile?.role === 'super_admin' && 'bg-primary text-primary-foreground',
+                      selectedProfile?.role === 'admin' && 'bg-accent text-accent-foreground'
+                    )}
                   >
-                    {selectedProfile?.role === 'admin' ? t('permissions.admins') : t('permissions.employees')}
+                    {selectedProfile?.role === 'super_admin' 
+                      ? t('employees.superAdmin') 
+                      : selectedProfile?.role === 'admin' 
+                        ? t('permissions.admins') 
+                        : t('permissions.employees')}
                   </Badge>
                 </div>
               </div>

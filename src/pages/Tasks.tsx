@@ -668,6 +668,7 @@ const Tasks: React.FC = () => {
         <KanbanBoard 
           tasks={filteredTasks} 
           profiles={profiles}
+          allTasks={tasks}
           onTaskClick={(task) => openEditDialog(task)}
           onStatusChange={async (taskId, newStatus) => {
             try {
