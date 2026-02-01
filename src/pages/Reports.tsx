@@ -39,6 +39,21 @@ const Reports: React.FC = () => {
     return networks.filter(n => n.domain_id === selectedDomainId);
   }, [networks, selectedDomainId]);
 
+  // Filter tasks by domain via Server/Network relationship
+  const filteredTasks = useMemo(() => {
+    if (!selectedDomainId || selectedDomainId === 'all') return tasks;
+    
+    const domainNetworks = networks.filter(n => n.domain_id === selectedDomainId);
+    const networkIds = new Set(domainNetworks.map(n => n.id));
+    const serverIds = new Set(servers.filter(s => s.network_id && networkIds.has(s.network_id)).map(s => s.id));
+    
+    return tasks.filter(task => 
+      (task.linked_network_id && networkIds.has(task.linked_network_id)) ||
+      (task.linked_server_id && serverIds.has(task.linked_server_id)) ||
+      (task.server_id && serverIds.has(task.server_id))
+    );
+  }, [tasks, networks, servers, selectedDomainId]);
+
   const isLoading = serversLoading || licensesLoading || profilesLoading || tasksLoading || networksLoading;
 
   const exportReport = (type: string) => {
@@ -86,7 +101,9 @@ const Reports: React.FC = () => {
         filename = 'employees-report.xlsx';
         break;
       case 'tasks':
-        data = tasks.map((task) => ({
+        // Use filteredTasks when domain is selected
+        const tasksToExport = selectedDomainId && selectedDomainId !== 'all' ? filteredTasks : tasks;
+        data = tasksToExport.map((task) => ({
           [t('tasks.title')]: task.title,
           [t('tasks.description')]: task.description,
           [t('tasks.assignee')]: profiles.find((p) => p.id === task.assigned_to)?.full_name || '',
@@ -140,8 +157,9 @@ const Reports: React.FC = () => {
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(employeesData), t('nav.employees'));
 
-    // Tasks sheet
-    const tasksData = tasks.map((task) => ({
+    // Tasks sheet - use filtered tasks when domain selected
+    const tasksToExport = selectedDomainId && selectedDomainId !== 'all' ? filteredTasks : tasks;
+    const tasksData = tasksToExport.map((task) => ({
       [t('tasks.title')]: task.title,
       [t('tasks.frequency')]: task.frequency,
       [t('tasks.dueDate')]: task.due_date,
@@ -187,11 +205,17 @@ const Reports: React.FC = () => {
     {
       title: t('nav.tasks'),
       icon: ListTodo,
-      count: tasks.length,
+      count: selectedDomainId && selectedDomainId !== 'all' ? filteredTasks.length : tasks.length,
       type: 'tasks',
       color: 'stat-success',
     },
   ];
+
+  // Calculate filtered task stats for charts
+  const taskStatsForCharts = useMemo(() => {
+    const tasksToUse = selectedDomainId && selectedDomainId !== 'all' ? filteredTasks : tasks;
+    return tasksToUse;
+  }, [tasks, filteredTasks, selectedDomainId]);
 
   if (isLoading) {
     return (
@@ -342,8 +366,8 @@ const Reports: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               {(['pending', 'completed', 'overdue'] as const).map((status) => {
-                const count = tasks.filter((task) => task.status === status).length;
-                const percentage = tasks.length > 0 ? Math.round((count / tasks.length) * 100) : 0;
+                const count = taskStatsForCharts.filter((task) => task.status === status).length;
+                const percentage = taskStatsForCharts.length > 0 ? Math.round((count / taskStatsForCharts.length) * 100) : 0;
                 
                 const statusColors = {
                   pending: 'bg-warning',

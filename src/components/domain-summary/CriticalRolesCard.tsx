@@ -15,6 +15,12 @@ import {
   Printer,
   FileText,
   Monitor,
+  Download,
+  Settings,
+  FolderKanban,
+  Layers,
+  Key,
+  Wifi,
 } from 'lucide-react';
 
 interface CriticalRolesCardProps {
@@ -35,6 +41,15 @@ const CRITICAL_ROLES = [
   { key: 'Backup', label: 'domainSummary.roleBackup', icon: FileText, color: 'text-teal-500' },
   { key: 'Hyper-V', label: 'domainSummary.roleHyperV', icon: Monitor, color: 'text-violet-500' },
   { key: 'RDS', label: 'domainSummary.roleRDS', icon: Monitor, color: 'text-emerald-500' },
+  // New professional roles
+  { key: 'WSUS', label: 'domainSummary.roleWSUS', icon: Download, color: 'text-sky-500' },
+  { key: 'SCCM', label: 'domainSummary.roleSCCM', icon: Settings, color: 'text-slate-500' },
+  { key: 'NPS', label: 'domainSummary.roleNPS', icon: Wifi, color: 'text-amber-500' },
+  { key: 'WDS', label: 'domainSummary.roleWDS', icon: HardDrive, color: 'text-lime-500' },
+  { key: 'ADFS', label: 'domainSummary.roleADFS', icon: Key, color: 'text-rose-500' },
+  { key: 'NLB', label: 'domainSummary.roleNLB', icon: Network, color: 'text-fuchsia-500' },
+  { key: 'DFS', label: 'domainSummary.roleDFS', icon: FolderKanban, color: 'text-orange-400' },
+  { key: 'Cluster', label: 'domainSummary.roleCluster', icon: Layers, color: 'text-blue-400' },
 ];
 
 const CriticalRolesCard: React.FC<CriticalRolesCardProps> = ({ servers }) => {
@@ -55,10 +70,18 @@ const CriticalRolesCard: React.FC<CriticalRolesCardProps> = ({ servers }) => {
           serverInfo.includes(role.key) ||
           (roleKey === 'dc' && (serverInfo.includes('domain controller') || serverInfo.includes('active directory'))) ||
           (roleKey === 'ca' && serverInfo.includes('certificate')) ||
-          (roleKey === 'file' && serverInfo.includes('file server')) ||
+          (roleKey === 'file' && (serverInfo.includes('file server') || serverInfo.includes('dfs'))) ||
           (roleKey === 'exchange' && serverInfo.includes('mail')) ||
           (roleKey === 'sql' && (serverInfo.includes('database') || serverInfo.includes('mssql'))) ||
-          (roleKey === 'backup' && serverInfo.includes('veeam'))
+          (roleKey === 'backup' && serverInfo.includes('veeam')) ||
+          (roleKey === 'wsus' && (serverInfo.includes('update services') || serverInfo.includes('wsus'))) ||
+          (roleKey === 'sccm' && (serverInfo.includes('sccm') || serverInfo.includes('endpoint manager') || serverInfo.includes('system center'))) ||
+          (roleKey === 'nps' && (serverInfo.includes('radius') || serverInfo.includes('network policy'))) ||
+          (roleKey === 'wds' && (serverInfo.includes('deployment') || serverInfo.includes('wds'))) ||
+          (roleKey === 'adfs' && (serverInfo.includes('federation') || serverInfo.includes('adfs'))) ||
+          (roleKey === 'nlb' && (serverInfo.includes('load balancing') || serverInfo.includes('nlb'))) ||
+          (roleKey === 'dfs' && (serverInfo.includes('distributed file') || serverInfo.includes('dfs'))) ||
+          (roleKey === 'cluster' && (serverInfo.includes('failover cluster') || serverInfo.includes('cluster')))
         ) {
           if (!roleMap[role.key]) {
             roleMap[role.key] = [];

@@ -97,6 +97,21 @@ export interface Task {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Linked entities
+  linked_server_id: string | null;
+  linked_network_id: string | null;
+  linked_license_id: string | null;
+  // Additional fields
+  task_status: string | null;
+  sla_response_hours: number | null;
+  sla_resolve_hours: number | null;
+  sla_breached: boolean | null;
+  parent_task_id: string | null;
+  requester_id: string | null;
+  reviewer_id: string | null;
+  watchers: string[] | null;
+  checklist: any | null;
+  evidence: any | null;
 }
 
 export interface Vacation {
