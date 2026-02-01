@@ -35,20 +35,20 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Check if caller is admin using the profiles table
-    const { data: callerProfile } = await supabaseAdmin
-      .from('profiles')
+    // Check if caller is admin using user_roles table (more secure)
+    const { data: callerRole } = await supabaseAdmin
+      .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .single()
     
-    if (callerProfile?.role !== 'admin') {
+    if (!callerRole || !['super_admin', 'admin'].includes(callerRole.role)) {
       return new Response(JSON.stringify({ error: 'Forbidden: Admin access required' }), { 
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    const { email, password, full_name, department, position, phone, role } = await req.json()
+    const { email, password, full_name, department, position, phone, role, domain_ids } = await req.json()
 
     // Validate required fields
     if (!email || !password || !full_name) {
@@ -60,6 +60,13 @@ Deno.serve(async (req) => {
     if (password.length < 6) {
       return new Response(JSON.stringify({ error: 'Password must be at least 6 characters' }), { 
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Prevent non-super_admin from creating super_admin accounts
+    if (role === 'super_admin' && callerRole?.role !== 'super_admin') {
+      return new Response(JSON.stringify({ error: 'Only Super Admin can create Super Admin accounts' }), { 
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
@@ -86,6 +93,17 @@ Deno.serve(async (req) => {
       // Wait a moment for the trigger to create the profile
       await new Promise(resolve => setTimeout(resolve, 500))
       
+      // Get the created profile
+      const { data: newProfile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('user_id', newUser.user.id)
+        .single()
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError)
+      }
+      
       const { error: updateError } = await supabaseAdmin
         .from('profiles')
         .update({
@@ -97,6 +115,23 @@ Deno.serve(async (req) => {
 
       if (updateError) {
         console.error('Error updating profile:', updateError)
+      }
+
+      // Create domain memberships if domain_ids provided
+      if (newProfile && domain_ids && Array.isArray(domain_ids) && domain_ids.length > 0) {
+        const memberships = domain_ids.map((domainId: string) => ({
+          profile_id: newProfile.id,
+          domain_id: domainId,
+          can_edit: role === 'admin' || role === 'super_admin',
+        }))
+
+        const { error: membershipError } = await supabaseAdmin
+          .from('domain_memberships')
+          .insert(memberships)
+
+        if (membershipError) {
+          console.error('Error creating domain memberships:', membershipError)
+        }
       }
     }
 

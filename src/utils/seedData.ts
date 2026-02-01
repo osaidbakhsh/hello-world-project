@@ -735,6 +735,43 @@ const professionalLicenses = [
     cost: 85000,
     status: 'active',
   },
+  // Extended Licenses
+  { 
+    name: 'Nutanix AOS', 
+    vendor: 'Nutanix', 
+    license_key: 'NTX-AOS-XXXX-XXXX',
+    quantity: 7,
+    expiry_date: '2027-06-15',
+    cost: 55000,
+    status: 'active',
+  },
+  { 
+    name: 'Zabbix Enterprise', 
+    vendor: 'Zabbix', 
+    license_key: 'ZABBIX-ENT-XXXX-XXXX',
+    quantity: 1,
+    expiry_date: '2026-04-30',
+    cost: 8000,
+    status: 'active',
+  },
+  { 
+    name: 'AutoCAD LT', 
+    vendor: 'Autodesk', 
+    license_key: 'ACAD-LT-XXXX-XXXX',
+    quantity: 5,
+    expiry_date: '2025-12-31',
+    cost: 3500,
+    status: 'expired',
+  },
+  { 
+    name: 'Palo Alto Networks', 
+    vendor: 'Palo Alto', 
+    license_key: 'PAN-FW-XXXX-XXXX',
+    quantity: 2,
+    expiry_date: '2027-08-20',
+    cost: 42000,
+    status: 'active',
+  },
 ];
 
 // Professional tasks with varied statuses
@@ -917,6 +954,21 @@ const professionalVaultItems = [
   { title: 'Veeam Service Account', username: 'svc_veeam', item_type: 'application', url: 'OS-BACKUP01', notes: 'Veeam service account' },
   { title: 'Firewall Admin', username: 'admin', item_type: 'network_device', url: '10.30.1.1', notes: 'Main firewall admin' },
   { title: 'SIEM API Key', username: 'api_key', item_type: 'api_key', notes: 'Wazuh API key for integrations' },
+  // Extended Vault Items
+  { title: 'Exchange Admin', username: 'exchAdmin', item_type: 'server', url: 'AT-EXCH01', notes: 'Exchange server administrator' },
+  { title: 'Nutanix Prism Admin', username: 'admin', item_type: 'application', url: 'https://prism.os.com', notes: 'Nutanix Prism Central admin' },
+  { title: 'VMware vCenter', username: 'administrator@vsphere.local', item_type: 'application', url: 'https://vcenter.at.com', notes: 'vCenter Server admin' },
+  { title: 'Zabbix API Key', username: 'api', item_type: 'api_key', notes: 'Zabbix monitoring API key' },
+  { title: 'AWS Root Account', username: 'root', item_type: 'cloud', url: 'https://console.aws.amazon.com', notes: 'AWS root account for DR' },
+  { title: 'Azure Portal', username: 'admin@company.onmicrosoft.com', item_type: 'cloud', url: 'https://portal.azure.com', notes: 'Azure admin portal' },
+];
+
+// Professional Scan Agents
+const professionalScanAgents = [
+  { domainName: 'os.com', name: 'OS-SCANNER-01', site_tag: 'Riyadh-DC', status: 'ONLINE', version: '2.5.1' },
+  { domainName: 'os.com', name: 'OS-SCANNER-02', site_tag: 'Riyadh-DR', status: 'ONLINE', version: '2.5.1' },
+  { domainName: 'at.com', name: 'AT-SCANNER-01', site_tag: 'Jeddah-DC', status: 'ONLINE', version: '2.5.0' },
+  { domainName: 'is.com', name: 'IS-SCANNER-01', site_tag: 'Dammam-DC', status: 'OFFLINE', version: '2.4.8' },
 ];
 
 export interface SeedResult {
@@ -937,6 +989,7 @@ export interface SeedResult {
     onCallSchedules: number;
     fileShares: number;
     vacations: number;
+    scanAgents: number;
   };
 }
 
@@ -973,6 +1026,7 @@ export async function seedAllData(): Promise<SeedResult> {
       onCallSchedules: 0,
       fileShares: 0,
       vacations: 0,
+      scanAgents: 0,
     };
 
     // 1. Create Domains (only the 3 professional domains)
@@ -1371,6 +1425,33 @@ export async function seedAllData(): Promise<SeedResult> {
       createdCounts.vaultItems = createdVaultItems?.length || 0;
     }
 
+    // 15. Create Scan Agents
+    const { data: existingAgents } = await supabase.from('scan_agents').select('name');
+    const existingAgentNames = existingAgents?.map(a => a.name) || [];
+    const newAgents = professionalScanAgents
+      .filter(a => !existingAgentNames.includes(a.name))
+      .map(agent => ({
+        name: agent.name,
+        site_tag: agent.site_tag,
+        status: agent.status,
+        version: agent.version,
+        domain_id: domainMap.get(agent.domainName),
+        created_by: profile.id,
+        auth_token_hash: 'demo_token_' + agent.name.toLowerCase().replace(/-/g, '_'),
+        last_seen_at: agent.status === 'ONLINE' ? new Date().toISOString() : null,
+      }))
+      .filter(a => a.domain_id);
+
+    if (newAgents.length > 0) {
+      const { data: createdAgents, error: agentError } = await supabase
+        .from('scan_agents')
+        .insert(newAgents)
+        .select();
+      
+      if (agentError) throw new Error(`Failed to create scan agents: ${agentError.message}`);
+      createdCounts.scanAgents = createdAgents?.length || 0;
+    }
+
     const totalCreated = Object.values(createdCounts).reduce((a, b) => a + b, 0);
     
     return {
@@ -1413,6 +1494,7 @@ export async function resetAndSeedData(): Promise<SeedResult> {
     await supabase.from('vacations').delete().eq('profile_id', profile.id);
     await supabase.from('vault_items').delete().eq('owner_id', profile.id);
     await supabase.from('tasks').delete().eq('created_by', profile.id);
+    await supabase.from('scan_agents').delete().eq('created_by', profile.id);
     await supabase.from('cluster_nodes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('clusters').delete().eq('created_by', profile.id);
     await supabase.from('datacenters').delete().eq('created_by', profile.id);
