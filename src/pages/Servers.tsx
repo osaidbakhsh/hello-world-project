@@ -60,6 +60,20 @@ interface ServerFormData {
   is_backed_up_by_veeam: boolean;
   backup_frequency: string;
   backup_job_name: string;
+  // New fields - Asset Lifecycle (EPIC D)
+  purchase_date: string;
+  vendor: string;
+  model: string;
+  serial_number: string;
+  warranty_end: string;
+  contract_id: string;
+  support_level: string;
+  eol_date: string;
+  eos_date: string;
+  server_role: string[];
+  rpo_hours: string;
+  rto_hours: string;
+  last_restore_test: string;
 }
 
 const initialFormData: ServerFormData = {
@@ -83,6 +97,20 @@ const initialFormData: ServerFormData = {
   is_backed_up_by_veeam: false,
   backup_frequency: 'none',
   backup_job_name: '',
+  // New fields - Asset Lifecycle (EPIC D)
+  purchase_date: '',
+  vendor: '',
+  model: '',
+  serial_number: '',
+  warranty_end: '',
+  contract_id: '',
+  support_level: 'standard',
+  eol_date: '',
+  eos_date: '',
+  server_role: [],
+  rpo_hours: '',
+  rto_hours: '',
+  last_restore_test: '',
 };
 
 const Servers: React.FC = () => {
@@ -179,13 +207,28 @@ const Servers: React.FC = () => {
         cpu: formData.cpu,
         ram: formData.ram,
         disk_space: formData.disk_space,
-        // New fields
+        // Beneficiary fields
         beneficiary_department: formData.beneficiary_department || null,
         primary_application: formData.primary_application || null,
         business_owner: formData.business_owner || null,
+        // Veeam Backup fields
         is_backed_up_by_veeam: formData.is_backed_up_by_veeam,
         backup_frequency: formData.backup_frequency,
         backup_job_name: formData.backup_job_name || null,
+        // Asset Lifecycle fields (EPIC D)
+        purchase_date: formData.purchase_date || null,
+        vendor: formData.vendor || null,
+        model: formData.model || null,
+        serial_number: formData.serial_number || null,
+        warranty_end: formData.warranty_end || null,
+        contract_id: formData.contract_id || null,
+        support_level: formData.support_level,
+        eol_date: formData.eol_date || null,
+        eos_date: formData.eos_date || null,
+        server_role: formData.server_role.length > 0 ? formData.server_role : null,
+        rpo_hours: formData.rpo_hours ? parseInt(formData.rpo_hours) : null,
+        rto_hours: formData.rto_hours ? parseInt(formData.rto_hours) : null,
+        last_restore_test: formData.last_restore_test || null,
       };
 
       if (editingServer) {
@@ -214,6 +257,7 @@ const Servers: React.FC = () => {
 
   const handleEdit = (server: Server) => {
     setEditingServer(server);
+    const serverAny = server as any;
     setFormData({
       name: server.name,
       ip_address: server.ip_address || '',
@@ -227,13 +271,28 @@ const Servers: React.FC = () => {
       cpu: server.cpu || '',
       ram: server.ram || '',
       disk_space: server.disk_space || '',
-      // New fields
-      beneficiary_department: (server as any).beneficiary_department || '',
-      primary_application: (server as any).primary_application || '',
-      business_owner: (server as any).business_owner || '',
-      is_backed_up_by_veeam: (server as any).is_backed_up_by_veeam || false,
-      backup_frequency: (server as any).backup_frequency || 'none',
-      backup_job_name: (server as any).backup_job_name || '',
+      // Beneficiary fields
+      beneficiary_department: serverAny.beneficiary_department || '',
+      primary_application: serverAny.primary_application || '',
+      business_owner: serverAny.business_owner || '',
+      // Veeam fields
+      is_backed_up_by_veeam: serverAny.is_backed_up_by_veeam || false,
+      backup_frequency: serverAny.backup_frequency || 'none',
+      backup_job_name: serverAny.backup_job_name || '',
+      // Asset Lifecycle fields (EPIC D)
+      purchase_date: serverAny.purchase_date || '',
+      vendor: serverAny.vendor || '',
+      model: serverAny.model || '',
+      serial_number: serverAny.serial_number || '',
+      warranty_end: serverAny.warranty_end || '',
+      contract_id: serverAny.contract_id || '',
+      support_level: serverAny.support_level || 'standard',
+      eol_date: serverAny.eol_date || '',
+      eos_date: serverAny.eos_date || '',
+      server_role: serverAny.server_role || [],
+      rpo_hours: serverAny.rpo_hours?.toString() || '',
+      rto_hours: serverAny.rto_hours?.toString() || '',
+      last_restore_test: serverAny.last_restore_test ? serverAny.last_restore_test.split('T')[0] : '',
     });
     setIsDialogOpen(true);
   };
@@ -581,6 +640,166 @@ const Servers: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, backup_job_name: e.target.value })}
                     placeholder="e.g., Daily-Backup-Job-01"
                     disabled={!formData.is_backed_up_by_veeam}
+                  />
+                </div>
+
+                {/* Asset Lifecycle Section (EPIC D) */}
+                <div className="md:col-span-2 border-t pt-4 mt-2">
+                  <h4 className="font-medium mb-3">{t('servers.assetLifecycle')}</h4>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.purchaseDate')}</Label>
+                  <Input
+                    type="date"
+                    value={formData.purchase_date}
+                    onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.vendor')}</Label>
+                  <Select
+                    value={formData.vendor}
+                    onValueChange={(value) => setFormData({ ...formData, vendor: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('common.select')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Dell">Dell</SelectItem>
+                      <SelectItem value="HP">HP / HPE</SelectItem>
+                      <SelectItem value="Lenovo">Lenovo</SelectItem>
+                      <SelectItem value="Cisco">Cisco</SelectItem>
+                      <SelectItem value="IBM">IBM</SelectItem>
+                      <SelectItem value="Supermicro">Supermicro</SelectItem>
+                      <SelectItem value="VMware">VMware (Virtual)</SelectItem>
+                      <SelectItem value="Microsoft">Microsoft (Hyper-V)</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.model')}</Label>
+                  <Input
+                    value={formData.model}
+                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                    placeholder="e.g., PowerEdge R740"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.serialNumber')}</Label>
+                  <Input
+                    value={formData.serial_number}
+                    onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
+                    placeholder="e.g., ABC123XYZ"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.warrantyEnd')}</Label>
+                  <Input
+                    type="date"
+                    value={formData.warranty_end}
+                    onChange={(e) => setFormData({ ...formData, warranty_end: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.contractId')}</Label>
+                  <Input
+                    value={formData.contract_id}
+                    onChange={(e) => setFormData({ ...formData, contract_id: e.target.value })}
+                    placeholder="e.g., SUP-2024-001"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.supportLevel')}</Label>
+                  <Select
+                    value={formData.support_level}
+                    onValueChange={(value) => setFormData({ ...formData, support_level: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t('servers.supportNone')}</SelectItem>
+                      <SelectItem value="standard">{t('servers.supportStandard')}</SelectItem>
+                      <SelectItem value="premium">{t('servers.supportPremium')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.eolDate')}</Label>
+                  <Input
+                    type="date"
+                    value={formData.eol_date}
+                    onChange={(e) => setFormData({ ...formData, eol_date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.eosDate')}</Label>
+                  <Input
+                    type="date"
+                    value={formData.eos_date}
+                    onChange={(e) => setFormData({ ...formData, eos_date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.serverRole')}</Label>
+                  <Select
+                    value={formData.server_role.join(',')}
+                    onValueChange={(value) => setFormData({ 
+                      ...formData, 
+                      server_role: value ? value.split(',').filter(Boolean) : [] 
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('common.select')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DC">Domain Controller (DC)</SelectItem>
+                      <SelectItem value="CA">Certificate Authority (CA)</SelectItem>
+                      <SelectItem value="DNS">DNS Server</SelectItem>
+                      <SelectItem value="DHCP">DHCP Server</SelectItem>
+                      <SelectItem value="File">File Server</SelectItem>
+                      <SelectItem value="Print">Print Server</SelectItem>
+                      <SelectItem value="Exchange">Exchange Server</SelectItem>
+                      <SelectItem value="SQL">SQL Server</SelectItem>
+                      <SelectItem value="IIS">Web Server (IIS)</SelectItem>
+                      <SelectItem value="App">Application Server</SelectItem>
+                      <SelectItem value="Backup">Backup Server</SelectItem>
+                      <SelectItem value="Monitoring">Monitoring Server</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Disaster Recovery Section */}
+                <div className="md:col-span-2 border-t pt-4 mt-2">
+                  <h4 className="font-medium mb-3">{t('servers.disasterRecovery')}</h4>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.rpoHours')}</Label>
+                  <Input
+                    type="number"
+                    value={formData.rpo_hours}
+                    onChange={(e) => setFormData({ ...formData, rpo_hours: e.target.value })}
+                    placeholder="e.g., 4"
+                    min="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.rtoHours')}</Label>
+                  <Input
+                    type="number"
+                    value={formData.rto_hours}
+                    onChange={(e) => setFormData({ ...formData, rto_hours: e.target.value })}
+                    placeholder="e.g., 8"
+                    min="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('servers.lastRestoreTest')}</Label>
+                  <Input
+                    type="date"
+                    value={formData.last_restore_test}
+                    onChange={(e) => setFormData({ ...formData, last_restore_test: e.target.value })}
                   />
                 </div>
 
