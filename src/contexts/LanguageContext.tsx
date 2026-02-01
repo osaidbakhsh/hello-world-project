@@ -1462,15 +1462,12 @@ const translations: Record<Language, Record<string, string>> = {
     'itTools.csrNeedsOpenssl': 'لإنشاء CSR كامل، استخدم أوامر OpenSSL مع المفتاح',
     'itTools.csrUseWithKey': 'استخدم الأمر التالي مع المفتاح الذي تم توليده:',
     'itTools.fileDownloaded': 'تم تحميل الملف',
-    'itTools.privateKey': 'المفتاح الخاص',
-    'itTools.privateKeyWarning': 'لا تشارك المفتاح الخاص أبداً! احفظه في مكان آمن.',
     'itTools.csrBestPractices': 'أفضل الممارسات',
     'itTools.csrTip1': 'احفظ المفتاح الخاص في مكان آمن بصلاحيات 600',
     'itTools.csrTip2': 'لا تشارك المفتاح الخاص أبداً',
     'itTools.csrTip3': 'استخدم حجم مفتاح 4096 bit للشهادات المهمة',
     'itTools.csrTip4': 'احتفظ بنسخة احتياطية مشفرة من المفتاح',
     'itTools.csrTip5': 'جدد الشهادة قبل 30 يوماً من انتهائها',
-    'itTools.recommended': 'موصى به',
   },
   en: {
     // Navigation
@@ -2912,15 +2909,12 @@ const translations: Record<Language, Record<string, string>> = {
     'itTools.csrNeedsOpenssl': 'To create a complete CSR, use OpenSSL commands with the key',
     'itTools.csrUseWithKey': 'Use this command with your generated key:',
     'itTools.fileDownloaded': 'File downloaded',
-    'itTools.privateKey': 'Private Key',
-    'itTools.privateKeyWarning': 'Never share your private key! Store it securely.',
     'itTools.csrBestPractices': 'Best Practices',
     'itTools.csrTip1': 'Store private key securely with 600 permissions',
     'itTools.csrTip2': 'Never share your private key',
     'itTools.csrTip3': 'Use 4096-bit key for critical certificates',
     'itTools.csrTip4': 'Keep encrypted backup of private key',
     'itTools.csrTip5': 'Renew certificate 30 days before expiration',
-    'itTools.recommended': 'recommended',
   },
 };
 
