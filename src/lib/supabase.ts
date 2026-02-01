@@ -57,6 +57,30 @@ export interface Server {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Lifecycle & DR fields
+  warranty_end: string | null;
+  eol_date: string | null;
+  eos_date: string | null;
+  vendor: string | null;
+  model: string | null;
+  serial_number: string | null;
+  purchase_date: string | null;
+  support_level: string | null;
+  contract_id: string | null;
+  // Backup fields
+  is_backed_up_by_veeam: boolean | null;
+  backup_frequency: string | null;
+  backup_job_name: string | null;
+  last_backup_date: string | null;
+  last_backup_status: string | null;
+  last_restore_test: string | null;
+  rpo_hours: number | null;
+  rto_hours: number | null;
+  // Additional fields
+  server_role: string[] | null;
+  primary_application: string | null;
+  beneficiary_department: string | null;
+  business_owner: string | null;
 }
 
 export interface Task {

@@ -27,6 +27,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Vault from "./pages/Vault";
 import ITTools from "./pages/ITTools";
+import OnCallSchedule from "./pages/OnCallSchedule";
+import MaintenanceWindows from "./pages/MaintenanceWindows";
+import LifecycleCenter from "./pages/LifecycleCenter";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +70,9 @@ const App = () => (
                 <Route path="/network-scan" element={<NetworkScan />} />
                 <Route path="/vault" element={<Vault />} />
                 <Route path="/it-tools" element={<ITTools />} />
+                <Route path="/on-call" element={<OnCallSchedule />} />
+                <Route path="/maintenance" element={<MaintenanceWindows />} />
+                <Route path="/lifecycle" element={<LifecycleCenter />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               

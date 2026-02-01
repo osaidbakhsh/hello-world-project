@@ -29,6 +29,8 @@ import {
   Lock,
   Wrench,
   Building2,
+  Phone,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -61,6 +63,9 @@ const allMenuItems: MenuItem[] = [
   { id: 'tasks', path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
   { id: 'vault', path: '/vault', icon: Lock, label: 'nav.vault' },
   { id: 'itTools', path: '/it-tools', icon: Wrench, label: 'nav.itTools' },
+  { id: 'onCall', path: '/on-call', icon: Phone, label: 'nav.onCall', adminOnly: true },
+  { id: 'maintenance', path: '/maintenance', icon: Wrench, label: 'nav.maintenance', adminOnly: true },
+  { id: 'lifecycle', path: '/lifecycle', icon: Clock, label: 'nav.lifecycle', adminOnly: true },
   { id: 'networks', path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
   { id: 'networkScan', path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
   { id: 'webApps', path: '/web-apps', icon: Globe, label: 'nav.webApps', adminOnly: true },

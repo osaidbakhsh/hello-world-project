@@ -91,6 +91,63 @@ export type Database = {
           },
         ]
       }
+      change_requests: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          maintenance_window_id: string | null
+          priority: string | null
+          requested_by: string | null
+          risk_assessment: string | null
+          rollback_plan: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          maintenance_window_id?: string | null
+          priority?: string | null
+          requested_by?: string | null
+          risk_assessment?: string | null
+          rollback_plan?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          maintenance_window_id?: string | null
+          priority?: string | null
+          requested_by?: string | null
+          risk_assessment?: string | null
+          rollback_plan?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "change_requests_maintenance_window_id_fkey"
+            columns: ["maintenance_window_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_windows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       domain_memberships: {
         Row: {
           can_edit: boolean | null
@@ -198,6 +255,51 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_rules: {
+        Row: {
+          created_at: string | null
+          id: string
+          level: number
+          notify_method: string | null
+          notify_profile_id: string | null
+          schedule_id: string
+          wait_minutes: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          level: number
+          notify_method?: string | null
+          notify_profile_id?: string | null
+          schedule_id: string
+          wait_minutes?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          level?: number
+          notify_method?: string | null
+          notify_profile_id?: string | null
+          schedule_id?: string
+          wait_minutes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_rules_notify_profile_id_fkey"
+            columns: ["notify_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_rules_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "on_call_schedules"
             referencedColumns: ["id"]
           },
         ]
@@ -312,6 +414,85 @@ export type Database = {
           },
           {
             foreignKeyName: "licenses_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_windows: {
+        Row: {
+          affected_servers: string[] | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          domain_id: string | null
+          end_time: string
+          id: string
+          impact_level: string | null
+          notes: string | null
+          recurrence: string | null
+          start_time: string
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          affected_servers?: string[] | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          domain_id?: string | null
+          end_time: string
+          id?: string
+          impact_level?: string | null
+          notes?: string | null
+          recurrence?: string | null
+          start_time: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          affected_servers?: string[] | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          domain_id?: string | null
+          end_time?: string
+          id?: string
+          impact_level?: string | null
+          notes?: string | null
+          recurrence?: string | null
+          start_time?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_windows_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_windows_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_windows_domain_id_fkey"
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "domains"
@@ -446,32 +627,107 @@ export type Database = {
           },
         ]
       }
+      on_call_assignments: {
+        Row: {
+          created_at: string | null
+          end_time: string
+          id: string
+          order_index: number | null
+          profile_id: string
+          role: string | null
+          schedule_id: string
+          start_time: string
+        }
+        Insert: {
+          created_at?: string | null
+          end_time: string
+          id?: string
+          order_index?: number | null
+          profile_id: string
+          role?: string | null
+          schedule_id: string
+          start_time: string
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          order_index?: number | null
+          profile_id?: string
+          role?: string | null
+          schedule_id?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "on_call_assignments_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "on_call_assignments_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "on_call_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       on_call_schedules: {
         Row: {
           created_at: string | null
+          created_by: string | null
           current_index: number | null
+          domain_id: string | null
           id: string
+          is_active: boolean | null
           name: string
           rotation_type: string | null
+          start_date: string | null
           team_members: string[] | null
         }
         Insert: {
           created_at?: string | null
+          created_by?: string | null
           current_index?: number | null
+          domain_id?: string | null
           id?: string
+          is_active?: boolean | null
           name: string
           rotation_type?: string | null
+          start_date?: string | null
           team_members?: string[] | null
         }
         Update: {
           created_at?: string | null
+          created_by?: string | null
           current_index?: number | null
+          domain_id?: string | null
           id?: string
+          is_active?: boolean | null
           name?: string
           rotation_type?: string | null
+          start_date?: string | null
           team_members?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "on_call_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "on_call_schedules_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
