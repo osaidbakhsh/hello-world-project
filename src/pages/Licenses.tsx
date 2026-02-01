@@ -76,6 +76,7 @@ const Licenses: React.FC = () => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [domainFilter, setDomainFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,10 +109,11 @@ const Licenses: React.FC = () => {
       
       const status = getLicenseStatus(license.expiry_date);
       const matchesStatus = statusFilter === 'all' || status === statusFilter;
+      const matchesDomain = domainFilter === 'all' || license.domain_id === domainFilter;
       
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesDomain;
     });
-  }, [licenses, searchQuery, statusFilter]);
+  }, [licenses, searchQuery, statusFilter, domainFilter]);
 
   // Apply sorting
   const sortedLicenses = useMemo(() => {
@@ -437,6 +439,17 @@ const Licenses: React.FC = () => {
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="expiring-soon">Expiring Soon</SelectItem>
                 <SelectItem value="expired">Expired</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={domainFilter} onValueChange={setDomainFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder={t('common.domain')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('common.allDomains')}</SelectItem>
+                {domains.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

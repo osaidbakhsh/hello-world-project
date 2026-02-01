@@ -766,6 +766,19 @@ const Servers: React.FC = () => {
                       <SelectItem value="App">Application Server</SelectItem>
                       <SelectItem value="Backup">Backup Server</SelectItem>
                       <SelectItem value="Monitoring">Monitoring Server</SelectItem>
+                      <SelectItem value="Testing">Testing Server</SelectItem>
+                      <SelectItem value="Development">Under Development</SelectItem>
+                      <SelectItem value="Staging">Staging Server</SelectItem>
+                      <SelectItem value="WSUS">WSUS Server</SelectItem>
+                      <SelectItem value="SCCM">SCCM Server</SelectItem>
+                      <SelectItem value="NPS">NPS/RADIUS Server</SelectItem>
+                      <SelectItem value="WDS">WDS Server</SelectItem>
+                      <SelectItem value="ADFS">ADFS Server</SelectItem>
+                      <SelectItem value="NLB">NLB Server</SelectItem>
+                      <SelectItem value="DFS">DFS Server</SelectItem>
+                      <SelectItem value="Cluster">Failover Cluster</SelectItem>
+                      <SelectItem value="Hyper-V">Hyper-V Host</SelectItem>
+                      <SelectItem value="RDS">RDS Server</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
