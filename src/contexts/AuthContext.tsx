@@ -11,7 +11,10 @@ interface AuthContextType {
   profile: Profile | null;
   session: Session | null;
   isLoading: boolean;
-  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  isAdmin: boolean;  // true for super_admin OR admin
+  isEmployee: boolean;  // true for employee only (view-only)
+  userRole: AppRole | null;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string, role?: 'admin' | 'employee') => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -307,7 +310,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Use role from secure user_roles table (NOT from profiles!)
-  const isAdmin = userRole === 'admin';
+  const isSuperAdmin = userRole === 'super_admin';
+  const isAdmin = userRole === 'super_admin' || userRole === 'admin';
+  const isEmployee = userRole === 'employee';
 
   return (
     <AuthContext.Provider
@@ -316,7 +321,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         session,
         isLoading,
+        isSuperAdmin,
         isAdmin,
+        isEmployee,
+        userRole,
         signIn,
         signUp,
         signOut,

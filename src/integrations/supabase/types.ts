@@ -2439,6 +2439,7 @@ export type Database = {
       can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
       can_edit_domain: { Args: { _domain_id: string }; Returns: boolean }
+      can_manage_domain: { Args: { _domain_id: string }; Returns: boolean }
       get_my_profile_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
@@ -2456,7 +2457,9 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_employee_only: { Args: never; Returns: boolean }
       is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       owns_vault_item: { Args: { _vault_item_id: string }; Returns: boolean }
     }
     Enums: {

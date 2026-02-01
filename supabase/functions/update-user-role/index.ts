@@ -47,16 +47,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if calling user is admin
+    // Check if calling user is super_admin (only super_admin can change roles)
     const { data: callerRole, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .single();
 
-    if (roleError || callerRole?.role !== 'admin') {
+    if (roleError || callerRole?.role !== 'super_admin') {
       return new Response(
-        JSON.stringify({ error: 'Forbidden: Admin access required' }),
+        JSON.stringify({ error: 'Forbidden: Only Super Admins can change user roles' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -71,18 +71,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate new_role
-    if (new_role !== 'admin' && new_role !== 'employee') {
+    // Validate new_role (now supports super_admin)
+    if (!['super_admin', 'admin', 'employee'].includes(new_role)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid role. Must be "admin" or "employee"' }),
+        JSON.stringify({ error: 'Invalid role. Must be "super_admin", "admin", or "employee"' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Prevent self-demotion (admin can't remove their own admin role)
-    if (target_user_id === user.id && new_role !== 'admin') {
+    // Prevent self-demotion (super_admin can't remove their own super_admin role)
+    if (target_user_id === user.id && new_role !== 'super_admin') {
       return new Response(
-        JSON.stringify({ error: 'Cannot remove your own admin role' }),
+        JSON.stringify({ error: 'Cannot demote your own super admin role' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

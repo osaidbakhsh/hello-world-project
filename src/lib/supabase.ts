@@ -5,7 +5,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export type AppRole = 'admin' | 'employee';
+export type AppRole = 'super_admin' | 'admin' | 'employee';
 
 export interface Profile {
   id: string;
