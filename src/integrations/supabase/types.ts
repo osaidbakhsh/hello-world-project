@@ -713,78 +713,117 @@ export type Database = {
           backup_job_name: string | null
           beneficiary_department: string | null
           business_owner: string | null
+          contract_id: string | null
           cpu: string | null
           created_at: string | null
           created_by: string | null
           disk_space: string | null
           environment: string | null
+          eol_date: string | null
+          eos_date: string | null
           id: string
           ip_address: string | null
           is_backed_up_by_veeam: boolean | null
           last_backup_date: string | null
           last_backup_status: string | null
+          last_restore_test: string | null
+          model: string | null
           name: string
           network_id: string | null
           notes: string | null
           operating_system: string | null
           owner: string | null
           primary_application: string | null
+          purchase_date: string | null
           ram: string | null
           responsible_user: string | null
+          rpo_hours: number | null
+          rto_hours: number | null
+          serial_number: string | null
+          server_role: string[] | null
           status: string | null
+          support_level: string | null
           updated_at: string | null
+          vendor: string | null
+          warranty_end: string | null
         }
         Insert: {
           backup_frequency?: string | null
           backup_job_name?: string | null
           beneficiary_department?: string | null
           business_owner?: string | null
+          contract_id?: string | null
           cpu?: string | null
           created_at?: string | null
           created_by?: string | null
           disk_space?: string | null
           environment?: string | null
+          eol_date?: string | null
+          eos_date?: string | null
           id?: string
           ip_address?: string | null
           is_backed_up_by_veeam?: boolean | null
           last_backup_date?: string | null
           last_backup_status?: string | null
+          last_restore_test?: string | null
+          model?: string | null
           name: string
           network_id?: string | null
           notes?: string | null
           operating_system?: string | null
           owner?: string | null
           primary_application?: string | null
+          purchase_date?: string | null
           ram?: string | null
           responsible_user?: string | null
+          rpo_hours?: number | null
+          rto_hours?: number | null
+          serial_number?: string | null
+          server_role?: string[] | null
           status?: string | null
+          support_level?: string | null
           updated_at?: string | null
+          vendor?: string | null
+          warranty_end?: string | null
         }
         Update: {
           backup_frequency?: string | null
           backup_job_name?: string | null
           beneficiary_department?: string | null
           business_owner?: string | null
+          contract_id?: string | null
           cpu?: string | null
           created_at?: string | null
           created_by?: string | null
           disk_space?: string | null
           environment?: string | null
+          eol_date?: string | null
+          eos_date?: string | null
           id?: string
           ip_address?: string | null
           is_backed_up_by_veeam?: boolean | null
           last_backup_date?: string | null
           last_backup_status?: string | null
+          last_restore_test?: string | null
+          model?: string | null
           name?: string
           network_id?: string | null
           notes?: string | null
           operating_system?: string | null
           owner?: string | null
           primary_application?: string | null
+          purchase_date?: string | null
           ram?: string | null
           responsible_user?: string | null
+          rpo_hours?: number | null
+          rto_hours?: number | null
+          serial_number?: string | null
+          server_role?: string[] | null
           status?: string | null
+          support_level?: string | null
           updated_at?: string | null
+          vendor?: string | null
+          warranty_end?: string | null
         }
         Relationships: [
           {
