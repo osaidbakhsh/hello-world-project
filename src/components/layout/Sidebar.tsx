@@ -31,6 +31,8 @@ import {
   Building2,
   Phone,
   Clock,
+  FolderKanban,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -66,6 +68,8 @@ const allMenuItems: MenuItem[] = [
   { id: 'onCall', path: '/on-call', icon: Phone, label: 'nav.onCall', adminOnly: true },
   { id: 'maintenance', path: '/maintenance', icon: Wrench, label: 'nav.maintenance', adminOnly: true },
   { id: 'lifecycle', path: '/lifecycle', icon: Clock, label: 'nav.lifecycle', adminOnly: true },
+  { id: 'fileShares', path: '/file-shares', icon: FolderKanban, label: 'nav.fileShares', adminOnly: true },
+  { id: 'scanAgents', path: '/scan-agents', icon: Bot, label: 'nav.scanAgents', adminOnly: true },
   { id: 'networks', path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
   { id: 'networkScan', path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
   { id: 'webApps', path: '/web-apps', icon: Globe, label: 'nav.webApps', adminOnly: true },

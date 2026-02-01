@@ -304,6 +304,230 @@ export type Database = {
           },
         ]
       }
+      file_shares: {
+        Row: {
+          agent_id: string | null
+          created_at: string | null
+          created_by: string | null
+          credential_vault_id: string | null
+          domain_id: string
+          exclude_patterns: string[] | null
+          id: string
+          is_enabled: boolean | null
+          maintenance_window_id: string | null
+          name: string
+          path: string
+          scan_depth: number | null
+          scan_mode: string
+          schedule_cron: string | null
+          share_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          credential_vault_id?: string | null
+          domain_id: string
+          exclude_patterns?: string[] | null
+          id?: string
+          is_enabled?: boolean | null
+          maintenance_window_id?: string | null
+          name: string
+          path: string
+          scan_depth?: number | null
+          scan_mode: string
+          schedule_cron?: string | null
+          share_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          credential_vault_id?: string | null
+          domain_id?: string
+          exclude_patterns?: string[] | null
+          id?: string
+          is_enabled?: boolean | null
+          maintenance_window_id?: string | null
+          name?: string
+          path?: string
+          scan_depth?: number | null
+          scan_mode?: string
+          schedule_cron?: string | null
+          share_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_shares_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "scan_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_shares_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_shares_credential_vault_id_fkey"
+            columns: ["credential_vault_id"]
+            isOneToOne: false
+            referencedRelation: "vault_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_shares_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_shares_maintenance_window_id_fkey"
+            columns: ["maintenance_window_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fileshare_scans: {
+        Row: {
+          agent_id: string | null
+          created_at: string | null
+          created_by: string | null
+          domain_id: string | null
+          error_code: string | null
+          file_share_id: string
+          finished_at: string | null
+          id: string
+          log_text: string | null
+          progress_percent: number | null
+          scan_mode: string
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string | null
+          error_code?: string | null
+          file_share_id: string
+          finished_at?: string | null
+          id?: string
+          log_text?: string | null
+          progress_percent?: number | null
+          scan_mode: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string | null
+          error_code?: string | null
+          file_share_id?: string
+          finished_at?: string | null
+          id?: string
+          log_text?: string | null
+          progress_percent?: number | null
+          scan_mode?: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fileshare_scans_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "scan_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fileshare_scans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fileshare_scans_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fileshare_scans_file_share_id_fkey"
+            columns: ["file_share_id"]
+            isOneToOne: false
+            referencedRelation: "file_shares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folder_stats: {
+        Row: {
+          depth: number | null
+          files_count: number | null
+          folders_count: number | null
+          id: string
+          name: string
+          parent_id: string | null
+          path: string
+          percent_of_share: number | null
+          size_bytes: number | null
+          snapshot_id: string
+        }
+        Insert: {
+          depth?: number | null
+          files_count?: number | null
+          folders_count?: number | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          path: string
+          percent_of_share?: number | null
+          size_bytes?: number | null
+          snapshot_id: string
+        }
+        Update: {
+          depth?: number | null
+          files_count?: number | null
+          folders_count?: number | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          path?: string
+          percent_of_share?: number | null
+          size_bytes?: number | null
+          snapshot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folder_stats_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "folder_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "folder_stats_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "scan_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_batches: {
         Row: {
           created_at: string | null
@@ -837,6 +1061,60 @@ export type Database = {
           },
         ]
       }
+      scan_agents: {
+        Row: {
+          auth_token_hash: string
+          created_at: string | null
+          created_by: string | null
+          domain_id: string
+          id: string
+          last_seen_at: string | null
+          name: string
+          site_tag: string | null
+          status: string | null
+          version: string | null
+        }
+        Insert: {
+          auth_token_hash: string
+          created_at?: string | null
+          created_by?: string | null
+          domain_id: string
+          id?: string
+          last_seen_at?: string | null
+          name: string
+          site_tag?: string | null
+          status?: string | null
+          version?: string | null
+        }
+        Update: {
+          auth_token_hash?: string
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string
+          id?: string
+          last_seen_at?: string | null
+          name?: string
+          site_tag?: string | null
+          status?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_agents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_agents_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scan_jobs: {
         Row: {
           created_at: string | null
@@ -959,6 +1237,51 @@ export type Database = {
             columns: ["scan_job_id"]
             isOneToOne: false
             referencedRelation: "scan_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scan_snapshots: {
+        Row: {
+          created_at: string | null
+          file_share_id: string
+          id: string
+          scan_id: string
+          total_bytes: number | null
+          total_files: number | null
+          total_folders: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_share_id: string
+          id?: string
+          scan_id: string
+          total_bytes?: number | null
+          total_files?: number | null
+          total_folders?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          file_share_id?: string
+          id?: string
+          scan_id?: string
+          total_bytes?: number | null
+          total_files?: number | null
+          total_folders?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_snapshots_file_share_id_fkey"
+            columns: ["file_share_id"]
+            isOneToOne: false
+            referencedRelation: "file_shares"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_snapshots_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "fileshare_scans"
             referencedColumns: ["id"]
           },
         ]
@@ -1754,6 +2077,7 @@ export type Database = {
     Functions: {
       can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
+      can_edit_domain: { Args: { _domain_id: string }; Returns: boolean }
       get_my_profile_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }

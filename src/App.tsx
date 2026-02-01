@@ -30,6 +30,9 @@ import ITTools from "./pages/ITTools";
 import OnCallSchedule from "./pages/OnCallSchedule";
 import MaintenanceWindows from "./pages/MaintenanceWindows";
 import LifecycleCenter from "./pages/LifecycleCenter";
+import FileShares from "./pages/FileShares";
+import FileShareDetails from "./pages/FileShareDetails";
+import ScanAgents from "./pages/ScanAgents";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +76,9 @@ const App = () => (
                 <Route path="/on-call" element={<OnCallSchedule />} />
                 <Route path="/maintenance" element={<MaintenanceWindows />} />
                 <Route path="/lifecycle" element={<LifecycleCenter />} />
+                <Route path="/file-shares" element={<FileShares />} />
+                <Route path="/file-shares/:id" element={<FileShareDetails />} />
+                <Route path="/scan-agents" element={<ScanAgents />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               
