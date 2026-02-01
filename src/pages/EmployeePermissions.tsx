@@ -68,12 +68,12 @@ interface NewEmployeeForm {
   department: string;
   position: string;
   phone: string;
-  role: 'admin' | 'employee';
+  role: 'super_admin' | 'admin' | 'employee';
 }
 
 const EmployeePermissions: React.FC = () => {
   const { t, dir, language } = useLanguage();
-  const { isAdmin, user } = useAuth();
+  const { isSuperAdmin, isAdmin, user } = useAuth();
   const { toast } = useToast();
   const { data: profiles, isLoading: profilesLoading, refetch: refetchProfiles } = useProfiles();
   const { data: domains, isLoading: domainsLoading } = useDomains();
@@ -110,7 +110,7 @@ const EmployeePermissions: React.FC = () => {
   });
   
   const [newPassword, setNewPassword] = useState('');
-  const [selectedNewRole, setSelectedNewRole] = useState<'admin' | 'employee'>('employee');
+  const [selectedNewRole, setSelectedNewRole] = useState<'super_admin' | 'admin' | 'employee'>('employee');
 
   // Filter profiles based on search and active tab
   const filteredProfiles = profiles.filter(profile => {
@@ -120,7 +120,8 @@ const EmployeePermissions: React.FC = () => {
       (profile.department?.toLowerCase() || '').includes(searchQuery.toLowerCase());
     
     if (activeTab === 'all') return matchesSearch;
-    if (activeTab === 'admins') return matchesSearch && profile.role === 'admin';
+    if (activeTab === 'superAdmins') return matchesSearch && profile.role === 'super_admin';
+    if (activeTab === 'admins') return matchesSearch && (profile.role === 'admin' || profile.role === 'super_admin');
     if (activeTab === 'employees') return matchesSearch && profile.role === 'employee';
     return matchesSearch;
   });
@@ -465,7 +466,8 @@ const EmployeePermissions: React.FC = () => {
     });
   };
 
-  if (!isAdmin) {
+  // Only Super Admin can access this page
+  if (!isSuperAdmin) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-4">

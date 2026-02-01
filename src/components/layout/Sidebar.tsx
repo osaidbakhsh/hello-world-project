@@ -82,7 +82,7 @@ const allMenuItems: MenuItem[] = [
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { t, language, setLanguage, dir } = useLanguage();
-  const { profile, signOut, isAdmin } = useAuth();
+  const { profile, signOut, isSuperAdmin, isAdmin, userRole } = useAuth();
   const { appName } = useAppName();
   const { getSetting } = useAppSettings();
   const { theme, setTheme } = useTheme();
@@ -126,8 +126,14 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     loadSidebarOrder();
   }, [loadSidebarOrder]);
 
-  // Filter menu items based on admin status
-  const visibleMenuItems = orderedMenuItems.filter(item => !item.adminOnly || isAdmin);
+  // Filter menu items based on role
+  // Employee Permissions page - Super Admin only
+  // Other adminOnly pages - Admin or Super Admin
+  const visibleMenuItems = orderedMenuItems.filter(item => {
+    if (item.id === 'employeePermissions') return isSuperAdmin;
+    if (item.adminOnly) return isAdmin;
+    return true;
+  });
 
   const CollapseIcon = dir === 'rtl' 
     ? (collapsed ? ChevronLeft : ChevronRight)
@@ -182,10 +188,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                 variant="outline" 
                 className={cn(
                   "text-[10px] px-1.5 py-0",
+                  isSuperAdmin ? "border-destructive text-destructive" :
                   isAdmin ? "border-accent text-accent" : "border-primary text-primary"
                 )}
               >
-                {isAdmin ? t('employees.admin') : t('employees.employee')}
+                {isSuperAdmin ? t('employees.superAdmin') : isAdmin ? t('employees.admin') : t('employees.employee')}
               </Badge>
             </div>
             {/* Notification Bell */}
