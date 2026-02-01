@@ -1,74 +1,678 @@
 import { supabase } from '@/integrations/supabase/client';
 
-// Sample domains data
-const sampleDomains = [
-  { name: 'example.local', description: 'Main corporate domain' },
-  { name: 'dev.example.local', description: 'Development domain' },
-  { name: 'test.example.local', description: 'Testing domain' },
+// Professional domains - 3 distinct domains
+const professionalDomains = [
+  { name: 'os.com', description: 'Operations & Systems Domain - Core infrastructure management' },
+  { name: 'at.com', description: 'Applications & Technology Domain - Development and applications' },
+  { name: 'is.com', description: 'Infrastructure & Security Domain - Security and network operations' },
 ];
 
-// Sample networks data
-const sampleNetworks = [
-  { name: 'Production Network', subnet: '192.168.1.0/24', gateway: '192.168.1.1', dns_servers: ['8.8.8.8', '8.8.4.4'] },
-  { name: 'Development Network', subnet: '192.168.2.0/24', gateway: '192.168.2.1', dns_servers: ['8.8.8.8'] },
-  { name: 'DMZ Network', subnet: '10.0.0.0/24', gateway: '10.0.0.1', dns_servers: ['1.1.1.1'] },
+// Professional networks - 2 per domain
+const professionalNetworks = [
+  // os.com
+  { domainName: 'os.com', name: 'OS-PROD-NET', subnet: '10.10.1.0/24', gateway: '10.10.1.1', dns_servers: ['10.10.1.10', '10.10.1.11'] },
+  { domainName: 'os.com', name: 'OS-MGMT-NET', subnet: '10.10.2.0/24', gateway: '10.10.2.1', dns_servers: ['10.10.1.10'] },
+  // at.com
+  { domainName: 'at.com', name: 'AT-APP-NET', subnet: '10.20.1.0/24', gateway: '10.20.1.1', dns_servers: ['10.10.1.10', '10.10.1.11'] },
+  { domainName: 'at.com', name: 'AT-DEV-NET', subnet: '10.20.2.0/24', gateway: '10.20.2.1', dns_servers: ['10.10.1.10'] },
+  // is.com
+  { domainName: 'is.com', name: 'IS-SEC-NET', subnet: '10.30.1.0/24', gateway: '10.30.1.1', dns_servers: ['10.10.1.10'] },
+  { domainName: 'is.com', name: 'IS-DMZ-NET', subnet: '10.30.100.0/24', gateway: '10.30.100.1', dns_servers: ['8.8.8.8', '8.8.4.4'] },
 ];
 
-// Sample servers data
-const sampleServers = [
-  { name: 'DC01', ip_address: '192.168.1.10', operating_system: 'Windows Server 2022', environment: 'production', status: 'active', owner: 'IT Department', responsible_user: 'Admin', primary_application: 'Active Directory', is_backed_up_by_veeam: true, backup_frequency: 'daily' },
-  { name: 'WEB01', ip_address: '192.168.1.20', operating_system: 'Ubuntu 22.04 LTS', environment: 'production', status: 'active', owner: 'DevOps', responsible_user: 'WebAdmin', primary_application: 'Nginx', is_backed_up_by_veeam: true, backup_frequency: 'daily' },
-  { name: 'DB01', ip_address: '192.168.1.30', operating_system: 'Windows Server 2022', environment: 'production', status: 'active', owner: 'DBA Team', responsible_user: 'DBAdmin', primary_application: 'SQL Server 2022', is_backed_up_by_veeam: true, backup_frequency: 'daily' },
-  { name: 'APP01', ip_address: '192.168.1.40', operating_system: 'Windows Server 2019', environment: 'production', status: 'active', owner: 'Development', responsible_user: 'AppAdmin', primary_application: 'IIS', is_backed_up_by_veeam: true, backup_frequency: 'weekly' },
-  { name: 'DEV01', ip_address: '192.168.2.10', operating_system: 'Ubuntu 22.04 LTS', environment: 'development', status: 'active', owner: 'Development', responsible_user: 'Developer', primary_application: 'Docker', is_backed_up_by_veeam: false },
-  { name: 'TEST01', ip_address: '192.168.2.20', operating_system: 'Windows Server 2019', environment: 'testing', status: 'active', owner: 'QA Team', responsible_user: 'QA Lead', primary_application: 'Test Suite', is_backed_up_by_veeam: false },
-  { name: 'MAIL01', ip_address: '192.168.1.50', operating_system: 'Windows Server 2022', environment: 'production', status: 'active', owner: 'IT Department', responsible_user: 'MailAdmin', primary_application: 'Exchange 2019', is_backed_up_by_veeam: true, backup_frequency: 'daily' },
-  { name: 'FILE01', ip_address: '192.168.1.60', operating_system: 'Windows Server 2022', environment: 'production', status: 'active', owner: 'IT Department', responsible_user: 'FileAdmin', primary_application: 'File Server', is_backed_up_by_veeam: true, backup_frequency: 'daily' },
+// Professional servers - 6-10 per domain with critical roles
+const professionalServers = [
+  // os.com servers (8)
+  { 
+    networkName: 'OS-PROD-NET',
+    name: 'OS-DC01', 
+    ip_address: '10.10.1.10', 
+    server_role: ['DC', 'DNS', 'DHCP'],
+    primary_application: 'Active Directory',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    last_backup_status: 'success',
+    vendor: 'Dell',
+    model: 'PowerEdge R750',
+    serial_number: 'DELL-OSDC01-2024A',
+    purchase_date: '2023-01-15',
+    warranty_end: '2028-01-15',
+    eol_date: '2030-10-14',
+    eos_date: '2032-10-13',
+    owner: 'IT Operations',
+    responsible_user: 'Admin Team',
+    beneficiary_department: 'All Departments',
+  },
+  { 
+    networkName: 'OS-PROD-NET',
+    name: 'OS-DC02', 
+    ip_address: '10.10.1.11', 
+    server_role: ['DC', 'DNS'],
+    primary_application: 'Active Directory (Replica)',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    last_backup_status: 'success',
+    vendor: 'Dell',
+    model: 'PowerEdge R750',
+    serial_number: 'DELL-OSDC02-2024B',
+    purchase_date: '2023-01-15',
+    warranty_end: '2028-01-15',
+    eol_date: '2030-10-14',
+    eos_date: '2032-10-13',
+    owner: 'IT Operations',
+    responsible_user: 'Admin Team',
+  },
+  { 
+    networkName: 'OS-PROD-NET',
+    name: 'OS-CA01', 
+    ip_address: '10.10.1.20', 
+    server_role: ['CA'],
+    primary_application: 'Enterprise Certificate Authority',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'weekly',
+    last_backup_status: 'success',
+    vendor: 'HP',
+    model: 'ProLiant DL380 Gen10',
+    serial_number: 'HP-OSCA01-2023C',
+    purchase_date: '2022-06-10',
+    warranty_end: '2027-06-10',
+    owner: 'Security Team',
+  },
+  { 
+    networkName: 'OS-PROD-NET',
+    name: 'OS-FILE01', 
+    ip_address: '10.10.1.30', 
+    server_role: ['File'],
+    primary_application: 'Windows File Server (DFS)',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    last_backup_status: 'success',
+    vendor: 'Dell',
+    model: 'PowerEdge R750',
+    serial_number: 'DELL-FILE01-2024D',
+    purchase_date: '2023-03-20',
+    warranty_end: '2028-03-20',
+    owner: 'IT Operations',
+    beneficiary_department: 'All Departments',
+  },
+  { 
+    networkName: 'OS-PROD-NET',
+    name: 'OS-PRINT01', 
+    ip_address: '10.10.1.31', 
+    server_role: ['Print'],
+    primary_application: 'Print Server',
+    operating_system: 'Windows Server 2019',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: false,
+    vendor: 'HP',
+    model: 'ProLiant DL360 Gen10',
+    serial_number: 'HP-PRINT01-2021E',
+    purchase_date: '2021-08-15',
+    warranty_end: '2024-08-15', // Expired warranty
+    eol_date: '2027-01-09',
+    eos_date: '2029-01-09',
+    owner: 'IT Operations',
+  },
+  { 
+    networkName: 'OS-MGMT-NET',
+    name: 'OS-BACKUP01', 
+    ip_address: '10.10.2.10', 
+    server_role: ['Backup'],
+    primary_application: 'Veeam Backup & Replication',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    last_backup_status: 'success',
+    vendor: 'Dell',
+    model: 'PowerEdge R750xs',
+    serial_number: 'DELL-BACKUP01-2024F',
+    purchase_date: '2023-05-01',
+    warranty_end: '2028-05-01',
+    owner: 'IT Operations',
+    rpo_hours: 24,
+    rto_hours: 4,
+  },
+  { 
+    networkName: 'OS-MGMT-NET',
+    name: 'OS-WSUS01', 
+    ip_address: '10.10.2.20', 
+    server_role: ['IIS'],
+    primary_application: 'Windows Server Update Services',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'weekly',
+    vendor: 'HP',
+    model: 'ProLiant DL380 Gen10',
+    serial_number: 'HP-WSUS01-2023G',
+    owner: 'IT Operations',
+  },
+  { 
+    networkName: 'OS-MGMT-NET',
+    name: 'OS-SCCM01', 
+    ip_address: '10.10.2.30', 
+    server_role: ['SQL', 'IIS'],
+    primary_application: 'Microsoft SCCM/Endpoint Manager',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    vendor: 'Dell',
+    model: 'PowerEdge R750',
+    serial_number: 'DELL-SCCM01-2024H',
+    owner: 'IT Operations',
+  },
+
+  // at.com servers (7)
+  { 
+    networkName: 'AT-APP-NET',
+    name: 'AT-EXCH01', 
+    ip_address: '10.20.1.10', 
+    server_role: ['Exchange'],
+    primary_application: 'Microsoft Exchange 2019',
+    operating_system: 'Windows Server 2019',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    last_backup_status: 'success',
+    vendor: 'Dell',
+    model: 'PowerEdge R750',
+    serial_number: 'DELL-EXCH01-2023I',
+    purchase_date: '2022-11-20',
+    warranty_end: '2027-11-20',
+    eol_date: '2025-10-14', // EOL approaching
+    eos_date: '2029-10-14',
+    owner: 'IT Applications',
+    beneficiary_department: 'All Departments',
+    rpo_hours: 1,
+    rto_hours: 2,
+  },
+  { 
+    networkName: 'AT-APP-NET',
+    name: 'AT-SQL01', 
+    ip_address: '10.20.1.20', 
+    server_role: ['SQL'],
+    primary_application: 'SQL Server 2022 Enterprise',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    last_backup_status: 'success',
+    vendor: 'Dell',
+    model: 'PowerEdge R750xa',
+    serial_number: 'DELL-SQL01-2024J',
+    purchase_date: '2023-08-10',
+    warranty_end: '2028-08-10',
+    owner: 'DBA Team',
+    rpo_hours: 1,
+    rto_hours: 2,
+  },
+  { 
+    networkName: 'AT-APP-NET',
+    name: 'AT-APP01', 
+    ip_address: '10.20.1.30', 
+    server_role: ['IIS'],
+    primary_application: 'Corporate Intranet Portal',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    vendor: 'HP',
+    model: 'ProLiant DL380 Gen10',
+    serial_number: 'HP-APP01-2023K',
+    owner: 'Development Team',
+  },
+  { 
+    networkName: 'AT-APP-NET',
+    name: 'AT-GITLAB01', 
+    ip_address: '10.20.1.40', 
+    server_role: [],
+    primary_application: 'GitLab CE',
+    operating_system: 'Ubuntu 22.04 LTS',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    last_backup_status: 'success',
+    vendor: 'Dell',
+    model: 'PowerEdge R650',
+    serial_number: 'DELL-GITLAB01-2024L',
+    owner: 'Development Team',
+  },
+  { 
+    networkName: 'AT-DEV-NET',
+    name: 'AT-JENKINS01', 
+    ip_address: '10.20.2.10', 
+    server_role: [],
+    primary_application: 'Jenkins CI/CD',
+    operating_system: 'Ubuntu 22.04 LTS',
+    environment: 'development',
+    status: 'active',
+    is_backed_up_by_veeam: false,
+    vendor: 'HP',
+    model: 'ProLiant DL360 Gen10',
+    serial_number: 'HP-JENKINS01-2023M',
+    owner: 'DevOps Team',
+  },
+  { 
+    networkName: 'AT-DEV-NET',
+    name: 'AT-DEV01', 
+    ip_address: '10.20.2.20', 
+    server_role: [],
+    primary_application: 'Development Docker Host',
+    operating_system: 'Ubuntu 22.04 LTS',
+    environment: 'development',
+    status: 'active',
+    is_backed_up_by_veeam: false,
+    vendor: 'Dell',
+    model: 'PowerEdge R650',
+    owner: 'Development Team',
+  },
+  { 
+    networkName: 'AT-DEV-NET',
+    name: 'AT-TEST01', 
+    ip_address: '10.20.2.30', 
+    server_role: ['IIS', 'SQL'],
+    primary_application: 'Testing Environment',
+    operating_system: 'Windows Server 2022',
+    environment: 'testing',
+    status: 'active',
+    is_backed_up_by_veeam: false,
+    vendor: 'HP',
+    model: 'ProLiant DL360 Gen10',
+    owner: 'QA Team',
+  },
+
+  // is.com servers (6)
+  { 
+    networkName: 'IS-SEC-NET',
+    name: 'IS-SIEM01', 
+    ip_address: '10.30.1.10', 
+    server_role: [],
+    primary_application: 'SIEM - Wazuh/ELK Stack',
+    operating_system: 'Ubuntu 22.04 LTS',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'daily',
+    vendor: 'Dell',
+    model: 'PowerEdge R750xs',
+    serial_number: 'DELL-SIEM01-2024N',
+    owner: 'Security Team',
+  },
+  { 
+    networkName: 'IS-SEC-NET',
+    name: 'IS-MONITOR01', 
+    ip_address: '10.30.1.20', 
+    server_role: [],
+    primary_application: 'Zabbix Monitoring',
+    operating_system: 'Ubuntu 22.04 LTS',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'weekly',
+    vendor: 'HP',
+    model: 'ProLiant DL380 Gen10',
+    serial_number: 'HP-MON01-2023O',
+    owner: 'Network Team',
+  },
+  { 
+    networkName: 'IS-SEC-NET',
+    name: 'IS-GRAFANA01', 
+    ip_address: '10.30.1.21', 
+    server_role: [],
+    primary_application: 'Grafana Dashboard',
+    operating_system: 'Ubuntu 22.04 LTS',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: false,
+    vendor: 'Dell',
+    model: 'PowerEdge R450',
+    owner: 'Network Team',
+  },
+  { 
+    networkName: 'IS-SEC-NET',
+    name: 'IS-FW-MGMT01', 
+    ip_address: '10.30.1.30', 
+    server_role: [],
+    primary_application: 'Firewall Management Console',
+    operating_system: 'Windows Server 2022',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'weekly',
+    vendor: 'HP',
+    model: 'ProLiant DL360 Gen10',
+    owner: 'Security Team',
+  },
+  { 
+    networkName: 'IS-DMZ-NET',
+    name: 'IS-PROXY01', 
+    ip_address: '10.30.100.10', 
+    server_role: [],
+    primary_application: 'Squid Proxy Server',
+    operating_system: 'Ubuntu 22.04 LTS',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: false,
+    vendor: 'Dell',
+    model: 'PowerEdge R450',
+    owner: 'Network Team',
+  },
+  { 
+    networkName: 'IS-DMZ-NET',
+    name: 'IS-VPN01', 
+    ip_address: '10.30.100.20', 
+    server_role: [],
+    primary_application: 'OpenVPN Access Server',
+    operating_system: 'Ubuntu 22.04 LTS',
+    environment: 'production',
+    status: 'active',
+    is_backed_up_by_veeam: true,
+    backup_frequency: 'weekly',
+    vendor: 'HP',
+    model: 'ProLiant DL360 Gen10',
+    owner: 'Network Team',
+  },
 ];
 
-// Sample licenses data
-const sampleLicenses = [
-  { name: 'Microsoft 365 E3', vendor: 'Microsoft', license_key: 'XXXXX-XXXXX-XXXXX-XXXXX', quantity: 100, expiry_date: '2026-12-31', cost: 35000, status: 'active' },
-  { name: 'VMware vSphere Enterprise', vendor: 'VMware', license_key: 'VMWARE-XXXXX-XXXXX', quantity: 10, expiry_date: '2026-06-30', cost: 15000, status: 'active' },
-  { name: 'Veeam Backup & Replication', vendor: 'Veeam', license_key: 'VEEAM-XXXXX-XXXXX', quantity: 20, expiry_date: '2026-03-15', cost: 8000, status: 'active' },
-  { name: 'Windows Server 2022 Datacenter', vendor: 'Microsoft', license_key: 'WINSVR-XXXXX-XXXXX', quantity: 5, expiry_date: '2027-01-01', cost: 12000, status: 'active' },
-  { name: 'SQL Server 2022 Enterprise', vendor: 'Microsoft', license_key: 'SQLSVR-XXXXX-XXXXX', quantity: 2, expiry_date: '2026-09-30', cost: 25000, status: 'active' },
-  { name: 'Adobe Creative Cloud', vendor: 'Adobe', license_key: 'ADOBE-XXXXX-XXXXX', quantity: 10, expiry_date: '2026-02-28', cost: 6000, status: 'active' },
-  { name: 'Kaspersky Endpoint Security', vendor: 'Kaspersky', license_key: 'KASP-XXXXX-XXXXX', quantity: 200, expiry_date: '2026-04-15', cost: 4500, status: 'active' },
+// Professional licenses with varied expiry dates
+const professionalLicenses = [
+  // Expired
+  { 
+    name: 'Adobe Acrobat Pro DC', 
+    vendor: 'Adobe', 
+    license_key: 'ADOBE-XXXX-XXXX-XXXX',
+    quantity: 15,
+    expiry_date: '2025-12-01', // Expired
+    cost: 4500,
+    status: 'expired',
+  },
+  // Expiring within 30 days (current date is 2026-02-01)
+  { 
+    name: 'Kaspersky Endpoint Security', 
+    vendor: 'Kaspersky', 
+    license_key: 'KASP-XXXX-XXXX-XXXX',
+    quantity: 200,
+    expiry_date: '2026-02-15', // 14 days
+    cost: 8500,
+    status: 'active',
+  },
+  { 
+    name: 'VMware vSphere Enterprise Plus', 
+    vendor: 'VMware', 
+    license_key: 'VMWARE-VSPH-XXXX-XXXX',
+    quantity: 10,
+    expiry_date: '2026-02-20', // 19 days
+    cost: 45000,
+    status: 'active',
+  },
+  { 
+    name: 'Veeam Backup & Replication Enterprise', 
+    vendor: 'Veeam', 
+    license_key: 'VEEAM-XXXX-XXXX-XXXX',
+    quantity: 20,
+    expiry_date: '2026-02-28', // 27 days
+    cost: 15000,
+    status: 'active',
+  },
+  // Valid licenses
+  { 
+    name: 'Microsoft 365 E3', 
+    vendor: 'Microsoft', 
+    license_key: 'M365-E3-XXXX-XXXX',
+    quantity: 150,
+    expiry_date: '2027-06-30',
+    cost: 75000,
+    status: 'active',
+  },
+  { 
+    name: 'Windows Server 2022 Datacenter', 
+    vendor: 'Microsoft', 
+    license_key: 'WINSRV-DC-XXXX-XXXX',
+    quantity: 8,
+    expiry_date: '2028-01-01',
+    cost: 48000,
+    status: 'active',
+  },
+  { 
+    name: 'SQL Server 2022 Enterprise', 
+    vendor: 'Microsoft', 
+    license_key: 'SQLSRV-ENT-XXXX-XXXX',
+    quantity: 4,
+    expiry_date: '2028-01-01',
+    cost: 60000,
+    status: 'active',
+  },
+  { 
+    name: 'Red Hat Enterprise Linux', 
+    vendor: 'Red Hat', 
+    license_key: 'RHEL-XXXX-XXXX-XXXX',
+    quantity: 20,
+    expiry_date: '2027-03-15',
+    cost: 12000,
+    status: 'active',
+  },
+  { 
+    name: 'Splunk Enterprise', 
+    vendor: 'Splunk', 
+    license_key: 'SPLUNK-XXXX-XXXX-XXXX',
+    quantity: 1,
+    expiry_date: '2026-09-30',
+    cost: 35000,
+    status: 'active',
+  },
+  { 
+    name: 'ServiceNow ITSM', 
+    vendor: 'ServiceNow', 
+    license_key: 'SNOW-XXXX-XXXX-XXXX',
+    quantity: 50,
+    expiry_date: '2026-12-31',
+    cost: 85000,
+    status: 'active',
+  },
 ];
 
-// Sample tasks data
-const sampleTasks = [
-  { title: 'Weekly Backup Verification', description: 'Verify all server backups are completing successfully', priority: 'p2', frequency: 'weekly', status: 'pending', task_status: 'todo' },
-  { title: 'Monthly Security Patches', description: 'Apply monthly security patches to all production servers', priority: 'p1', frequency: 'monthly', status: 'pending', task_status: 'todo' },
-  { title: 'SSL Certificate Renewal', description: 'Renew SSL certificates for web applications', priority: 'p1', frequency: 'once', status: 'pending', task_status: 'in_progress' },
-  { title: 'Firewall Rules Review', description: 'Review and update firewall rules for security compliance', priority: 'p2', frequency: 'monthly', status: 'pending', task_status: 'todo' },
-  { title: 'Database Optimization', description: 'Optimize database indexes and clean up old records', priority: 'p3', frequency: 'weekly', status: 'pending', task_status: 'todo' },
-  { title: 'User Access Audit', description: 'Review user access permissions across all systems', priority: 'p2', frequency: 'monthly', status: 'pending', task_status: 'review' },
-  { title: 'Disk Space Monitoring', description: 'Monitor disk space on all servers and clean up if needed', priority: 'p3', frequency: 'daily', status: 'pending', task_status: 'todo' },
-  { title: 'Network Performance Check', description: 'Check network performance and latency across all sites', priority: 'p3', frequency: 'weekly', status: 'pending', task_status: 'done' },
+// Professional tasks with varied statuses
+const professionalTasks = [
+  // Overdue tasks (due date in the past - before 2026-02-01)
+  { 
+    title: 'تجديد شهادة SSL لبوابة الموظفين',
+    description: 'تجديد شهادة SSL للبوابة الداخلية قبل انتهائها - أولوية قصوى',
+    priority: 'p1',
+    frequency: 'once',
+    due_date: '2026-01-15',
+    task_status: 'todo',
+  },
+  { 
+    title: 'مراجعة صلاحيات المستخدمين للربع الأول',
+    description: 'مراجعة شاملة لصلاحيات الوصول لجميع المستخدمين',
+    priority: 'p2',
+    frequency: 'once',
+    due_date: '2026-01-20',
+    task_status: 'todo',
+  },
+  // In progress tasks
+  { 
+    title: 'ترقية VMware vSphere إلى 8.0',
+    description: 'ترقية منصة الافتراضية إلى الإصدار الأخير مع الحفاظ على التوافق',
+    priority: 'p2',
+    frequency: 'once',
+    due_date: '2026-02-15',
+    task_status: 'in_progress',
+  },
+  { 
+    title: 'تحديث سياسات النسخ الاحتياطي',
+    description: 'تحديث سياسات Veeam لتشمل السيرفرات الجديدة',
+    priority: 'p2',
+    frequency: 'once',
+    due_date: '2026-02-10',
+    task_status: 'in_progress',
+  },
+  // Todo tasks
+  { 
+    title: 'تثبيت تحديثات أمان Windows',
+    description: 'تثبيت تحديثات الأمان الشهرية على جميع سيرفرات Windows',
+    priority: 'p1',
+    frequency: 'monthly',
+    due_date: '2026-02-28',
+    task_status: 'todo',
+  },
+  { 
+    title: 'اختبار خطة التعافي من الكوارث',
+    description: 'إجراء اختبار DR للتأكد من صلاحية خطة التعافي',
+    priority: 'p2',
+    frequency: 'once',
+    due_date: '2026-03-15',
+    task_status: 'todo',
+  },
+  { 
+    title: 'تجديد شهادات SSL للتطبيقات',
+    description: 'تجديد شهادات SSL لـ GitLab و Jenkins والتطبيقات الأخرى',
+    priority: 'p2',
+    frequency: 'once',
+    due_date: '2026-03-01',
+    task_status: 'todo',
+  },
+  // Done tasks
+  { 
+    title: 'تكوين النسخ الاحتياطي للسيرفرات الجديدة',
+    description: 'إعداد jobs النسخ الاحتياطي للسيرفرات المضافة حديثاً',
+    priority: 'p2',
+    frequency: 'once',
+    due_date: '2026-01-25',
+    task_status: 'done',
+  },
+  { 
+    title: 'توثيق بنية الشبكة',
+    description: 'تحديث وثائق الشبكة وإضافة المخططات الجديدة',
+    priority: 'p3',
+    frequency: 'once',
+    due_date: '2026-01-10',
+    task_status: 'done',
+  },
+  { 
+    title: 'إعداد monitoring للسيرفرات الجديدة',
+    description: 'إضافة السيرفرات الجديدة لنظام Zabbix',
+    priority: 'p2',
+    frequency: 'once',
+    due_date: '2026-01-30',
+    task_status: 'done',
+  },
 ];
 
-// Sample web applications data
-const sampleWebApps = [
-  { name: 'GitLab', url: 'https://gitlab.example.local', category: 'development', icon: '🦊', description: 'Git repository management', is_active: true },
-  { name: 'Grafana', url: 'https://grafana.example.local', category: 'monitoring', icon: '📊', description: 'Metrics and monitoring dashboard', is_active: true },
-  { name: 'Zabbix', url: 'https://zabbix.example.local', category: 'monitoring', icon: '🔍', description: 'Infrastructure monitoring', is_active: true },
-  { name: 'Jenkins', url: 'https://jenkins.example.local', category: 'development', icon: '🔧', description: 'CI/CD automation server', is_active: true },
-  { name: 'Confluence', url: 'https://confluence.example.local', category: 'communication', icon: '📝', description: 'Documentation wiki', is_active: true },
-  { name: 'Jira', url: 'https://jira.example.local', category: 'development', icon: '🎫', description: 'Issue tracking', is_active: true },
-  { name: 'Portainer', url: 'https://portainer.example.local', category: 'infrastructure', icon: '🐳', description: 'Docker management', is_active: true },
-  { name: 'pfSense', url: 'https://pfsense.example.local', category: 'security', icon: '🔒', description: 'Firewall management', is_active: true },
+// Web Applications
+const professionalWebApps = [
+  { 
+    name: 'Active Directory Admin Center', 
+    url: 'https://adac.os.com',
+    category: 'infrastructure',
+    icon: '🔐',
+    description: 'إدارة Active Directory',
+    is_active: true,
+  },
+  { 
+    name: 'GitLab', 
+    url: 'https://gitlab.at.com',
+    category: 'development',
+    icon: '🦊',
+    description: 'إدارة المستودعات و CI/CD',
+    is_active: true,
+  },
+  { 
+    name: 'Grafana', 
+    url: 'https://grafana.is.com',
+    category: 'monitoring',
+    icon: '📊',
+    description: 'لوحات المراقبة والتحليلات',
+    is_active: true,
+  },
+  { 
+    name: 'Jenkins', 
+    url: 'https://jenkins.at.com',
+    category: 'development',
+    icon: '🔧',
+    description: 'خادم CI/CD',
+    is_active: true,
+  },
+  { 
+    name: 'Zabbix', 
+    url: 'https://zabbix.is.com',
+    category: 'monitoring',
+    icon: '🔍',
+    description: 'مراقبة البنية التحتية',
+    is_active: true,
+  },
+  { 
+    name: 'Veeam Console', 
+    url: 'https://backup.os.com',
+    category: 'backup',
+    icon: '💾',
+    description: 'إدارة النسخ الاحتياطي',
+    is_active: true,
+  },
+  { 
+    name: 'Confluence Wiki', 
+    url: 'https://wiki.at.com',
+    category: 'documentation',
+    icon: '📝',
+    description: 'قاعدة المعرفة والتوثيق',
+    is_active: true,
+  },
+  { 
+    name: 'Wazuh SIEM', 
+    url: 'https://siem.is.com',
+    category: 'security',
+    icon: '🛡️',
+    description: 'نظام SIEM للأمان',
+    is_active: true,
+  },
+  { 
+    name: 'Exchange Admin Center', 
+    url: 'https://mail.at.com/ecp',
+    category: 'communication',
+    icon: '📧',
+    description: 'إدارة Exchange',
+    is_active: true,
+  },
+  { 
+    name: 'Firewall Console', 
+    url: 'https://fw.is.com',
+    category: 'security',
+    icon: '🔥',
+    description: 'إدارة جدار الحماية',
+    is_active: true,
+  },
 ];
 
-// Sample vault items data
-const sampleVaultItems = [
-  { title: 'DC01 Administrator', username: 'administrator', item_type: 'server', url: 'DC01', notes: 'Primary domain controller admin account' },
-  { title: 'GitLab Root', username: 'root', item_type: 'website', url: 'https://gitlab.example.local', notes: 'GitLab root admin account' },
-  { title: 'SQL Server SA', username: 'sa', item_type: 'server', url: 'DB01', notes: 'SQL Server system administrator' },
-  { title: 'VMware vCenter', username: 'administrator@vsphere.local', item_type: 'application', url: 'https://vcenter.example.local', notes: 'vCenter admin account' },
-  { title: 'Firewall Admin', username: 'admin', item_type: 'network_device', url: '192.168.1.1', notes: 'Main firewall admin account' },
-  { title: 'Cloud API Key', username: 'api_key', item_type: 'api_key', notes: 'Production cloud API key' },
+// Vault items
+const professionalVaultItems = [
+  { title: 'OS-DC01 Administrator', username: 'administrator', item_type: 'server', url: 'OS-DC01', notes: 'Primary domain controller admin' },
+  { title: 'GitLab Root Account', username: 'root', item_type: 'website', url: 'https://gitlab.at.com', notes: 'GitLab root admin' },
+  { title: 'SQL Server SA', username: 'sa', item_type: 'server', url: 'AT-SQL01', notes: 'SQL Server system administrator' },
+  { title: 'Veeam Service Account', username: 'svc_veeam', item_type: 'application', url: 'OS-BACKUP01', notes: 'Veeam service account' },
+  { title: 'Firewall Admin', username: 'admin', item_type: 'network_device', url: '10.30.1.1', notes: 'Main firewall admin' },
+  { title: 'SIEM API Key', username: 'api_key', item_type: 'api_key', notes: 'Wazuh API key for integrations' },
 ];
 
 export interface SeedResult {
@@ -87,7 +691,7 @@ export interface SeedResult {
 
 export async function seedAllData(): Promise<SeedResult> {
   try {
-    // Get current user's profile for created_by fields
+    // Get current user's profile
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { success: false, message: 'User not authenticated' };
@@ -113,10 +717,10 @@ export async function seedAllData(): Promise<SeedResult> {
       vaultItems: 0,
     };
 
-    // 1. Create Domains
-    const { data: existingDomains } = await supabase.from('domains').select('name');
+    // 1. Create Domains (only the 3 professional domains)
+    const { data: existingDomains } = await supabase.from('domains').select('name, id');
     const existingDomainNames = existingDomains?.map(d => d.name) || [];
-    const newDomains = sampleDomains.filter(d => !existingDomainNames.includes(d.name));
+    const newDomains = professionalDomains.filter(d => !existingDomainNames.includes(d.name));
     
     if (newDomains.length > 0) {
       const { data: createdDomains, error: domainError } = await supabase
@@ -128,19 +732,23 @@ export async function seedAllData(): Promise<SeedResult> {
       createdCounts.domains = createdDomains?.length || 0;
     }
 
-    // Get all domains for network creation
+    // Get all domains for mapping
     const { data: allDomains } = await supabase.from('domains').select('*');
     const domainMap = new Map(allDomains?.map(d => [d.name, d.id]) || []);
 
     // 2. Create Networks
-    const { data: existingNetworks } = await supabase.from('networks').select('name');
+    const { data: existingNetworks } = await supabase.from('networks').select('name, id');
     const existingNetworkNames = existingNetworks?.map(n => n.name) || [];
-    const newNetworks = sampleNetworks
+    const newNetworks = professionalNetworks
       .filter(n => !existingNetworkNames.includes(n.name))
-      .map((network, index) => ({
-        ...network,
-        domain_id: allDomains?.[index % (allDomains?.length || 1)]?.id,
-      }));
+      .map(network => ({
+        name: network.name,
+        subnet: network.subnet,
+        gateway: network.gateway,
+        dns_servers: network.dns_servers,
+        domain_id: domainMap.get(network.domainName),
+      }))
+      .filter(n => n.domain_id);
 
     if (newNetworks.length > 0) {
       const { data: createdNetworks, error: networkError } = await supabase
@@ -152,17 +760,39 @@ export async function seedAllData(): Promise<SeedResult> {
       createdCounts.networks = createdNetworks?.length || 0;
     }
 
-    // Get all networks for server creation
+    // Get all networks for mapping
     const { data: allNetworks } = await supabase.from('networks').select('*');
+    const networkMap = new Map(allNetworks?.map(n => [n.name, n.id]) || []);
 
     // 3. Create Servers
     const { data: existingServers } = await supabase.from('servers').select('name');
     const existingServerNames = existingServers?.map(s => s.name) || [];
-    const newServers = sampleServers
+    const newServers = professionalServers
       .filter(s => !existingServerNames.includes(s.name))
-      .map((server, index) => ({
-        ...server,
-        network_id: allNetworks?.[index % (allNetworks?.length || 1)]?.id,
+      .map(server => ({
+        name: server.name,
+        ip_address: server.ip_address,
+        server_role: server.server_role,
+        primary_application: server.primary_application,
+        operating_system: server.operating_system,
+        environment: server.environment,
+        status: server.status,
+        is_backed_up_by_veeam: server.is_backed_up_by_veeam,
+        backup_frequency: server.backup_frequency || 'none',
+        last_backup_status: server.last_backup_status,
+        vendor: server.vendor,
+        model: server.model,
+        serial_number: server.serial_number,
+        purchase_date: server.purchase_date,
+        warranty_end: server.warranty_end,
+        eol_date: server.eol_date,
+        eos_date: server.eos_date,
+        owner: server.owner,
+        responsible_user: server.responsible_user,
+        beneficiary_department: server.beneficiary_department,
+        rpo_hours: server.rpo_hours,
+        rto_hours: server.rto_hours,
+        network_id: networkMap.get(server.networkName),
         created_by: profile.id,
       }));
 
@@ -176,16 +806,17 @@ export async function seedAllData(): Promise<SeedResult> {
       createdCounts.servers = createdServers?.length || 0;
     }
 
-    // 4. Create Licenses
+    // 4. Create Licenses (assign to first domain)
+    const firstDomainId = domainMap.get('os.com');
     const { data: existingLicenses } = await supabase.from('licenses').select('name');
     const existingLicenseNames = existingLicenses?.map(l => l.name) || [];
-    const newLicenses = sampleLicenses
+    const newLicenses = professionalLicenses
       .filter(l => !existingLicenseNames.includes(l.name))
-      .map((license, index) => ({
+      .map(license => ({
         ...license,
-        domain_id: allDomains?.[index % (allDomains?.length || 1)]?.id,
+        domain_id: firstDomainId,
         created_by: profile.id,
-        purchase_date: new Date().toISOString().split('T')[0],
+        purchase_date: '2023-01-01',
       }));
 
     if (newLicenses.length > 0) {
@@ -201,14 +832,18 @@ export async function seedAllData(): Promise<SeedResult> {
     // 5. Create Tasks
     const { data: existingTasks } = await supabase.from('tasks').select('title');
     const existingTaskTitles = existingTasks?.map(t => t.title) || [];
-    const now = new Date();
-    const newTasks = sampleTasks
+    const newTasks = professionalTasks
       .filter(t => !existingTaskTitles.includes(t.title))
-      .map((task, index) => ({
-        ...task,
+      .map(task => ({
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        frequency: task.frequency,
+        due_date: task.due_date,
+        task_status: task.task_status,
+        status: task.task_status === 'done' ? 'completed' : 'pending',
         assigned_to: profile.id,
         created_by: profile.id,
-        due_date: new Date(now.getTime() + (index + 1) * 24 * 60 * 60 * 1000).toISOString(),
       }));
 
     if (newTasks.length > 0) {
@@ -224,7 +859,7 @@ export async function seedAllData(): Promise<SeedResult> {
     // 6. Create Web Applications
     const { data: existingApps } = await supabase.from('website_applications').select('name');
     const existingAppNames = existingApps?.map(a => a.name) || [];
-    const newWebApps = sampleWebApps
+    const newWebApps = professionalWebApps
       .filter(a => !existingAppNames.includes(a.name))
       .map((app, index) => ({
         ...app,
@@ -242,45 +877,20 @@ export async function seedAllData(): Promise<SeedResult> {
       createdCounts.webApps = createdApps?.length || 0;
     }
 
-    // 7. Create Vault Items (without password - just metadata)
+    // 7. Create Vault Items
     const { data: existingVaultItems } = await supabase.from('vault_items').select('title');
     const existingVaultTitles = existingVaultItems?.map(v => v.title) || [];
-    
-    // Get servers and apps for linking
-    const { data: allServers } = await supabase.from('servers').select('id, name');
-    const { data: allApps } = await supabase.from('website_applications').select('id, name');
-    
-    const newVaultItems = sampleVaultItems
+    const newVaultItems = professionalVaultItems
       .filter(v => !existingVaultTitles.includes(v.title))
-      .map((item) => {
-        const baseItem = {
-          title: item.title,
-          username: item.username,
-          item_type: item.item_type,
-          url: item.url,
-          notes: item.notes,
-          owner_id: profile.id,
-          created_by: profile.id,
-        };
-
-        // Link to server if type is server
-        if (item.item_type === 'server') {
-          const matchingServer = allServers?.find(s => item.url?.includes(s.name));
-          if (matchingServer) {
-            return { ...baseItem, linked_server_id: matchingServer.id };
-          }
-        }
-
-        // Link to app if type is website
-        if (item.item_type === 'website' || item.item_type === 'application') {
-          const matchingApp = allApps?.find(a => item.url?.includes(a.name.toLowerCase()));
-          if (matchingApp) {
-            return { ...baseItem, linked_application_id: matchingApp.id };
-          }
-        }
-
-        return baseItem;
-      });
+      .map(item => ({
+        title: item.title,
+        username: item.username,
+        item_type: item.item_type,
+        url: item.url,
+        notes: item.notes,
+        owner_id: profile.id,
+        created_by: profile.id,
+      }));
 
     if (newVaultItems.length > 0) {
       const { data: createdVaultItems, error: vaultError } = await supabase
@@ -297,8 +907,8 @@ export async function seedAllData(): Promise<SeedResult> {
     return {
       success: true,
       message: totalCreated > 0 
-        ? `Successfully created ${totalCreated} test records`
-        : 'No new records created (data already exists)',
+        ? `تم إنشاء ${totalCreated} سجل تجريبي بنجاح`
+        : 'لم يتم إنشاء سجلات جديدة (البيانات موجودة مسبقاً)',
       details: createdCounts,
     };
 
