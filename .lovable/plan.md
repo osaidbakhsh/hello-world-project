@@ -26,17 +26,32 @@ This plan outlines the implementation of **12 EPICs** to transform the current I
 | Import with Review | Working | Smart import with dry-run |
 
 ### Critical Gaps to Address
-| Gap | Priority | Impact |
-|-----|----------|--------|
-| Role stored in profiles table | P0 | Security vulnerability |
-| No on-call rotation module | P0 | Missing operational feature |
-| No maintenance windows | P0 | No change management |
-| No asset lifecycle fields | P0 | No warranty/EOL tracking |
-| No certificates table | P1 | No SSL/domain expiry tracking |
-| No runbooks module | P1 | No procedures documentation |
-| No Domain Summary page | P0 | No single-pane view |
-| PDF Arabic fonts broken | P1 | Export quality issue |
-| Task status dual-field confusion | P1 | Data integrity issue |
+| Gap | Priority | Impact | Status |
+|-----|----------|--------|--------|
+| Role stored in profiles table | P0 | Security vulnerability | ✅ DONE - Migrated to user_roles table |
+| No on-call rotation module | P0 | Missing operational feature | 🔄 Next |
+| No maintenance windows | P0 | No change management | Pending |
+| No asset lifecycle fields | P0 | No warranty/EOL tracking | Pending |
+| No certificates table | P1 | No SSL/domain expiry tracking | Pending |
+| No runbooks module | P1 | No procedures documentation | Pending |
+| No Domain Summary page | P0 | No single-pane view | Pending |
+| PDF Arabic fonts broken | P1 | Export quality issue | Pending |
+| Task status dual-field confusion | P1 | Data integrity issue | Pending |
+
+---
+
+## ✅ Completed: Phase 1 - Security Foundation
+
+### What was implemented:
+1. **Created `user_roles` table** - Separate secure table for role storage
+2. **Migrated existing roles** - All profiles.role values copied to user_roles
+3. **Created `has_role()` function** - SECURITY DEFINER function to check roles safely
+4. **Updated `is_admin()` function** - Now uses user_roles table via has_role()
+5. **Created `get_user_role()` function** - Returns user's primary role
+6. **Added RLS policies** - Admin can manage, users can view their own
+7. **Updated `handle_new_user()` trigger** - Creates both profile AND user_role
+8. **Updated `AuthContext.tsx`** - Fetches role from user_roles (not profiles!)
+9. **Created `useUserRole.ts` hook** - Reusable hook for role fetching
 
 ---
 
