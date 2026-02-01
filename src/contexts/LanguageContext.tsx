@@ -617,7 +617,7 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.networks': 'الشبكات',
     'dashboard.domains': 'الشبكات',
     'dashboard.selectNetwork': 'اختر النطاق',
-    'dashboard.allNetworks': 'جميع النطاقات',
+    'dashboard.allNetworks': 'جميع الشبكات',
     'dashboard.allDomains': 'جميع النطاقات',
     'dashboard.myTasks': 'مهامي',
     'dashboard.teamTasks': 'مهام الفريق',
@@ -846,6 +846,12 @@ const translations: Record<Language, Record<string, string>> = {
     'permissions.permissionsDesc': 'حدد الدومينات التي يمكن للموظف الوصول إليها. صلاحية "التعديل" تتيح له إضافة وتعديل السيرفرات والمهام.',
     'permissions.adding': 'جاري الإضافة...',
     'permissions.addEmployeeBtn': 'إضافة الموظف',
+    'permissions.changeRole': 'تغيير الصلاحية',
+    'permissions.newRole': 'الصلاحية الجديدة',
+    'permissions.roleChanged': 'تم تغيير الصلاحية بنجاح',
+    'permissions.changeRoleDesc': 'اختر الصلاحية الجديدة لهذا الموظف',
+    'permissions.currentRole': 'الصلاحية الحالية',
+    'permissions.cannotChangeSelfRole': 'لا يمكنك تغيير صلاحيتك الخاصة',
 
     // Form Labels
     'form.email': 'البريد الإلكتروني',
@@ -1883,7 +1889,7 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.networks': 'Domains',
     'dashboard.domains': 'Domains',
     'dashboard.selectNetwork': 'Select Domain',
-    'dashboard.allNetworks': 'All Domains',
+    'dashboard.allNetworks': 'All Networks',
     'dashboard.allDomains': 'All Domains',
     'dashboard.myTasks': 'My Tasks',
     'dashboard.teamTasks': 'Team Tasks',
@@ -2112,6 +2118,12 @@ const translations: Record<Language, Record<string, string>> = {
     'permissions.permissionsDesc': 'Select domains the employee can access. "Edit" permission allows adding and modifying servers and tasks.',
     'permissions.adding': 'Adding...',
     'permissions.addEmployeeBtn': 'Add Employee',
+    'permissions.changeRole': 'Change Role',
+    'permissions.newRole': 'New Role',
+    'permissions.roleChanged': 'Role changed successfully',
+    'permissions.changeRoleDesc': 'Select the new role for this employee',
+    'permissions.currentRole': 'Current Role',
+    'permissions.cannotChangeSelfRole': 'You cannot change your own role',
 
     // Form Labels
     'form.email': 'Email',
