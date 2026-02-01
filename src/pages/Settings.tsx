@@ -16,18 +16,19 @@ import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicense
 import SectionOrderSettings from '@/components/settings/SectionOrderSettings';
 import SidebarOrderSettings from '@/components/settings/SidebarOrderSettings';
 import HTTPSSettingsTab from '@/components/settings/HTTPSSettingsTab';
-import { seedAllData } from '@/utils/seedData';
+import { seedAllData, resetAndSeedData } from '@/utils/seedData';
 
 const Settings: React.FC = () => {
   const { t, dir, language, setLanguage } = useLanguage();
   const { toast } = useToast();
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, isSuperAdmin } = useAuth();
   const { appName, updateAppName } = useAppName();
   const { getSetting, updateSetting } = useAppSettings();
   const { backgroundUrl, uploadBackground } = useLoginBackground();
   const [localAppName, setLocalAppName] = React.useState(appName);
   const [isUploadingBg, setIsUploadingBg] = React.useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
   // Mail Settings State
@@ -169,6 +170,25 @@ const Settings: React.FC = () => {
     setIsSeeding(true);
     const result = await seedAllData();
     setIsSeeding(false);
+    
+    if (result.success) {
+      toast({ 
+        title: t('common.success'), 
+        description: result.message 
+      });
+    } else {
+      toast({ 
+        title: t('common.error'), 
+        description: result.message, 
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  const handleResetDemoData = async () => {
+    setIsResetting(true);
+    const result = await resetAndSeedData();
+    setIsResetting(false);
     
     if (result.success) {
       toast({ 
@@ -398,8 +418,8 @@ const Settings: React.FC = () => {
                   {t('settings.testDataDesc')}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <Button onClick={handleSeedData} disabled={isSeeding}>
+              <CardContent className="space-y-4">
+                <Button onClick={handleSeedData} disabled={isSeeding || isResetting}>
                   {isSeeding ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin me-2" />
@@ -409,6 +429,24 @@ const Settings: React.FC = () => {
                     t('settings.createTestData')
                   )}
                 </Button>
+                
+                {/* Reset Demo Data - Super Admin Only */}
+                {isSuperAdmin && (
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleResetDemoData}
+                    disabled={isSeeding || isResetting}
+                  >
+                    {isResetting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin me-2" />
+                        {t('common.loading')}
+                      </>
+                    ) : (
+                      t('settings.resetDemoData')
+                    )}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
