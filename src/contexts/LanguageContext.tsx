@@ -1036,6 +1036,7 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.createTestData': 'إنشاء بيانات تجريبية',
     'settings.dataCreated': 'تم إنشاء البيانات التجريبية بنجاح',
     'settings.dataCreationFailed': 'فشل إنشاء البيانات التجريبية',
+    'settings.resetDemoData': 'إعادة تعيين البيانات التجريبية',
 
     // Audit Log
     'auditLog.title': 'سجل العمليات',
@@ -2486,6 +2487,7 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.createTestData': 'Create Test Data',
     'settings.dataCreated': 'Test data created successfully',
     'settings.dataCreationFailed': 'Failed to create test data',
+    'settings.resetDemoData': 'Reset Demo Data',
 
     // Audit Log
     'auditLog.title': 'Audit Log',

@@ -121,7 +121,7 @@ const professionalServers = [
     model: 'ProLiant DL360 Gen10',
     serial_number: 'HP-PRINT01-2021E',
     purchase_date: '2021-08-15',
-    warranty_end: '2024-08-15', // Expired warranty
+    warranty_end: '2024-08-15',
     eol_date: '2027-01-09',
     eos_date: '2029-01-09',
     owner: 'IT Operations',
@@ -198,7 +198,7 @@ const professionalServers = [
     serial_number: 'DELL-EXCH01-2023I',
     purchase_date: '2022-11-20',
     warranty_end: '2027-11-20',
-    eol_date: '2025-10-14', // EOL approaching
+    eol_date: '2025-10-14',
     eos_date: '2029-10-14',
     owner: 'IT Applications',
     beneficiary_department: 'All Departments',
@@ -396,6 +396,250 @@ const professionalServers = [
   },
 ];
 
+// Professional Datacenters - 1 per domain
+const professionalDatacenters = [
+  { domainName: 'os.com', name: 'DC-RIYADH-01', location: 'Riyadh, KSA - King Fahd Business Park', notes: 'Primary datacenter for Operations domain' },
+  { domainName: 'at.com', name: 'DC-JEDDAH-01', location: 'Jeddah, KSA - Red Sea Tech Hub', notes: 'Development and applications datacenter' },
+  { domainName: 'is.com', name: 'DC-DAMMAM-01', location: 'Dammam, KSA - Eastern Province Data Center', notes: 'Security and DMZ infrastructure' },
+];
+
+// Professional Clusters - 1-2 per datacenter
+const professionalClusters = [
+  // Riyadh - Nutanix
+  { 
+    datacenterName: 'DC-RIYADH-01', 
+    name: 'OS-NUTANIX-PROD', 
+    cluster_type: 'nutanix',
+    vendor: 'Nutanix',
+    platform_version: 'AOS 6.5.2',
+    hypervisor_version: 'AHV 20220304.242',
+    rf_level: 'RF2',
+    storage_type: 'Hybrid (SSD+HDD)',
+    node_count: 4,
+    notes: 'Primary production cluster for core infrastructure',
+  },
+  { 
+    datacenterName: 'DC-RIYADH-01', 
+    name: 'OS-NUTANIX-DR', 
+    cluster_type: 'nutanix',
+    vendor: 'Nutanix',
+    platform_version: 'AOS 6.5.2',
+    hypervisor_version: 'AHV 20220304.242',
+    rf_level: 'RF2',
+    storage_type: 'All-Flash',
+    node_count: 3,
+    notes: 'Disaster recovery cluster',
+  },
+  // Jeddah - VMware
+  { 
+    datacenterName: 'DC-JEDDAH-01', 
+    name: 'AT-VMWARE-PROD', 
+    cluster_type: 'vmware',
+    vendor: 'VMware',
+    platform_version: 'vSphere 8.0 Update 2',
+    hypervisor_version: 'ESXi 8.0.2',
+    storage_type: 'vSAN',
+    node_count: 4,
+    notes: 'Application workloads and development VMs',
+  },
+  // Dammam - Hyper-V
+  { 
+    datacenterName: 'DC-DAMMAM-01', 
+    name: 'IS-HYPERV-SEC', 
+    cluster_type: 'hyper-v',
+    vendor: 'Microsoft',
+    platform_version: 'Windows Server 2022',
+    hypervisor_version: 'Hyper-V 10.0',
+    storage_type: 'S2D (Storage Spaces Direct)',
+    node_count: 3,
+    notes: 'Security infrastructure and DMZ workloads',
+  },
+];
+
+// Professional Cluster Nodes - 3-4 per cluster
+const professionalClusterNodes = [
+  // OS-NUTANIX-PROD nodes (4)
+  { clusterName: 'OS-NUTANIX-PROD', name: 'OS-NX-NODE-01', cpu_sockets: 2, cpu_cores: 64, ram_gb: 512, storage_total_tb: 24, storage_used_tb: 18.5, mgmt_ip: '10.10.2.101', ilo_idrac_ip: '10.10.2.201', vendor: 'Dell', model: 'XC740xd-12', serial_number: 'NX-RUH-001', status: 'active', node_role: 'hybrid' },
+  { clusterName: 'OS-NUTANIX-PROD', name: 'OS-NX-NODE-02', cpu_sockets: 2, cpu_cores: 64, ram_gb: 512, storage_total_tb: 24, storage_used_tb: 19.2, mgmt_ip: '10.10.2.102', ilo_idrac_ip: '10.10.2.202', vendor: 'Dell', model: 'XC740xd-12', serial_number: 'NX-RUH-002', status: 'active', node_role: 'hybrid' },
+  { clusterName: 'OS-NUTANIX-PROD', name: 'OS-NX-NODE-03', cpu_sockets: 2, cpu_cores: 64, ram_gb: 512, storage_total_tb: 24, storage_used_tb: 17.8, mgmt_ip: '10.10.2.103', ilo_idrac_ip: '10.10.2.203', vendor: 'Dell', model: 'XC740xd-12', serial_number: 'NX-RUH-003', status: 'active', node_role: 'hybrid' },
+  { clusterName: 'OS-NUTANIX-PROD', name: 'OS-NX-NODE-04', cpu_sockets: 2, cpu_cores: 64, ram_gb: 512, storage_total_tb: 24, storage_used_tb: 16.1, mgmt_ip: '10.10.2.104', ilo_idrac_ip: '10.10.2.204', vendor: 'Dell', model: 'XC740xd-12', serial_number: 'NX-RUH-004', status: 'active', node_role: 'hybrid' },
+  
+  // OS-NUTANIX-DR nodes (3)
+  { clusterName: 'OS-NUTANIX-DR', name: 'OS-DR-NODE-01', cpu_sockets: 2, cpu_cores: 48, ram_gb: 384, storage_total_tb: 20, storage_used_tb: 8.5, mgmt_ip: '10.10.2.111', ilo_idrac_ip: '10.10.2.211', vendor: 'Dell', model: 'XC650-10', serial_number: 'NX-DR-001', status: 'active', node_role: 'hybrid' },
+  { clusterName: 'OS-NUTANIX-DR', name: 'OS-DR-NODE-02', cpu_sockets: 2, cpu_cores: 48, ram_gb: 384, storage_total_tb: 20, storage_used_tb: 9.2, mgmt_ip: '10.10.2.112', ilo_idrac_ip: '10.10.2.212', vendor: 'Dell', model: 'XC650-10', serial_number: 'NX-DR-002', status: 'active', node_role: 'hybrid' },
+  { clusterName: 'OS-NUTANIX-DR', name: 'OS-DR-NODE-03', cpu_sockets: 2, cpu_cores: 48, ram_gb: 384, storage_total_tb: 20, storage_used_tb: 7.8, mgmt_ip: '10.10.2.113', ilo_idrac_ip: '10.10.2.213', vendor: 'Dell', model: 'XC650-10', serial_number: 'NX-DR-003', status: 'active', node_role: 'hybrid' },
+  
+  // AT-VMWARE-PROD nodes (4)
+  { clusterName: 'AT-VMWARE-PROD', name: 'AT-ESX-NODE-01', cpu_sockets: 2, cpu_cores: 56, ram_gb: 768, storage_total_tb: 30, storage_used_tb: 22.5, mgmt_ip: '10.20.2.101', ilo_idrac_ip: '10.20.2.201', vendor: 'HP', model: 'ProLiant DL380 Gen10 Plus', serial_number: 'VMW-JED-001', status: 'active', node_role: 'compute' },
+  { clusterName: 'AT-VMWARE-PROD', name: 'AT-ESX-NODE-02', cpu_sockets: 2, cpu_cores: 56, ram_gb: 768, storage_total_tb: 30, storage_used_tb: 24.1, mgmt_ip: '10.20.2.102', ilo_idrac_ip: '10.20.2.202', vendor: 'HP', model: 'ProLiant DL380 Gen10 Plus', serial_number: 'VMW-JED-002', status: 'active', node_role: 'compute' },
+  { clusterName: 'AT-VMWARE-PROD', name: 'AT-ESX-NODE-03', cpu_sockets: 2, cpu_cores: 56, ram_gb: 768, storage_total_tb: 30, storage_used_tb: 21.8, mgmt_ip: '10.20.2.103', ilo_idrac_ip: '10.20.2.203', vendor: 'HP', model: 'ProLiant DL380 Gen10 Plus', serial_number: 'VMW-JED-003', status: 'active', node_role: 'compute' },
+  { clusterName: 'AT-VMWARE-PROD', name: 'AT-ESX-NODE-04', cpu_sockets: 2, cpu_cores: 56, ram_gb: 768, storage_total_tb: 30, storage_used_tb: 19.5, mgmt_ip: '10.20.2.104', ilo_idrac_ip: '10.20.2.204', vendor: 'HP', model: 'ProLiant DL380 Gen10 Plus', serial_number: 'VMW-JED-004', status: 'active', node_role: 'storage' },
+  
+  // IS-HYPERV-SEC nodes (3)
+  { clusterName: 'IS-HYPERV-SEC', name: 'IS-HV-NODE-01', cpu_sockets: 2, cpu_cores: 40, ram_gb: 256, storage_total_tb: 15, storage_used_tb: 9.8, mgmt_ip: '10.30.2.101', ilo_idrac_ip: '10.30.2.201', vendor: 'Dell', model: 'PowerEdge R750', serial_number: 'HV-DMM-001', status: 'active', node_role: 'hybrid' },
+  { clusterName: 'IS-HYPERV-SEC', name: 'IS-HV-NODE-02', cpu_sockets: 2, cpu_cores: 40, ram_gb: 256, storage_total_tb: 15, storage_used_tb: 10.2, mgmt_ip: '10.30.2.102', ilo_idrac_ip: '10.30.2.202', vendor: 'Dell', model: 'PowerEdge R750', serial_number: 'HV-DMM-002', status: 'active', node_role: 'hybrid' },
+  { clusterName: 'IS-HYPERV-SEC', name: 'IS-HV-NODE-03', cpu_sockets: 2, cpu_cores: 40, ram_gb: 256, storage_total_tb: 15, storage_used_tb: 8.5, mgmt_ip: '10.30.2.103', ilo_idrac_ip: '10.30.2.203', vendor: 'Dell', model: 'PowerEdge R750', serial_number: 'HV-DMM-003', status: 'maintenance', node_role: 'hybrid' },
+];
+
+// Professional Maintenance Windows
+const professionalMaintenanceWindows = [
+  {
+    domainName: 'os.com',
+    title: 'Windows Server Patching - February 2026',
+    description: 'Monthly security patches for all Windows servers in OS domain',
+    start_time: '2026-02-15T22:00:00Z',
+    end_time: '2026-02-16T06:00:00Z',
+    impact_level: 'medium',
+    status: 'scheduled',
+    recurrence: 'monthly',
+  },
+  {
+    domainName: 'os.com',
+    title: 'Nutanix Cluster Upgrade - AOS 6.6',
+    description: 'Upgrade Nutanix AOS to version 6.6 with rolling restart',
+    start_time: '2026-03-01T00:00:00Z',
+    end_time: '2026-03-01T08:00:00Z',
+    impact_level: 'high',
+    status: 'scheduled',
+    recurrence: 'once',
+  },
+  {
+    domainName: 'at.com',
+    title: 'Exchange 2019 CU14 Update',
+    description: 'Install Exchange Server 2019 Cumulative Update 14',
+    start_time: '2026-02-22T22:00:00Z',
+    end_time: '2026-02-23T04:00:00Z',
+    impact_level: 'high',
+    status: 'scheduled',
+    recurrence: 'once',
+  },
+  {
+    domainName: 'at.com',
+    title: 'VMware vSphere Patching',
+    description: 'Apply latest ESXi patches to all hosts',
+    start_time: '2026-02-28T23:00:00Z',
+    end_time: '2026-03-01T05:00:00Z',
+    impact_level: 'medium',
+    status: 'scheduled',
+    recurrence: 'quarterly',
+  },
+  {
+    domainName: 'is.com',
+    title: 'Firewall Firmware Upgrade',
+    description: 'Upgrade Palo Alto firewall firmware to latest version',
+    start_time: '2026-02-08T01:00:00Z',
+    end_time: '2026-02-08T03:00:00Z',
+    impact_level: 'high',
+    status: 'completed',
+    recurrence: 'once',
+  },
+  {
+    domainName: 'is.com',
+    title: 'Security Certificate Renewal',
+    description: 'Renew and deploy SSL certificates for DMZ services',
+    start_time: '2026-02-20T10:00:00Z',
+    end_time: '2026-02-20T14:00:00Z',
+    impact_level: 'low',
+    status: 'scheduled',
+    recurrence: 'once',
+  },
+];
+
+// Professional On-Call Schedules
+const professionalOnCallSchedules = [
+  {
+    domainName: 'os.com',
+    name: 'OS Infrastructure On-Call',
+    rotation_type: 'round_robin',
+    is_active: true,
+  },
+  {
+    domainName: 'at.com',
+    name: 'AT Applications Support',
+    rotation_type: 'round_robin',
+    is_active: true,
+  },
+  {
+    domainName: 'is.com',
+    name: 'IS Security Operations',
+    rotation_type: 'round_robin',
+    is_active: true,
+  },
+];
+
+// Professional File Shares
+const professionalFileShares = [
+  {
+    domainName: 'os.com',
+    name: 'OS-SHARED-DATA',
+    path: '\\\\os-file01.os.com\\data',
+    share_type: 'SMB',
+    scan_mode: 'DIRECT',
+    scan_depth: 10,
+    exclude_patterns: ['*.tmp', '*.bak', 'Thumbs.db'],
+    is_enabled: true,
+  },
+  {
+    domainName: 'os.com',
+    name: 'OS-USER-HOMES',
+    path: '\\\\os-file01.os.com\\users',
+    share_type: 'SMB',
+    scan_mode: 'DIRECT',
+    scan_depth: 5,
+    exclude_patterns: ['AppData', '*.tmp'],
+    is_enabled: true,
+  },
+  {
+    domainName: 'at.com',
+    name: 'AT-DEV-REPOS',
+    path: '/mnt/nfs/dev-repos',
+    share_type: 'NFS',
+    scan_mode: 'DIRECT',
+    scan_depth: 8,
+    exclude_patterns: ['node_modules', '.git', 'vendor'],
+    is_enabled: true,
+  },
+  {
+    domainName: 'at.com',
+    name: 'AT-BUILD-ARTIFACTS',
+    path: '/mnt/nfs/artifacts',
+    share_type: 'NFS',
+    scan_mode: 'DIRECT',
+    scan_depth: 6,
+    exclude_patterns: ['*.log'],
+    is_enabled: true,
+  },
+  {
+    domainName: 'is.com',
+    name: 'IS-LOGS-ARCHIVE',
+    path: '\\\\is-file01.is.com\\logs',
+    share_type: 'SMB',
+    scan_mode: 'DIRECT',
+    scan_depth: 12,
+    exclude_patterns: [],
+    is_enabled: true,
+  },
+  {
+    domainName: 'is.com',
+    name: 'IS-EVIDENCE-VAULT',
+    path: '\\\\is-file01.is.com\\evidence',
+    share_type: 'SMB',
+    scan_mode: 'DIRECT',
+    scan_depth: 15,
+    exclude_patterns: [],
+    is_enabled: false, // Disabled for compliance
+  },
+];
+
+// Professional Vacations
+const professionalVacations = [
+  { status: 'pending', vacation_type: 'annual', start_date: '2026-03-01', end_date: '2026-03-05', notes: 'Family vacation' },
+  { status: 'approved', vacation_type: 'annual', start_date: '2026-04-10', end_date: '2026-04-15', notes: 'Eid Al-Fitr holiday' },
+  { status: 'rejected', vacation_type: 'sick', start_date: '2026-02-20', end_date: '2026-02-21', notes: 'Medical appointment - rescheduled' },
+  { status: 'pending', vacation_type: 'personal', start_date: '2026-05-15', end_date: '2026-05-16', notes: 'Personal matters' },
+  { status: 'approved', vacation_type: 'annual', start_date: '2026-06-20', end_date: '2026-07-05', notes: 'Summer vacation with family' },
+];
+
 // Professional licenses with varied expiry dates
 const professionalLicenses = [
   // Expired
@@ -404,7 +648,7 @@ const professionalLicenses = [
     vendor: 'Adobe', 
     license_key: 'ADOBE-XXXX-XXXX-XXXX',
     quantity: 15,
-    expiry_date: '2025-12-01', // Expired
+    expiry_date: '2025-12-01',
     cost: 4500,
     status: 'expired',
   },
@@ -414,7 +658,7 @@ const professionalLicenses = [
     vendor: 'Kaspersky', 
     license_key: 'KASP-XXXX-XXXX-XXXX',
     quantity: 200,
-    expiry_date: '2026-02-15', // 14 days
+    expiry_date: '2026-02-15',
     cost: 8500,
     status: 'active',
   },
@@ -423,7 +667,7 @@ const professionalLicenses = [
     vendor: 'VMware', 
     license_key: 'VMWARE-VSPH-XXXX-XXXX',
     quantity: 10,
-    expiry_date: '2026-02-20', // 19 days
+    expiry_date: '2026-02-20',
     cost: 45000,
     status: 'active',
   },
@@ -432,7 +676,7 @@ const professionalLicenses = [
     vendor: 'Veeam', 
     license_key: 'VEEAM-XXXX-XXXX-XXXX',
     quantity: 20,
-    expiry_date: '2026-02-28', // 27 days
+    expiry_date: '2026-02-28',
     cost: 15000,
     status: 'active',
   },
@@ -686,6 +930,13 @@ export interface SeedResult {
     tasks: number;
     webApps: number;
     vaultItems: number;
+    datacenters: number;
+    clusters: number;
+    clusterNodes: number;
+    maintenanceWindows: number;
+    onCallSchedules: number;
+    fileShares: number;
+    vacations: number;
   };
 }
 
@@ -715,6 +966,13 @@ export async function seedAllData(): Promise<SeedResult> {
       tasks: 0,
       webApps: 0,
       vaultItems: 0,
+      datacenters: 0,
+      clusters: 0,
+      clusterNodes: 0,
+      maintenanceWindows: 0,
+      onCallSchedules: 0,
+      fileShares: 0,
+      vacations: 0,
     };
 
     // 1. Create Domains (only the 3 professional domains)
@@ -806,7 +1064,218 @@ export async function seedAllData(): Promise<SeedResult> {
       createdCounts.servers = createdServers?.length || 0;
     }
 
-    // 4. Create Licenses (assign to first domain)
+    // 4. Create Datacenters
+    const { data: existingDatacenters } = await supabase.from('datacenters').select('name');
+    const existingDatacenterNames = existingDatacenters?.map(d => d.name) || [];
+    const newDatacenters = professionalDatacenters
+      .filter(dc => !existingDatacenterNames.includes(dc.name))
+      .map(dc => ({
+        name: dc.name,
+        location: dc.location,
+        notes: dc.notes,
+        domain_id: domainMap.get(dc.domainName),
+        created_by: profile.id,
+      }))
+      .filter(dc => dc.domain_id);
+
+    if (newDatacenters.length > 0) {
+      const { data: createdDatacenters, error: dcError } = await supabase
+        .from('datacenters')
+        .insert(newDatacenters)
+        .select();
+      
+      if (dcError) throw new Error(`Failed to create datacenters: ${dcError.message}`);
+      createdCounts.datacenters = createdDatacenters?.length || 0;
+    }
+
+    // Get all datacenters for mapping
+    const { data: allDatacenters } = await supabase.from('datacenters').select('*');
+    const datacenterMap = new Map(allDatacenters?.map(dc => [dc.name, dc.id]) || []);
+
+    // 5. Create Clusters
+    const { data: existingClusters } = await supabase.from('clusters').select('name');
+    const existingClusterNames = existingClusters?.map(c => c.name) || [];
+    const newClusters = professionalClusters
+      .filter(c => !existingClusterNames.includes(c.name))
+      .map(cluster => {
+        const datacenterId = datacenterMap.get(cluster.datacenterName);
+        const datacenter = allDatacenters?.find(dc => dc.name === cluster.datacenterName);
+        return {
+          name: cluster.name,
+          cluster_type: cluster.cluster_type,
+          vendor: cluster.vendor,
+          platform_version: cluster.platform_version,
+          hypervisor_version: cluster.hypervisor_version,
+          rf_level: cluster.rf_level,
+          storage_type: cluster.storage_type,
+          node_count: cluster.node_count,
+          notes: cluster.notes,
+          datacenter_id: datacenterId,
+          domain_id: datacenter?.domain_id,
+          created_by: profile.id,
+        };
+      })
+      .filter(c => c.domain_id);
+
+    if (newClusters.length > 0) {
+      const { data: createdClusters, error: clusterError } = await supabase
+        .from('clusters')
+        .insert(newClusters)
+        .select();
+      
+      if (clusterError) throw new Error(`Failed to create clusters: ${clusterError.message}`);
+      createdCounts.clusters = createdClusters?.length || 0;
+    }
+
+    // Get all clusters for mapping
+    const { data: allClusters } = await supabase.from('clusters').select('*');
+    const clusterMap = new Map(allClusters?.map(c => [c.name, { id: c.id, domain_id: c.domain_id }]) || []);
+
+    // 6. Create Cluster Nodes
+    const { data: existingNodes } = await supabase.from('cluster_nodes').select('name');
+    const existingNodeNames = existingNodes?.map(n => n.name) || [];
+    const newNodes = professionalClusterNodes
+      .filter(n => !existingNodeNames.includes(n.name))
+      .map(node => {
+        const clusterInfo = clusterMap.get(node.clusterName);
+        return {
+          name: node.name,
+          cpu_sockets: node.cpu_sockets,
+          cpu_cores: node.cpu_cores,
+          ram_gb: node.ram_gb,
+          storage_total_tb: node.storage_total_tb,
+          storage_used_tb: node.storage_used_tb,
+          mgmt_ip: node.mgmt_ip,
+          ilo_idrac_ip: node.ilo_idrac_ip,
+          vendor: node.vendor,
+          model: node.model,
+          serial_number: node.serial_number,
+          status: node.status,
+          node_role: node.node_role,
+          cluster_id: clusterInfo?.id,
+          domain_id: clusterInfo?.domain_id,
+        };
+      })
+      .filter(n => n.cluster_id && n.domain_id);
+
+    if (newNodes.length > 0) {
+      const { data: createdNodes, error: nodeError } = await supabase
+        .from('cluster_nodes')
+        .insert(newNodes)
+        .select();
+      
+      if (nodeError) throw new Error(`Failed to create cluster nodes: ${nodeError.message}`);
+      createdCounts.clusterNodes = createdNodes?.length || 0;
+    }
+
+    // 7. Create Maintenance Windows
+    const { data: existingMW } = await supabase.from('maintenance_windows').select('title');
+    const existingMWTitles = existingMW?.map(m => m.title) || [];
+    const newMW = professionalMaintenanceWindows
+      .filter(mw => !existingMWTitles.includes(mw.title))
+      .map(mw => ({
+        title: mw.title,
+        description: mw.description,
+        start_time: mw.start_time,
+        end_time: mw.end_time,
+        impact_level: mw.impact_level,
+        status: mw.status,
+        recurrence: mw.recurrence,
+        domain_id: domainMap.get(mw.domainName),
+        created_by: profile.id,
+      }))
+      .filter(mw => mw.domain_id);
+
+    if (newMW.length > 0) {
+      const { data: createdMW, error: mwError } = await supabase
+        .from('maintenance_windows')
+        .insert(newMW)
+        .select();
+      
+      if (mwError) throw new Error(`Failed to create maintenance windows: ${mwError.message}`);
+      createdCounts.maintenanceWindows = createdMW?.length || 0;
+    }
+
+    // 8. Create On-Call Schedules
+    const { data: existingOC } = await supabase.from('on_call_schedules').select('name');
+    const existingOCNames = existingOC?.map(o => o.name) || [];
+    const newOC = professionalOnCallSchedules
+      .filter(oc => !existingOCNames.includes(oc.name))
+      .map(oc => ({
+        name: oc.name,
+        rotation_type: oc.rotation_type,
+        is_active: oc.is_active,
+        domain_id: domainMap.get(oc.domainName),
+        created_by: profile.id,
+      }))
+      .filter(oc => oc.domain_id);
+
+    if (newOC.length > 0) {
+      const { data: createdOC, error: ocError } = await supabase
+        .from('on_call_schedules')
+        .insert(newOC)
+        .select();
+      
+      if (ocError) throw new Error(`Failed to create on-call schedules: ${ocError.message}`);
+      createdCounts.onCallSchedules = createdOC?.length || 0;
+    }
+
+    // 9. Create File Shares
+    const { data: existingFS } = await supabase.from('file_shares').select('name');
+    const existingFSNames = existingFS?.map(f => f.name) || [];
+    const newFS = professionalFileShares
+      .filter(fs => !existingFSNames.includes(fs.name))
+      .map(fs => ({
+        name: fs.name,
+        path: fs.path,
+        share_type: fs.share_type,
+        scan_mode: fs.scan_mode,
+        scan_depth: fs.scan_depth,
+        exclude_patterns: fs.exclude_patterns,
+        is_enabled: fs.is_enabled,
+        domain_id: domainMap.get(fs.domainName),
+        created_by: profile.id,
+      }))
+      .filter(fs => fs.domain_id);
+
+    if (newFS.length > 0) {
+      const { data: createdFS, error: fsError } = await supabase
+        .from('file_shares')
+        .insert(newFS)
+        .select();
+      
+      if (fsError) throw new Error(`Failed to create file shares: ${fsError.message}`);
+      createdCounts.fileShares = createdFS?.length || 0;
+    }
+
+    // 10. Create Vacations
+    const newVacations = professionalVacations.map(v => ({
+      status: v.status,
+      vacation_type: v.vacation_type,
+      start_date: v.start_date,
+      end_date: v.end_date,
+      notes: v.notes,
+      profile_id: profile.id,
+    }));
+
+    // Only insert if no vacations exist for this user
+    const { data: existingVacations } = await supabase
+      .from('vacations')
+      .select('id')
+      .eq('profile_id', profile.id)
+      .limit(1);
+
+    if (!existingVacations || existingVacations.length === 0) {
+      const { data: createdVacations, error: vacError } = await supabase
+        .from('vacations')
+        .insert(newVacations)
+        .select();
+      
+      if (vacError) throw new Error(`Failed to create vacations: ${vacError.message}`);
+      createdCounts.vacations = createdVacations?.length || 0;
+    }
+
+    // 11. Create Licenses (assign to first domain)
     const firstDomainId = domainMap.get('os.com');
     const { data: existingLicenses } = await supabase.from('licenses').select('name');
     const existingLicenseNames = existingLicenses?.map(l => l.name) || [];
@@ -829,7 +1298,7 @@ export async function seedAllData(): Promise<SeedResult> {
       createdCounts.licenses = createdLicenses?.length || 0;
     }
 
-    // 5. Create Tasks
+    // 12. Create Tasks
     const { data: existingTasks } = await supabase.from('tasks').select('title');
     const existingTaskTitles = existingTasks?.map(t => t.title) || [];
     const newTasks = professionalTasks
@@ -856,7 +1325,7 @@ export async function seedAllData(): Promise<SeedResult> {
       createdCounts.tasks = createdTasks?.length || 0;
     }
 
-    // 6. Create Web Applications
+    // 13. Create Web Applications
     const { data: existingApps } = await supabase.from('website_applications').select('name');
     const existingAppNames = existingApps?.map(a => a.name) || [];
     const newWebApps = professionalWebApps
@@ -877,7 +1346,7 @@ export async function seedAllData(): Promise<SeedResult> {
       createdCounts.webApps = createdApps?.length || 0;
     }
 
-    // 7. Create Vault Items
+    // 14. Create Vault Items
     const { data: existingVaultItems } = await supabase.from('vault_items').select('title');
     const existingVaultTitles = existingVaultItems?.map(v => v.title) || [];
     const newVaultItems = professionalVaultItems
@@ -914,6 +1383,50 @@ export async function seedAllData(): Promise<SeedResult> {
 
   } catch (error) {
     console.error('Seed data error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+}
+
+// Reset and reseed all data
+export async function resetAndSeedData(): Promise<SeedResult> {
+  try {
+    // Get current user's profile
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, message: 'User not authenticated' };
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!profile) {
+      return { success: false, message: 'Profile not found' };
+    }
+
+    // Delete existing demo data (only items created by this user)
+    await supabase.from('vacations').delete().eq('profile_id', profile.id);
+    await supabase.from('vault_items').delete().eq('owner_id', profile.id);
+    await supabase.from('tasks').delete().eq('created_by', profile.id);
+    await supabase.from('cluster_nodes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('clusters').delete().eq('created_by', profile.id);
+    await supabase.from('datacenters').delete().eq('created_by', profile.id);
+    await supabase.from('maintenance_windows').delete().eq('created_by', profile.id);
+    await supabase.from('on_call_schedules').delete().eq('created_by', profile.id);
+    await supabase.from('file_shares').delete().eq('created_by', profile.id);
+    await supabase.from('website_applications').delete().eq('created_by', profile.id);
+    await supabase.from('licenses').delete().eq('created_by', profile.id);
+    await supabase.from('servers').delete().eq('created_by', profile.id);
+
+    // Now seed fresh data
+    return await seedAllData();
+  } catch (error) {
+    console.error('Reset and seed error:', error);
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Unknown error occurred',
