@@ -44,10 +44,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { 
   Users, Shield, Network, Search, Save, UserCog, Eye, Pencil, 
   Plus, Key, Download, Mail, Phone, Building, User, Loader2,
-  RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle
+  RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, ShieldCheck
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -72,7 +73,7 @@ interface NewEmployeeForm {
 
 const EmployeePermissions: React.FC = () => {
   const { t, dir, language } = useLanguage();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const { toast } = useToast();
   const { data: profiles, isLoading: profilesLoading, refetch: refetchProfiles } = useProfiles();
   const { data: domains, isLoading: domainsLoading } = useDomains();
@@ -89,11 +90,13 @@ const EmployeePermissions: React.FC = () => {
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isLdapImportOpen, setIsLdapImportOpen] = useState(false);
+  const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
   
   // Loading states
   const [isSaving, setIsSaving] = useState(false);
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [isChangingRole, setIsChangingRole] = useState(false);
   
   // Form data
   const [newEmployeeForm, setNewEmployeeForm] = useState<NewEmployeeForm>({
@@ -107,6 +110,7 @@ const EmployeePermissions: React.FC = () => {
   });
   
   const [newPassword, setNewPassword] = useState('');
+  const [selectedNewRole, setSelectedNewRole] = useState<'admin' | 'employee'>('employee');
 
   // Filter profiles based on search and active tab
   const filteredProfiles = profiles.filter(profile => {
@@ -154,6 +158,75 @@ const EmployeePermissions: React.FC = () => {
   const handleOpenDeleteConfirm = (profile: Profile) => {
     setSelectedProfile(profile);
     setIsDeleteConfirmOpen(true);
+  };
+
+  const handleOpenRoleChange = (profile: Profile) => {
+    // Prevent changing own role
+    if (profile.user_id === user?.id) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: t('permissions.cannotChangeSelfRole'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    setSelectedProfile(profile);
+    setSelectedNewRole(profile.role === 'admin' ? 'employee' : 'admin');
+    setIsRoleChangeOpen(true);
+  };
+
+  const handleChangeRole = async () => {
+    if (!selectedProfile || !selectedNewRole) return;
+
+    setIsChangingRole(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-role`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            target_user_id: selectedProfile.user_id,
+            new_role: selectedNewRole,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to change role');
+      }
+
+      // Clear cache and refetch
+      sessionStorage.removeItem(`user_role_${selectedProfile.user_id}`);
+      await refetchProfiles();
+      
+      toast({
+        title: language === 'ar' ? 'تم بنجاح' : 'Success',
+        description: t('permissions.roleChanged'),
+      });
+      
+      setIsRoleChangeOpen(false);
+    } catch (error: any) {
+      console.error('Error changing role:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || 'Failed to change role',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsChangingRole(false);
+    }
   };
 
   const handleToggleView = (domainId: string, checked: boolean) => {
@@ -601,6 +674,15 @@ const EmployeePermissions: React.FC = () => {
                             <Button
                               size="sm"
                               variant="ghost"
+                              onClick={() => handleOpenRoleChange(profile)}
+                              title={t('permissions.changeRole')}
+                              disabled={profile.user_id === user?.id}
+                            >
+                              <ShieldCheck className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               onClick={() => handleOpenPermissions(profile)}
                               title={t('common.permissions')}
                             >
@@ -976,6 +1058,103 @@ const EmployeePermissions: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsLdapImportOpen(false)}>
               {t('common.close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Change Dialog */}
+      <Dialog open={isRoleChangeOpen} onOpenChange={setIsRoleChangeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5" />
+              {t('permissions.changeRole')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('permissions.changeRoleDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">{selectedProfile?.full_name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-muted-foreground">{t('permissions.currentRole')}:</span>
+                  <Badge 
+                    variant={selectedProfile?.role === 'admin' ? 'default' : 'secondary'}
+                    className={selectedProfile?.role === 'admin' ? 'bg-accent text-accent-foreground' : ''}
+                  >
+                    {selectedProfile?.role === 'admin' ? t('permissions.admins') : t('permissions.employees')}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <Label>{t('permissions.newRole')}</Label>
+              <RadioGroup 
+                value={selectedNewRole} 
+                onValueChange={(value) => setSelectedNewRole(value as 'admin' | 'employee')}
+                className="space-y-2"
+              >
+                <div className={cn(
+                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                  selectedNewRole === 'employee' ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
+                )}>
+                  <RadioGroupItem value="employee" id="role-employee" />
+                  <Label htmlFor="role-employee" className="flex items-center gap-2 cursor-pointer flex-1">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">{language === 'ar' ? 'موظف' : 'Employee'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'ar' ? 'صلاحيات محدودة حسب الدومينات المعينة' : 'Limited access based on assigned domains'}
+                      </p>
+                    </div>
+                  </Label>
+                </div>
+                <div className={cn(
+                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                  selectedNewRole === 'admin' ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
+                )}>
+                  <RadioGroupItem value="admin" id="role-admin" />
+                  <Label htmlFor="role-admin" className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Shield className="w-4 h-4 text-accent" />
+                    <div>
+                      <p className="font-medium">{language === 'ar' ? 'مسؤول' : 'Admin'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'ar' ? 'صلاحيات كاملة على جميع الدومينات والإعدادات' : 'Full access to all domains and settings'}
+                      </p>
+                    </div>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRoleChangeOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button 
+              onClick={handleChangeRole} 
+              disabled={isChangingRole || selectedNewRole === selectedProfile?.role}
+            >
+              {isChangingRole ? (
+                <>
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  {language === 'ar' ? 'جاري التغيير...' : 'Changing...'}
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 me-2" />
+                  {t('common.save')}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
