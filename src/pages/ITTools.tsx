@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Star, Shield, Network, ArrowLeftRight, Type, Code, Globe, Image, Calculator, Timer, Database } from 'lucide-react';
+import { Search, Star, Shield, Network, ArrowLeftRight, Type, Code, Globe, Image, FileKey } from 'lucide-react';
 import ToolCard from '@/components/it-tools/ToolCard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
@@ -18,6 +18,7 @@ import EncryptDecryptText from '@/components/it-tools/crypto/EncryptDecryptText'
 import HmacGenerator from '@/components/it-tools/crypto/HmacGenerator';
 import Bip39Generator from '@/components/it-tools/crypto/Bip39Generator';
 import RsaKeyGenerator from '@/components/it-tools/crypto/RsaKeyGenerator';
+import CsrGenerator from '@/components/it-tools/crypto/CsrGenerator';
 
 // Network Tools
 import SubnetCalculator from '@/components/it-tools/network/SubnetCalculator';
@@ -88,6 +89,7 @@ interface Tool {
 
 const tools: Tool[] = [
   // Crypto
+  { id: 'csrGenerator', titleKey: 'itTools.csrGenerator', descKey: 'itTools.csrGeneratorDesc', category: 'crypto', icon: FileKey, component: CsrGenerator },
   { id: 'tokenGenerator', titleKey: 'itTools.tokenGenerator', descKey: 'itTools.tokenGeneratorDesc', category: 'crypto', icon: Shield, component: TokenGenerator },
   { id: 'hashGenerator', titleKey: 'itTools.hashGenerator', descKey: 'itTools.hashGeneratorDesc', category: 'crypto', icon: Shield, component: HashGenerator },
   { id: 'uuidGenerator', titleKey: 'itTools.uuidGenerator', descKey: 'itTools.uuidGeneratorDesc', category: 'crypto', icon: Shield, component: UUIDGenerator },

@@ -156,7 +156,8 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         {!collapsed && (
           <div className="flex flex-col flex-1">
             <span className="font-bold text-lg text-sidebar-foreground whitespace-nowrap">
-              IT <span className="text-accent">Infrastructure</span>
+              <span className="text-accent">IT</span>{' '}
+              <span className="text-primary">Infrastructure</span>
             </span>
             <Badge variant="outline" className="text-[10px] w-fit px-1.5 py-0 border-accent text-accent">
               <Wifi className="w-2.5 h-2.5 me-1" />
