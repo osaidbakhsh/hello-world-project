@@ -6,7 +6,8 @@ import {
   useServers, 
   useLicenses, 
   useTasks,
-  useProfiles 
+  useProfiles,
+  useNetworks 
 } from '@/hooks/useSupabaseData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -37,6 +38,7 @@ const DomainSummary: React.FC = () => {
 
   const { data: domains, isLoading: domainsLoading } = useDomains();
   const { data: allServers } = useServers();
+  const { data: allNetworks } = useNetworks();
   const { data: allLicenses } = useLicenses();
   const { data: allTasks } = useTasks();
   const { data: profiles } = useProfiles();
@@ -50,23 +52,50 @@ const DomainSummary: React.FC = () => {
 
   const selectedDomain = domains.find(d => d.id === selectedDomainId);
 
-  // Filter data by selected domain
-  const domainServers = useMemo(() => {
+  // Get network IDs for the selected domain
+  const domainNetworkIds = useMemo(() => {
     if (!selectedDomainId) return [];
-    // Servers are linked via network_id -> networks.domain_id
-    // For now, we'll show all servers (can be enhanced with network filtering)
-    return allServers;
-  }, [allServers, selectedDomainId]);
+    return allNetworks
+      .filter(network => network.domain_id === selectedDomainId)
+      .map(network => network.id);
+  }, [allNetworks, selectedDomainId]);
 
+  // Filter servers by domain (via network relationship)
+  const domainServers = useMemo(() => {
+    if (!selectedDomainId || domainNetworkIds.length === 0) return [];
+    return allServers.filter(server => 
+      server.network_id && domainNetworkIds.includes(server.network_id)
+    );
+  }, [allServers, domainNetworkIds, selectedDomainId]);
+
+  // Filter licenses by domain
   const domainLicenses = useMemo(() => {
     if (!selectedDomainId) return [];
     return allLicenses.filter(l => l.domain_id === selectedDomainId);
   }, [allLicenses, selectedDomainId]);
 
+  // Filter tasks by domain (via server/network relationships)
   const domainTasks = useMemo(() => {
-    // Filter tasks linked to servers in this domain or unlinked tasks
-    return allTasks;
-  }, [allTasks, selectedDomainId]);
+    if (!selectedDomainId) return [];
+    
+    const domainServerIds = domainServers.map(s => s.id);
+    
+    return allTasks.filter(task => {
+      // Tasks linked to a server in this domain
+      if (task.server_id && domainServerIds.includes(task.server_id)) {
+        return true;
+      }
+      // Tasks linked via linked_server_id
+      if ((task as any).linked_server_id && domainServerIds.includes((task as any).linked_server_id)) {
+        return true;
+      }
+      // Tasks linked via linked_network_id
+      if ((task as any).linked_network_id && domainNetworkIds.includes((task as any).linked_network_id)) {
+        return true;
+      }
+      return false;
+    });
+  }, [allTasks, domainServers, domainNetworkIds, selectedDomainId]);
 
   // Calculate stats for the selected domain
   const stats = useMemo(() => {
