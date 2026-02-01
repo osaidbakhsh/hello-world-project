@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import type { Profile } from '@/lib/supabase';
+import type { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
+
+type AppRole = Database['public']['Enums']['app_role'];
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userRole, setUserRole] = useState<AppRole | null>(null);
 
   const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 20000): Promise<T> => {
     let timeoutId: number | undefined;
@@ -79,6 +83,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error fetching profile:', error);
       return null;
+    }
+  };
+
+  // Fetch user role from secure user_roles table (not profiles!)
+  const fetchUserRole = async (userId: string): Promise<AppRole> => {
+    const cacheKey = `user_role_${userId}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        // Cache valid for 5 minutes
+        if (parsed.timestamp && Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+          return parsed.role as AppRole;
+        }
+      } catch {
+        sessionStorage.removeItem(cacheKey);
+      }
+    }
+
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .maybeSingle()
+      );
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return 'employee'; // Safe default
+      }
+
+      const role = data?.role ?? 'employee';
+      
+      // Cache the role
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        role,
+        timestamp: Date.now(),
+      }));
+
+      return role;
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      return 'employee'; // Safe default
     }
   };
 
@@ -141,12 +190,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
         
-        if (initialSession?.user) {
-          const profileData = await ensureProfile(initialSession.user);
+        // Fetch profile and role in parallel for faster loading
+          const [profileData, role] = await Promise.all([
+            ensureProfile(initialSession.user),
+            fetchUserRole(initialSession.user.id)
+          ]);
           if (isMounted) {
             setProfile(profileData);
+            setUserRole(role);
           }
-        }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
@@ -176,12 +228,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         try {
           if (currentSession?.user) {
-            const profileData = await ensureProfile(currentSession.user);
+            // Fetch profile and role in parallel
+            const [profileData, role] = await Promise.all([
+              ensureProfile(currentSession.user),
+              fetchUserRole(currentSession.user.id)
+            ]);
             if (isMounted) {
               setProfile(profileData);
+              setUserRole(role);
             }
           } else {
             setProfile(null);
+            setUserRole(null);
           }
         } catch (e) {
           console.error('Auth state handler error:', e);
@@ -236,13 +294,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    // Clear cached role
+    if (user) {
+      sessionStorage.removeItem(`user_role_${user.id}`);
+      sessionStorage.removeItem(`profile_${user.id}`);
+    }
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
     setSession(null);
+    setUserRole(null);
   };
 
-  const isAdmin = profile?.role === 'admin';
+  // Use role from secure user_roles table (NOT from profiles!)
+  const isAdmin = userRole === 'admin';
 
   return (
     <AuthContext.Provider
