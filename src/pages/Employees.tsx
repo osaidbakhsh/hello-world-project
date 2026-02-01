@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useProfiles, useYearlyGoals, useTasks, useVacations } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Profile, Task, Vacation, YearlyGoal } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,20 +13,31 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Search, User, Calendar, GraduationCap, Mail, Phone, Award, Target, ListTodo, Upload } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Search, User, Calendar, GraduationCap, Mail, Phone, Award, Target, ListTodo, Upload, Edit, X, Plus, Save, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import EmployeeTaskUpload from '@/components/employees/EmployeeTaskUpload';
+import { useToast } from '@/hooks/use-toast';
 
 const Employees: React.FC = () => {
   const { t, dir, language } = useLanguage();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, profile: currentUserProfile } = useAuth();
+  const { toast } = useToast();
   
   // Supabase data
-  const { data: profiles, isLoading: profilesLoading } = useProfiles();
+  const { data: profiles, isLoading: profilesLoading, refetch: refetchProfiles } = useProfiles();
   const { data: allTasks } = useTasks();
   const { data: allVacations } = useVacations();
   
@@ -33,6 +45,21 @@ const Employees: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<Profile | null>(null);
   const [selectedTab, setSelectedTab] = useState('overview');
   const [isTaskUploadOpen, setIsTaskUploadOpen] = useState(false);
+  
+  // Skills/Certs editing states
+  const [isEditingSkills, setIsEditingSkills] = useState(false);
+  const [editedSkills, setEditedSkills] = useState<string[]>([]);
+  const [editedCertifications, setEditedCertifications] = useState<string[]>([]);
+  const [newSkill, setNewSkill] = useState('');
+  const [newCertification, setNewCertification] = useState('');
+  const [isSavingSkills, setIsSavingSkills] = useState(false);
+  
+  // Profile editing states (Super Admin only)
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editingName, setEditingName] = useState('');
+  const [editingDepartment, setEditingDepartment] = useState('');
+  const [editingPosition, setEditingPosition] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const filteredEmployees = useMemo(() => {
     return profiles.filter((emp) =>
@@ -77,6 +104,132 @@ const Employees: React.FC = () => {
       overdue: 'bg-destructive/10 text-destructive',
       'in-progress': 'bg-primary/10 text-primary',
     }[status] || 'bg-muted';
+  };
+
+  // Check if current user can edit the selected employee
+  const canEditSkills = selectedEmployee && (
+    isSuperAdmin || selectedEmployee.id === currentUserProfile?.id
+  );
+
+  // Start editing skills
+  const handleStartEditSkills = () => {
+    if (!selectedEmployee) return;
+    setEditedSkills(selectedEmployee.skills || []);
+    setEditedCertifications(selectedEmployee.certifications || []);
+    setIsEditingSkills(true);
+  };
+
+  // Save skills/certifications
+  const handleSaveSkills = async () => {
+    if (!selectedEmployee) return;
+    setIsSavingSkills(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          skills: editedSkills,
+          certifications: editedCertifications,
+        })
+        .eq('id', selectedEmployee.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تم الحفظ' : 'Saved',
+        description: language === 'ar' ? 'تم حفظ المهارات والشهادات بنجاح' : 'Skills and certifications saved successfully',
+      });
+      
+      await refetchProfiles();
+      setIsEditingSkills(false);
+      
+      // Update selected employee with new data
+      setSelectedEmployee(prev => prev ? {
+        ...prev,
+        skills: editedSkills,
+        certifications: editedCertifications,
+      } : null);
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingSkills(false);
+    }
+  };
+
+  // Start editing profile (Super Admin)
+  const handleStartEditProfile = () => {
+    if (!selectedEmployee || !isSuperAdmin) return;
+    setEditingName(selectedEmployee.full_name);
+    setEditingDepartment(selectedEmployee.department || 'IT');
+    setEditingPosition(selectedEmployee.position || '');
+    setIsEditingProfile(true);
+  };
+
+  // Save profile changes
+  const handleSaveProfile = async () => {
+    if (!selectedEmployee) return;
+    setIsSavingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editingName,
+          department: editingDepartment,
+          position: editingPosition,
+        })
+        .eq('id', selectedEmployee.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تم الحفظ' : 'Saved',
+        description: language === 'ar' ? 'تم تحديث بيانات الموظف بنجاح' : 'Employee profile updated successfully',
+      });
+      
+      await refetchProfiles();
+      setIsEditingProfile(false);
+      
+      // Update selected employee with new data
+      setSelectedEmployee(prev => prev ? {
+        ...prev,
+        full_name: editingName,
+        department: editingDepartment,
+        position: editingPosition,
+      } : null);
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const addSkill = () => {
+    if (newSkill.trim() && !editedSkills.includes(newSkill.trim())) {
+      setEditedSkills([...editedSkills, newSkill.trim()]);
+      setNewSkill('');
+    }
+  };
+
+  const removeSkill = (skill: string) => {
+    setEditedSkills(editedSkills.filter(s => s !== skill));
+  };
+
+  const addCertification = () => {
+    if (newCertification.trim() && !editedCertifications.includes(newCertification.trim())) {
+      setEditedCertifications([...editedCertifications, newCertification.trim()]);
+      setNewCertification('');
+    }
+  };
+
+  const removeCertification = (cert: string) => {
+    setEditedCertifications(editedCertifications.filter(c => c !== cert));
   };
 
   return (
@@ -245,17 +398,28 @@ const Employees: React.FC = () => {
           {selectedEmployee && (
             <>
               <DialogHeader>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="w-8 h-8 text-primary" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-8 h-8 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold">{selectedEmployee.full_name}</h2>
+                      <p className="text-muted-foreground">{selectedEmployee.position} - {selectedEmployee.department}</p>
+                      <Badge 
+                        variant={selectedEmployee.role === 'super_admin' ? 'destructive' : selectedEmployee.role === 'admin' ? 'default' : 'secondary'} 
+                        className="mt-1"
+                      >
+                        {selectedEmployee.role === 'super_admin' ? 'مسؤول أعلى' : selectedEmployee.role === 'admin' ? 'مدير النظام' : 'موظف'}
+                      </Badge>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold">{selectedEmployee.full_name}</h2>
-                    <p className="text-muted-foreground">{selectedEmployee.position} - {selectedEmployee.department}</p>
-                    <Badge variant={selectedEmployee.role === 'admin' ? 'default' : 'secondary'} className="mt-1">
-                      {selectedEmployee.role === 'admin' ? 'مدير النظام' : 'موظف'}
-                    </Badge>
-                  </div>
+                  {isSuperAdmin && (
+                    <Button size="sm" variant="outline" onClick={handleStartEditProfile}>
+                      <Edit className="w-4 h-4 me-2" />
+                      {language === 'ar' ? 'تعديل' : 'Edit'}
+                    </Button>
+                  )}
                 </div>
               </DialogHeader>
 
@@ -378,18 +542,52 @@ const Employees: React.FC = () => {
                 <TabsContent value="skills" className="space-y-4 mt-4">
                   {/* Skills */}
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">المهارات</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <CardTitle className="text-sm">{language === 'ar' ? 'المهارات' : 'Skills'}</CardTitle>
+                      {canEditSkills && !isEditingSkills && (
+                        <Button size="sm" variant="outline" onClick={handleStartEditSkills}>
+                          <Edit className="w-4 h-4 me-2" />
+                          {language === 'ar' ? 'تعديل' : 'Edit'}
+                        </Button>
+                      )}
                     </CardHeader>
                     <CardContent>
-                      {selectedEmployee.skills && selectedEmployee.skills.length > 0 ? (
+                      {isEditingSkills ? (
+                        <div className="space-y-4">
+                          {/* Skills editing */}
+                          <div className="flex flex-wrap gap-2">
+                            {editedSkills.map((skill, i) => (
+                              <Badge key={i} variant="outline" className="flex items-center gap-1">
+                                {skill}
+                                <button onClick={() => removeSkill(skill)} className="ms-1 hover:text-destructive">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Input
+                              value={newSkill}
+                              onChange={(e) => setNewSkill(e.target.value)}
+                              placeholder={language === 'ar' ? 'أضف مهارة جديدة' : 'Add new skill'}
+                              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
+                              className="flex-1"
+                            />
+                            <Button size="sm" type="button" onClick={addSkill}>
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : selectedEmployee.skills && selectedEmployee.skills.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {selectedEmployee.skills.map((skill, i) => (
                             <Badge key={i} variant="outline">{skill}</Badge>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-muted-foreground text-sm">لم تُضف مهارات بعد</p>
+                        <p className="text-muted-foreground text-sm">
+                          {language === 'ar' ? 'لم تُضف مهارات بعد' : 'No skills added yet'}
+                        </p>
                       )}
                     </CardContent>
                   </Card>
@@ -399,25 +597,125 @@ const Employees: React.FC = () => {
                     <CardHeader>
                       <CardTitle className="text-sm flex items-center gap-2">
                         <Award className="w-4 h-4" />
-                        الشهادات
+                        {language === 'ar' ? 'الشهادات' : 'Certifications'}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {selectedEmployee.certifications && selectedEmployee.certifications.length > 0 ? (
+                      {isEditingSkills ? (
+                        <div className="space-y-4">
+                          <div className="flex flex-wrap gap-2">
+                            {editedCertifications.map((cert, i) => (
+                              <Badge key={i} className="bg-accent/10 text-accent border-accent/20 flex items-center gap-1">
+                                {cert}
+                                <button onClick={() => removeCertification(cert)} className="ms-1 hover:text-destructive">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Input
+                              value={newCertification}
+                              onChange={(e) => setNewCertification(e.target.value)}
+                              placeholder={language === 'ar' ? 'أضف شهادة جديدة' : 'Add new certification'}
+                              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCertification())}
+                              className="flex-1"
+                            />
+                            <Button size="sm" type="button" onClick={addCertification}>
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : selectedEmployee.certifications && selectedEmployee.certifications.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {selectedEmployee.certifications.map((cert, i) => (
                             <Badge key={i} className="bg-accent/10 text-accent border-accent/20">{cert}</Badge>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-muted-foreground text-sm">لم تُضف شهادات بعد</p>
+                        <p className="text-muted-foreground text-sm">
+                          {language === 'ar' ? 'لم تُضف شهادات بعد' : 'No certifications added yet'}
+                        </p>
                       )}
                     </CardContent>
                   </Card>
+
+                  {/* Save/Cancel buttons for editing */}
+                  {isEditingSkills && (
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setIsEditingSkills(false)} disabled={isSavingSkills}>
+                        {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                      </Button>
+                      <Button onClick={handleSaveSkills} disabled={isSavingSkills}>
+                        {isSavingSkills ? (
+                          <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4 me-2" />
+                        )}
+                        {language === 'ar' ? 'حفظ' : 'Save'}
+                      </Button>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Profile Dialog (Super Admin only) */}
+      <Dialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === 'ar' ? 'تعديل بيانات الموظف' : 'Edit Employee Profile'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'الاسم الكامل' : 'Full Name'}</Label>
+              <Input 
+                value={editingName} 
+                onChange={(e) => setEditingName(e.target.value)} 
+                placeholder={language === 'ar' ? 'الاسم الكامل' : 'Full name'}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'القسم' : 'Department'}</Label>
+              <Select value={editingDepartment} onValueChange={setEditingDepartment}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="IT">{t('dept.it')}</SelectItem>
+                  <SelectItem value="DevOps">{t('dept.devops')}</SelectItem>
+                  <SelectItem value="Security">{t('dept.security')}</SelectItem>
+                  <SelectItem value="Network">{t('dept.network')}</SelectItem>
+                  <SelectItem value="Support">{t('dept.support')}</SelectItem>
+                  <SelectItem value="System Admin">{t('dept.sysadmin')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'المنصب' : 'Position'}</Label>
+              <Input 
+                value={editingPosition} 
+                onChange={(e) => setEditingPosition(e.target.value)} 
+                placeholder={language === 'ar' ? 'المنصب الوظيفي' : 'Job position'}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditingProfile(false)} disabled={isSavingProfile}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
+              {isSavingProfile ? (
+                <Loader2 className="w-4 h-4 me-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 me-2" />
+              )}
+              {language === 'ar' ? 'حفظ' : 'Save'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -747,7 +747,7 @@ const EmployeePermissions: React.FC = () => {
                 <Label htmlFor="role">{t('form.role')} *</Label>
                 <Select
                   value={newEmployeeForm.role}
-                  onValueChange={(value: 'admin' | 'employee') => 
+                  onValueChange={(value: 'super_admin' | 'admin' | 'employee') => 
                     setNewEmployeeForm({ ...newEmployeeForm, role: value })
                   }
                 >
@@ -757,6 +757,9 @@ const EmployeePermissions: React.FC = () => {
                   <SelectContent>
                     <SelectItem value="employee">{t('employees.employee')}</SelectItem>
                     <SelectItem value="admin">{t('employees.admin')}</SelectItem>
+                    {isSuperAdmin && (
+                      <SelectItem value="super_admin">{t('employees.superAdmin')}</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1101,7 +1104,7 @@ const EmployeePermissions: React.FC = () => {
               <Label>{t('permissions.newRole')}</Label>
               <RadioGroup 
                 value={selectedNewRole} 
-                onValueChange={(value) => setSelectedNewRole(value as 'admin' | 'employee')}
+                onValueChange={(value) => setSelectedNewRole(value as 'super_admin' | 'admin' | 'employee')}
                 className="space-y-2"
               >
                 <div className={cn(
@@ -1134,6 +1137,23 @@ const EmployeePermissions: React.FC = () => {
                     </div>
                   </Label>
                 </div>
+                {isSuperAdmin && (
+                  <div className={cn(
+                    "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                    selectedNewRole === 'super_admin' ? 'border-destructive bg-destructive/5' : 'border-border hover:bg-muted/50'
+                  )}>
+                    <RadioGroupItem value="super_admin" id="role-super-admin" />
+                    <Label htmlFor="role-super-admin" className="flex items-center gap-2 cursor-pointer flex-1">
+                      <ShieldCheck className="w-4 h-4 text-destructive" />
+                      <div>
+                        <p className="font-medium">{language === 'ar' ? 'مسؤول أعلى' : 'Super Admin'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {language === 'ar' ? 'صلاحيات كاملة غير مقيدة على النظام بالكامل' : 'Unrestricted full access to entire system'}
+                        </p>
+                      </div>
+                    </Label>
+                  </div>
+                )}
               </RadioGroup>
             </div>
           </div>

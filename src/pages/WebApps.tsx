@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWebsiteApplications, useDomains } from '@/hooks/useSupabaseData';
@@ -201,6 +201,14 @@ const WebApps: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<WebAppForm>(initialFormData);
 
+  // For employees, filter apps by their domains
+  const visibleApps = useMemo(() => {
+    if (isAdmin) return apps;
+    // For employees, show only apps from domains they have access to
+    const myDomainIds = domains.map(d => d.id);
+    return apps.filter(app => !app.domain_id || myDomainIds.includes(app.domain_id));
+  }, [apps, domains, isAdmin]);
+
   const getCategoryLabel = (category: string) => {
     switch (category) {
       case 'infrastructure':
@@ -229,7 +237,7 @@ const WebApps: React.FC = () => {
     { value: 'other', labelKey: 'category.other' },
   ];
 
-  const filteredApps = apps.filter((app) =>
+  const filteredApps = visibleApps.filter((app) =>
     app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (app.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (app.category || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -343,16 +351,8 @@ const WebApps: React.FC = () => {
     return found?.icon || Globe;
   };
 
-  if (!isAdmin) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-4">
-          <Shield className="w-16 h-16 text-muted-foreground mx-auto" />
-          <p className="text-muted-foreground text-lg">{t('permissions.noAccess')}</p>
-        </div>
-      </div>
-    );
-  }
+  // Employees can view but not manage
+  const canManage = isAdmin;
 
   return (
     <div className="space-y-6" dir={dir}>
@@ -368,10 +368,12 @@ const WebApps: React.FC = () => {
           </div>
         </div>
 
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <Plus className="w-4 h-4 me-2" />
-          {t('webApps.add')}
-        </Button>
+        {canManage && (
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus className="w-4 h-4 me-2" />
+            {t('webApps.add')}
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
