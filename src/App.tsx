@@ -25,6 +25,7 @@ import NetworkScan from "./pages/NetworkScan";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Vault from "./pages/Vault";
+import ITTools from "./pages/ITTools";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,7 @@ const App = () => (
                 <Route path="/web-apps" element={<WebApps />} />
                 <Route path="/network-scan" element={<NetworkScan />} />
                 <Route path="/vault" element={<Vault />} />
+                <Route path="/it-tools" element={<ITTools />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               

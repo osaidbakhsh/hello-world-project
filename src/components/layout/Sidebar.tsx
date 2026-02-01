@@ -27,6 +27,7 @@ import {
   Sun,
   Moon,
   Lock,
+  Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -56,6 +57,7 @@ const allMenuItems: MenuItem[] = [
   { id: 'licenses', path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
   { id: 'tasks', path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
   { id: 'vault', path: '/vault', icon: Lock, label: 'nav.vault' },
+  { id: 'itTools', path: '/it-tools', icon: Wrench, label: 'nav.itTools' },
   { id: 'networks', path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
   { id: 'networkScan', path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
   { id: 'webApps', path: '/web-apps', icon: Globe, label: 'nav.webApps', adminOnly: true },

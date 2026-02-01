@@ -22,6 +22,7 @@ const defaultMenuItems: MenuItem[] = [
   { id: 'licenses', labelKey: 'nav.licenses', enabled: true },
   { id: 'tasks', labelKey: 'nav.tasks', enabled: true },
   { id: 'vault', labelKey: 'nav.vault', enabled: true },
+  { id: 'itTools', labelKey: 'nav.itTools', enabled: true },
   { id: 'networks', labelKey: 'nav.networks', enabled: true },
   { id: 'networkScan', labelKey: 'nav.networkScan', enabled: true },
   { id: 'webApps', labelKey: 'nav.webApps', enabled: true },
