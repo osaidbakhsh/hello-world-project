@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { 
   Select,
   SelectContent,
@@ -20,6 +21,7 @@ import {
   RotateCcw,
   Copy,
   Ban,
+  ListChecks,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +36,7 @@ interface Task {
   assigned_to?: string | null;
   frequency?: string;
   created_at?: string;
+  parent_task_id?: string | null;
 }
 
 interface Profile {
@@ -47,6 +50,7 @@ interface KanbanBoardProps {
   onTaskClick?: (task: Task) => void;
   onStatusChange?: (taskId: string, newStatus: string) => void;
   onCloneTask?: (taskId: string) => void;
+  allTasks?: Task[]; // All tasks for subtask calculations
 }
 
 // Jira-style statuses with Blocked column
@@ -65,6 +69,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onTaskClick,
   onStatusChange,
   onCloneTask,
+  allTasks,
 }) => {
   const { t, dir } = useLanguage();
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -72,12 +77,37 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   // Generate Jira-style task ID
   const getTaskNumber = (task: Task) => {
-    const index = tasks.findIndex(t => t.id === task.id);
+    // Use main tasks list for consistent numbering
+    const mainTasks = (allTasks || tasks).filter(t => !t.parent_task_id);
+    const index = mainTasks.findIndex(t => t.id === task.id);
     return `TASK-${String(index + 1).padStart(3, '0')}`;
   };
 
+  // Filter out subtasks from display (only show parent tasks)
+  const mainTasks = useMemo(() => {
+    return tasks.filter(t => !t.parent_task_id);
+  }, [tasks]);
+
+  // Get subtask progress for a parent task
+  const getSubtaskProgress = (taskId: string) => {
+    const taskSource = allTasks || tasks;
+    const subtasks = taskSource.filter(t => t.parent_task_id === taskId);
+    if (subtasks.length === 0) return null;
+    
+    const completed = subtasks.filter(s => {
+      const status = s.task_status || s.status || 'draft';
+      return status === 'done' || status === 'completed';
+    }).length;
+    
+    return { 
+      total: subtasks.length, 
+      completed, 
+      percent: Math.round((completed / subtasks.length) * 100) 
+    };
+  };
+
   const getTasksByStatus = (status: string) => {
-    return tasks.filter(task => {
+    return mainTasks.filter(task => {
       const taskStatus = task.task_status || task.status || 'draft';
       // Map old status values to new ones
       if (status === 'done' && taskStatus === 'completed') return true;
@@ -302,6 +332,21 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                             </div>
                           )}
                         </div>
+                        
+                        {/* Subtask Progress Indicator */}
+                        {(() => {
+                          const progress = getSubtaskProgress(task.id);
+                          if (!progress) return null;
+                          return (
+                            <div className="flex items-center gap-2 text-xs">
+                              <ListChecks className="w-3.5 h-3.5 text-muted-foreground" />
+                              <Progress value={progress.percent} className="h-1.5 flex-1" />
+                              <span className="text-muted-foreground font-medium">
+                                {progress.completed}/{progress.total}
+                              </span>
+                            </div>
+                          );
+                        })()}
                         
                         {/* Assignee Avatar */}
                         {assignee && (

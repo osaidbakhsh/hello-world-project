@@ -127,15 +127,26 @@ const Vacations: React.FC = () => {
       return;
     }
 
+    // CRITICAL: Ensure profile.id exists for non-admin users
+    if (!isAdmin && !profile?.id) {
+      toast({
+        title: t('common.error'),
+        description: t('vacations.profileNotFound'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const vacationData = {
-        profile_id: isAdmin ? formData.profile_id : profile?.id,
+        profile_id: isAdmin ? formData.profile_id : profile!.id,
         start_date: formData.start_date,
         end_date: formData.end_date,
         vacation_type: formData.vacation_type,
-        status: isAdmin ? formData.status : 'pending',
+        // Auto-approve for employees (as per user preference), admins can choose status
+        status: isAdmin ? formData.status : 'approved',
         notes: formData.notes || null,
         days_count: calculateDays(formData.start_date, formData.end_date),
       };
@@ -149,15 +160,16 @@ const Vacations: React.FC = () => {
       setIsDialogOpen(false);
       refetch();
     } catch (error: any) {
-      // Ignore AbortError
+      // Ignore AbortError - happens when component unmounts
       if (error.name === 'AbortError') {
         setIsSubmitting(false);
         return;
       }
       
+      console.error('Vacation insert error:', error);
       toast({
         title: t('common.error'),
-        description: error.message,
+        description: error.message || t('vacations.addError'),
         variant: 'destructive',
       });
     } finally {

@@ -147,6 +147,15 @@ const Servers: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<{ toCreate: number; toUpdate: number; unchanged: number } | null>(null);
   
+  // Form domain state (for domain-first selection in form)
+  const [formDomainId, setFormDomainId] = useState<string>('');
+  
+  // Filter networks in the form based on selected form domain
+  const formNetworks = useMemo(() => {
+    if (!formDomainId) return [];
+    return allNetworks.filter(n => n.domain_id === formDomainId);
+  }, [allNetworks, formDomainId]);
+  
   const [formData, setFormData] = useState<ServerFormData>(initialFormData);
   const { importServers, analyzeServerImport } = useSmartImport();
 
@@ -294,6 +303,9 @@ const Servers: React.FC = () => {
       rto_hours: serverAny.rto_hours?.toString() || '',
       last_restore_test: serverAny.last_restore_test ? serverAny.last_restore_test.split('T')[0] : '',
     });
+    // Set formDomainId based on the server's network
+    const serverNetwork = allNetworks.find(n => n.id === server.network_id);
+    setFormDomainId(serverNetwork?.domain_id || '');
     setIsDialogOpen(true);
   };
 
@@ -310,6 +322,7 @@ const Servers: React.FC = () => {
   const resetForm = () => {
     setEditingServer(null);
     setFormData(initialFormData);
+    setFormDomainId('');
   };
 
   const handleExport = () => {
@@ -524,16 +537,37 @@ const Servers: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label>{t('common.domain')} *</Label>
+                  <Select
+                    value={formDomainId}
+                    onValueChange={(value) => {
+                      setFormDomainId(value);
+                      // Reset network when domain changes
+                      setFormData({ ...formData, network_id: '' });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={dir === 'rtl' ? 'اختر الدومين أولاً' : 'Select domain first'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {domains.map((dom) => (
+                        <SelectItem key={dom.id} value={dom.id}>{dom.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label>{t('servers.network')}</Label>
                   <Select
                     value={formData.network_id}
                     onValueChange={(value) => setFormData({ ...formData, network_id: value })}
+                    disabled={!formDomainId}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select network" />
+                      <SelectValue placeholder={formDomainId ? (dir === 'rtl' ? 'اختر الشبكة' : 'Select network') : (dir === 'rtl' ? 'اختر الدومين أولاً' : 'Select domain first')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {allNetworks.map((net) => (
+                      {formNetworks.map((net) => (
                         <SelectItem key={net.id} value={net.id}>{net.name}</SelectItem>
                       ))}
                     </SelectContent>
