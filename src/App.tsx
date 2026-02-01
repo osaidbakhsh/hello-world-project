@@ -33,6 +33,7 @@ import LifecycleCenter from "./pages/LifecycleCenter";
 import FileShares from "./pages/FileShares";
 import FileShareDetails from "./pages/FileShareDetails";
 import ScanAgents from "./pages/ScanAgents";
+import Datacenter from "./pages/Datacenter";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,7 @@ const App = () => (
                 <Route path="/file-shares" element={<FileShares />} />
                 <Route path="/file-shares/:id" element={<FileShareDetails />} />
                 <Route path="/scan-agents" element={<ScanAgents />} />
+                <Route path="/datacenter" element={<Datacenter />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               

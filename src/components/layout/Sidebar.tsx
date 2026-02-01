@@ -57,6 +57,7 @@ interface MenuItem {
 const allMenuItems: MenuItem[] = [
   { id: 'dashboard', path: '/', icon: LayoutDashboard, label: 'nav.dashboard' },
   { id: 'domainSummary', path: '/domain-summary', icon: Building2, label: 'nav.domainSummary', adminOnly: true },
+  { id: 'datacenter', path: '/datacenter', icon: Server, label: 'nav.datacenter', adminOnly: true },
   { id: 'servers', path: '/servers', icon: Server, label: 'nav.servers' },
   { id: 'employees', path: '/employees', icon: Users, label: 'nav.employees', adminOnly: true },
   { id: 'employeePermissions', path: '/employee-permissions', icon: Shield, label: 'nav.employeePermissions', adminOnly: true },

@@ -15,6 +15,8 @@ interface MenuItem {
 
 const defaultMenuItems: MenuItem[] = [
   { id: 'dashboard', labelKey: 'nav.dashboard', enabled: true },
+  { id: 'domainSummary', labelKey: 'nav.domainSummary', enabled: true },
+  { id: 'datacenter', labelKey: 'nav.datacenter', enabled: true },
   { id: 'servers', labelKey: 'nav.servers', enabled: true },
   { id: 'employees', labelKey: 'nav.employees', enabled: true },
   { id: 'employeePermissions', labelKey: 'nav.employeePermissions', enabled: true },
@@ -23,6 +25,11 @@ const defaultMenuItems: MenuItem[] = [
   { id: 'tasks', labelKey: 'nav.tasks', enabled: true },
   { id: 'vault', labelKey: 'nav.vault', enabled: true },
   { id: 'itTools', labelKey: 'nav.itTools', enabled: true },
+  { id: 'onCall', labelKey: 'nav.onCall', enabled: true },
+  { id: 'maintenance', labelKey: 'nav.maintenance', enabled: true },
+  { id: 'lifecycle', labelKey: 'nav.lifecycle', enabled: true },
+  { id: 'fileShares', labelKey: 'nav.fileShares', enabled: true },
+  { id: 'scanAgents', labelKey: 'nav.scanAgents', enabled: true },
   { id: 'networks', labelKey: 'nav.networks', enabled: true },
   { id: 'networkScan', labelKey: 'nav.networkScan', enabled: true },
   { id: 'webApps', labelKey: 'nav.webApps', enabled: true },

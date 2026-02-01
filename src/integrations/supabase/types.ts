@@ -148,6 +148,218 @@ export type Database = {
           },
         ]
       }
+      cluster_nodes: {
+        Row: {
+          cluster_id: string
+          cpu_cores: number | null
+          cpu_sockets: number | null
+          created_at: string | null
+          domain_id: string
+          id: string
+          ilo_idrac_ip: string | null
+          mgmt_ip: string | null
+          model: string | null
+          name: string
+          node_role: string | null
+          ram_gb: number | null
+          serial_number: string | null
+          server_ref_id: string | null
+          status: string | null
+          storage_total_tb: number | null
+          storage_used_tb: number | null
+          updated_at: string | null
+          vendor: string | null
+        }
+        Insert: {
+          cluster_id: string
+          cpu_cores?: number | null
+          cpu_sockets?: number | null
+          created_at?: string | null
+          domain_id: string
+          id?: string
+          ilo_idrac_ip?: string | null
+          mgmt_ip?: string | null
+          model?: string | null
+          name: string
+          node_role?: string | null
+          ram_gb?: number | null
+          serial_number?: string | null
+          server_ref_id?: string | null
+          status?: string | null
+          storage_total_tb?: number | null
+          storage_used_tb?: number | null
+          updated_at?: string | null
+          vendor?: string | null
+        }
+        Update: {
+          cluster_id?: string
+          cpu_cores?: number | null
+          cpu_sockets?: number | null
+          created_at?: string | null
+          domain_id?: string
+          id?: string
+          ilo_idrac_ip?: string | null
+          mgmt_ip?: string | null
+          model?: string | null
+          name?: string
+          node_role?: string | null
+          ram_gb?: number | null
+          serial_number?: string | null
+          server_ref_id?: string | null
+          status?: string | null
+          storage_total_tb?: number | null
+          storage_used_tb?: number | null
+          updated_at?: string | null
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cluster_nodes_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cluster_nodes_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cluster_nodes_server_ref_id_fkey"
+            columns: ["server_ref_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clusters: {
+        Row: {
+          cluster_type: string | null
+          created_at: string | null
+          created_by: string | null
+          datacenter_id: string | null
+          domain_id: string
+          hypervisor_version: string | null
+          id: string
+          name: string
+          node_count: number | null
+          notes: string | null
+          platform_version: string | null
+          rf_level: string | null
+          storage_type: string | null
+          updated_at: string | null
+          vendor: string | null
+        }
+        Insert: {
+          cluster_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          datacenter_id?: string | null
+          domain_id: string
+          hypervisor_version?: string | null
+          id?: string
+          name: string
+          node_count?: number | null
+          notes?: string | null
+          platform_version?: string | null
+          rf_level?: string | null
+          storage_type?: string | null
+          updated_at?: string | null
+          vendor?: string | null
+        }
+        Update: {
+          cluster_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          datacenter_id?: string | null
+          domain_id?: string
+          hypervisor_version?: string | null
+          id?: string
+          name?: string
+          node_count?: number | null
+          notes?: string | null
+          platform_version?: string | null
+          rf_level?: string | null
+          storage_type?: string | null
+          updated_at?: string | null
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clusters_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clusters_datacenter_id_fkey"
+            columns: ["datacenter_id"]
+            isOneToOne: false
+            referencedRelation: "datacenters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clusters_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      datacenters: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          domain_id: string
+          id: string
+          location: string | null
+          name: string
+          notes: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id: string
+          id?: string
+          location?: string | null
+          name: string
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string
+          id?: string
+          location?: string | null
+          name?: string
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "datacenters_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "datacenters_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       domain_memberships: {
         Row: {
           can_edit: boolean | null
@@ -575,6 +787,63 @@ export type Database = {
             columns: ["imported_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      infra_snapshots: {
+        Row: {
+          captured_at: string | null
+          cluster_id: string
+          domain_id: string
+          id: string
+          notes: string | null
+          total_cpu_cores: number | null
+          total_ram_gb: number | null
+          total_storage_tb: number | null
+          used_cpu_cores: number | null
+          used_ram_gb: number | null
+          used_storage_tb: number | null
+        }
+        Insert: {
+          captured_at?: string | null
+          cluster_id: string
+          domain_id: string
+          id?: string
+          notes?: string | null
+          total_cpu_cores?: number | null
+          total_ram_gb?: number | null
+          total_storage_tb?: number | null
+          used_cpu_cores?: number | null
+          used_ram_gb?: number | null
+          used_storage_tb?: number | null
+        }
+        Update: {
+          captured_at?: string | null
+          cluster_id?: string
+          domain_id?: string
+          id?: string
+          notes?: string | null
+          total_cpu_cores?: number | null
+          total_ram_gb?: number | null
+          total_storage_tb?: number | null
+          used_cpu_cores?: number | null
+          used_ram_gb?: number | null
+          used_storage_tb?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infra_snapshots_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "infra_snapshots_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
             referencedColumns: ["id"]
           },
         ]
@@ -1974,6 +2243,98 @@ export type Database = {
           value?: Json
         }
         Relationships: []
+      }
+      vms: {
+        Row: {
+          beneficiary: string | null
+          cluster_id: string
+          created_at: string | null
+          disk_total_gb: number | null
+          domain_id: string
+          environment: string | null
+          host_node_id: string | null
+          id: string
+          ip_address: string | null
+          name: string
+          os: string | null
+          owner_department: string | null
+          ram_gb: number | null
+          server_ref_id: string | null
+          status: string | null
+          tags: string[] | null
+          updated_at: string | null
+          vcpu: number | null
+        }
+        Insert: {
+          beneficiary?: string | null
+          cluster_id: string
+          created_at?: string | null
+          disk_total_gb?: number | null
+          domain_id: string
+          environment?: string | null
+          host_node_id?: string | null
+          id?: string
+          ip_address?: string | null
+          name: string
+          os?: string | null
+          owner_department?: string | null
+          ram_gb?: number | null
+          server_ref_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          vcpu?: number | null
+        }
+        Update: {
+          beneficiary?: string | null
+          cluster_id?: string
+          created_at?: string | null
+          disk_total_gb?: number | null
+          domain_id?: string
+          environment?: string | null
+          host_node_id?: string | null
+          id?: string
+          ip_address?: string | null
+          name?: string
+          os?: string | null
+          owner_department?: string | null
+          ram_gb?: number | null
+          server_ref_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          vcpu?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vms_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vms_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vms_host_node_id_fkey"
+            columns: ["host_node_id"]
+            isOneToOne: false
+            referencedRelation: "cluster_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vms_server_ref_id_fkey"
+            columns: ["server_ref_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       website_applications: {
         Row: {
