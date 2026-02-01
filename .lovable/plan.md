@@ -1,209 +1,69 @@
 
 
-# خطة تنفيذ الطلبات المتعددة
+# خطة تنفيذ المتطلبات المتعددة
 
 ## نظرة عامة
 
-يتضمن هذا الطلب **5 مهام** يجب تنفيذها:
+يتضمن هذا الطلب **6 مهام رئيسية**:
 
-1. **إصلاح سريع**: تغيير كلمة "النطاقات" إلى "الشبكات" في لوحة التحكم
-2. **EPIC B**: نظام المناوبات (On-Call Rotation)
-3. **EPIC C**: نوافذ الصيانة وتقويم التغييرات
-4. **Lifecycle Center**: صفحة مركز دورة حياة الأصول
-5. **اختبار**: التحقق من صفحة ملخص النطاق
-
----
-
-## 1. إصلاح سريع: تغيير "النطاقات" إلى "الشبكات"
-
-### الملف المطلوب تعديله
-| الملف | التغيير |
-|-------|---------|
-| `src/contexts/LanguageContext.tsx` | تغيير `'dashboard.domains': 'النطاقات'` إلى `'dashboard.domains': 'الشبكات'` |
-
-### الترجمة الحالية (سطر 518):
-```typescript
-'dashboard.domains': 'النطاقات',  // ← تغيير إلى 'الشبكات'
-```
+1. إضافة بيانات lifecycle للسيرفرات (warranty_end, eol_date, eos_date)
+2. اختبار نوافذ الصيانة وكشف التعارضات
+3. اختبار نظام المناوبات
+4. اختبار صفحة ملخص النطاق
+5. إصلاح ترجمة "جميع النطاقات" → "جميع الشبكات" في فلتر الشبكات
+6. إضافة ميزة تغيير صلاحية الموظف (admin/employee)
 
 ---
 
-## 2. EPIC B: نظام المناوبات (On-Call Rotation)
+## 1. إضافة بيانات Lifecycle للسيرفرات
 
-### هيكل قاعدة البيانات
+### الإجراء المطلوب
+تحديث بيانات السيرفرات الموجودة بإضافة قيم لحقول:
+- `warranty_end` - تاريخ انتهاء الضمان
+- `eol_date` - تاريخ نهاية العمر (End of Life)
+- `eos_date` - تاريخ نهاية الدعم (End of Support)
 
-```text
-جداول جديدة:
-┌─────────────────────────┐
-│    on_call_schedules    │
-├─────────────────────────┤
-│ id                      │
-│ domain_id               │
-│ name                    │
-│ rotation_type           │ (daily/weekly/custom)
-│ start_date              │
-│ created_by              │
-└─────────────────────────┘
-           │
-           │ 1:N
-           ▼
-┌─────────────────────────┐
-│   on_call_assignments   │
-├─────────────────────────┤
-│ id                      │
-│ schedule_id             │
-│ profile_id              │
-│ start_time              │
-│ end_time                │
-│ role                    │ (primary/secondary)
-│ order_index             │
-└─────────────────────────┘
-           │
-           │ 1:N
-           ▼
-┌─────────────────────────┐
-│  escalation_rules       │
-├─────────────────────────┤
-│ id                      │
-│ schedule_id             │
-│ level                   │ (1, 2, 3)
-│ wait_minutes            │
-│ notify_profile_id       │
-│ notify_method           │ (email/sms/both)
-└─────────────────────────┘
-```
-
-### الملفات المطلوب إنشاؤها
-
-| الملف | الوصف |
-|-------|-------|
-| `src/pages/OnCallSchedule.tsx` | صفحة إدارة جداول المناوبات |
-| `src/components/on-call/ScheduleCalendar.tsx` | تقويم المناوبات |
-| `src/components/on-call/AssignmentForm.tsx` | نموذج تعيين المناوبين |
-| `src/components/on-call/EscalationRules.tsx` | إدارة قواعد التصعيد |
-
-### تحديث ويدجت المناوب الحالي
-تحديث `src/components/domain-summary/OnCallWidget.tsx` ليجلب البيانات الفعلية من الجداول الجديدة.
+### خطة التنفيذ
+1. فتح صفحة السيرفرات
+2. تعديل بعض السيرفرات وإضافة تواريخ مختلفة:
+   - بعضها بضمان منتهي (تاريخ في الماضي)
+   - بعضها بضمان قريب الانتهاء (30 يوم)
+   - بعضها بـ EOL/EOS قريب (90 يوم)
+3. التحقق من ظهور البيانات في صفحة Lifecycle Center
 
 ---
 
-## 3. EPIC C: نوافذ الصيانة وتقويم التغييرات
+## 2. اختبار نوافذ الصيانة وكشف التعارضات
 
-### هيكل قاعدة البيانات
+### الخطوات
+1. إنشاء نافذة صيانة جديدة
+2. التحقق من كشف التعارضات مع:
+   - إجازات الموظفين المسؤولين
+   - نوافذ صيانة أخرى متداخلة
 
-```text
-┌─────────────────────────┐
-│  maintenance_windows    │
-├─────────────────────────┤
-│ id                      │
-│ domain_id               │
-│ title                   │
-│ description             │
-│ start_time              │
-│ end_time                │
-│ recurrence              │ (once/weekly/monthly)
-│ affected_servers        │ (text[])
-│ status                  │ (scheduled/in_progress/completed/cancelled)
-│ created_by              │
-│ approved_by             │
-│ impact_level            │ (low/medium/high/critical)
-└─────────────────────────┘
-           │
-           │ 1:N
-           ▼
-┌─────────────────────────┐
-│   change_requests       │
-├─────────────────────────┤
-│ id                      │
-│ maintenance_window_id   │
-│ title                   │
-│ description             │
-│ requested_by            │
-│ status                  │ (pending/approved/rejected)
-│ risk_assessment         │
-└─────────────────────────┘
-```
-
-### الميزات الرئيسية
-
-1. **كشف التعارضات**: عند جدولة صيانة جديدة، التحقق من:
-   - تداخل مع نوافذ صيانة أخرى لنفس السيرفرات
-   - تعارض مع إجازات الموظفين المسؤولين
-   - تعارض مع مواعيد انتهاء التراخيص
-
-2. **التقويم المرئي**: عرض جميع النوافذ في تقويم تفاعلي
-
-### الملفات المطلوب إنشاؤها
-
-| الملف | الوصف |
-|-------|-------|
-| `src/pages/MaintenanceWindows.tsx` | صفحة إدارة نوافذ الصيانة |
-| `src/components/maintenance/MaintenanceCalendar.tsx` | تقويم الصيانة |
-| `src/components/maintenance/MaintenanceForm.tsx` | نموذج إضافة/تعديل صيانة |
-| `src/components/maintenance/ConflictDetector.tsx` | كاشف التعارضات |
-| `src/hooks/useMaintenanceConflicts.ts` | هوك لكشف التعارضات |
+### وظائف التحقق منها
+- إضافة نافذة صيانة جديدة
+- اختيار السيرفرات المتأثرة
+- مستوى التأثير (low/medium/high/critical)
+- حالة الصيانة (scheduled/in_progress/completed/cancelled)
 
 ---
 
-## 4. صفحة مركز دورة الحياة (Lifecycle Center)
+## 3. اختبار نظام المناوبات
 
-### الوظائف الرئيسية
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                    Lifecycle Center                          │
-├─────────────────────────────────────────────────────────────┤
-│  [فلتر: انتهاء الضمان] [فلتر: EOL] [فلتر: EOS] [فلتر: الكل] │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐ │
-│  │ الضمان المنتهي │  │  EOL قريب     │  │  EOS قريب     │ │
-│  │      12        │  │       5        │  │       3        │ │
-│  │ ■■■■■■■■■      │  │ ■■■■■          │  │ ■■■            │ │
-│  └────────────────┘  └────────────────┘  └────────────────┘ │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ Timeline View - الجدول الزمني                         │   │
-│  │ ─────────────────────────────────────────────────────│   │
-│  │ Q1 2026 │ Q2 2026 │ Q3 2026 │ Q4 2026 │ Q1 2027     │   │
-│  │ ●───────●─────────●─────────●─────────●             │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ قائمة السيرفرات المتأثرة                              │   │
-│  │ ─────────────────────────────────────────────────────│   │
-│  │ SERVER01 │ WARRANTY │ 15 يوم │ Dell PowerEdge R740  │   │
-│  │ SERVER02 │ EOL      │ 45 يوم │ Windows Server 2012  │   │
-│  │ SERVER03 │ EOS      │ 90 يوم │ SQL Server 2014      │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### الملفات المطلوب إنشاؤها
-
-| الملف | الوصف |
-|-------|-------|
-| `src/pages/LifecycleCenter.tsx` | الصفحة الرئيسية |
-| `src/components/lifecycle/LifecycleStats.tsx` | بطاقات الإحصائيات |
-| `src/components/lifecycle/LifecycleTimeline.tsx` | الجدول الزمني البصري |
-| `src/components/lifecycle/LifecycleFilters.tsx` | فلاتر البحث |
-| `src/components/lifecycle/LifecycleTable.tsx` | جدول السيرفرات |
-
-### الفلاتر المتاحة
-
-- **حسب الفترة**: 7 أيام / 30 يوم / 90 يوم / السنة
-- **حسب النوع**: Warranty / EOL / EOS
-- **حسب الدومين**: اختيار نطاق محدد
-- **حسب المورد**: Dell / HP / Lenovo / etc.
+### الخطوات
+1. إضافة جدول مناوبات جديد
+2. تحديد نوع التدوير (يومي/أسبوعي)
+3. إضافة أعضاء الفريق
+4. إضافة قواعد التصعيد
 
 ---
 
-## 5. اختبار صفحة ملخص النطاق
+## 4. اختبار صفحة ملخص النطاق
 
-تم إصلاح فلترة البيانات في الجلسة السابقة. الاختبار يتطلب:
-
-1. الانتقال إلى صفحة `/domain-summary`
-2. تبديل بين النطاقات المختلفة
+### الخطوات
+1. الانتقال إلى صفحة Domain Summary
+2. تبديل بين النطاقات
 3. التحقق من تغير:
    - إجمالي السيرفرات
    - السيرفرات النشطة
@@ -212,133 +72,267 @@
 
 ---
 
+## 5. إصلاح ترجمة فلتر الشبكات
+
+### المشكلة الحالية
+في صفحة السيرفرات، الفلتر الثاني (الشبكات) يستخدم `t('dashboard.allNetworks')` الذي يترجم إلى "جميع النطاقات" بدلاً من "جميع الشبكات".
+
+```text
+الفلتر الأول: جميع النطاقات ← صحيح (للدومين)
+الفلتر الثاني: جميع النطاقات ← خطأ (يجب أن يكون "جميع الشبكات")
+```
+
+### الحل
+تحديث الترجمة في `src/contexts/LanguageContext.tsx`:
+
+| المفتاح | القيمة الحالية | القيمة الجديدة |
+|---------|----------------|----------------|
+| `dashboard.allNetworks` (AR) | جميع النطاقات | جميع الشبكات |
+| `dashboard.allNetworks` (EN) | All Domains | All Networks |
+
+### الملف المطلوب تعديله
+`src/contexts/LanguageContext.tsx` - السطور 620 و 1886
+
+---
+
+## 6. إضافة ميزة تغيير صلاحية الموظف
+
+### الوضع الحالي
+- الأدوار مخزنة في جدول `user_roles` الآمن (منفصل عن profiles)
+- يمكن تحديد الدور عند إضافة موظف جديد
+- **لا يمكن** تغيير دور الموظف الحالي
+
+### الحل المقترح
+إضافة نافذة حوار جديدة لتغيير الدور مع Edge Function آمنة.
+
+```text
+العملية:
+┌─────────────────────────┐
+│  صفحة صلاحيات الموظفين  │
+├─────────────────────────┤
+│ [زر جديد: تغيير الدور]  │
+│           ↓             │
+│ ┌─────────────────────┐ │
+│ │ Dialog: تغيير الدور │ │
+│ │ ─────────────────── │ │
+│ │ الموظف: أحمد محمد    │ │
+│ │ الدور الحالي: موظف  │ │
+│ │                      │ │
+│ │ الدور الجديد:       │ │
+│ │ ○ موظف              │ │
+│ │ ● مدير              │ │
+│ │                      │ │
+│ │ [إلغاء] [حفظ]        │ │
+│ └─────────────────────┘ │
+└─────────────────────────┘
+```
+
+### التغييرات المطلوبة
+
+#### 1. إنشاء Edge Function جديدة: `update-user-role`
+
+```typescript
+// supabase/functions/update-user-role/index.ts
+// التحقق من:
+// 1. المستخدم مسجل دخول
+// 2. المستخدم admin (من user_roles)
+// 3. تحديث الدور في user_roles
+```
+
+#### 2. تحديث صفحة EmployeePermissions.tsx
+
+| التغيير | الوصف |
+|---------|-------|
+| حالة جديدة | `isRoleChangeOpen` - لفتح/إغلاق النافذة |
+| حالة جديدة | `selectedNewRole` - الدور الجديد المحدد |
+| دالة جديدة | `handleChangeRole()` - لتغيير الدور |
+| زر جديد | في أزرار الإجراءات لكل موظف |
+| نافذة حوار | لاختيار الدور الجديد |
+
+#### 3. تحديث الترجمات
+
+```typescript
+// إضافة للعربية
+'permissions.changeRole': 'تغيير الصلاحية',
+'permissions.newRole': 'الصلاحية الجديدة',
+'permissions.roleChanged': 'تم تغيير الصلاحية بنجاح',
+'permissions.changeRoleDesc': 'اختر الصلاحية الجديدة لهذا الموظف',
+
+// إضافة للإنجليزية
+'permissions.changeRole': 'Change Role',
+'permissions.newRole': 'New Role',
+'permissions.roleChanged': 'Role changed successfully',
+'permissions.changeRoleDesc': 'Select the new role for this employee',
+```
+
+---
+
 ## التفاصيل التقنية
 
-### هجرات قاعدة البيانات المطلوبة
+### Edge Function: update-user-role
 
-**EPIC B - On-Call:**
-```sql
--- جدول جداول المناوبات
-CREATE TABLE on_call_schedules (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  domain_id UUID REFERENCES domains(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  rotation_type TEXT DEFAULT 'weekly',
-  start_date TIMESTAMPTZ NOT NULL,
-  is_active BOOLEAN DEFAULT true,
-  created_by UUID REFERENCES profiles(id),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- جدول تعيينات المناوبات
-CREATE TABLE on_call_assignments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  schedule_id UUID REFERENCES on_call_schedules(id) ON DELETE CASCADE,
-  profile_id UUID REFERENCES profiles(id),
-  start_time TIMESTAMPTZ NOT NULL,
-  end_time TIMESTAMPTZ NOT NULL,
-  role TEXT DEFAULT 'primary',
-  order_index INTEGER DEFAULT 0
-);
-
--- جدول قواعد التصعيد
-CREATE TABLE escalation_rules (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  schedule_id UUID REFERENCES on_call_schedules(id) ON DELETE CASCADE,
-  level INTEGER NOT NULL,
-  wait_minutes INTEGER DEFAULT 15,
-  notify_profile_id UUID REFERENCES profiles(id),
-  notify_method TEXT DEFAULT 'email'
-);
-```
-
-**EPIC C - Maintenance:**
-```sql
--- جدول نوافذ الصيانة
-CREATE TABLE maintenance_windows (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  domain_id UUID REFERENCES domains(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT,
-  start_time TIMESTAMPTZ NOT NULL,
-  end_time TIMESTAMPTZ NOT NULL,
-  recurrence TEXT DEFAULT 'once',
-  affected_servers TEXT[],
-  status TEXT DEFAULT 'scheduled',
-  impact_level TEXT DEFAULT 'medium',
-  created_by UUID REFERENCES profiles(id),
-  approved_by UUID REFERENCES profiles(id),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- جدول طلبات التغيير
-CREATE TABLE change_requests (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  maintenance_window_id UUID REFERENCES maintenance_windows(id),
-  title TEXT NOT NULL,
-  description TEXT,
-  requested_by UUID REFERENCES profiles(id),
-  status TEXT DEFAULT 'pending',
-  risk_assessment TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-### تحديثات التوجيه (Routing)
-
-في `src/App.tsx`:
 ```typescript
-<Route path="/on-call" element={<ProtectedRoute><OnCallSchedule /></ProtectedRoute>} />
-<Route path="/maintenance" element={<ProtectedRoute><MaintenanceWindows /></ProtectedRoute>} />
-<Route path="/lifecycle" element={<ProtectedRoute><LifecycleCenter /></ProtectedRoute>} />
+// supabase/functions/update-user-role/index.ts
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+Deno.serve(async (req) => {
+  // 1. التحقق من المصادقة
+  const authHeader = req.headers.get('Authorization');
+  // ...
+  
+  // 2. التحقق من أن المتصل admin
+  const { data: callerRole } = await supabaseAdmin
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', callerUserId)
+    .single();
+    
+  if (callerRole?.role !== 'admin') {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+  }
+  
+  // 3. تحديث الدور
+  const { target_user_id, new_role } = await req.json();
+  
+  const { error } = await supabaseAdmin
+    .from('user_roles')
+    .update({ role: new_role })
+    .eq('user_id', target_user_id);
+    
+  // 4. إرجاع النتيجة
+});
 ```
 
-### تحديثات القائمة الجانبية
+### تحديثات EmployeePermissions.tsx
 
-في `src/components/layout/Sidebar.tsx`:
 ```typescript
-{ path: '/on-call', icon: PhoneCall, label: t('nav.onCall') }
-{ path: '/maintenance', icon: Wrench, label: t('nav.maintenance') }
-{ path: '/lifecycle', icon: Clock, label: t('nav.lifecycle') }
+// حالات جديدة
+const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
+const [selectedNewRole, setSelectedNewRole] = useState<'admin' | 'employee'>('employee');
+const [isChangingRole, setIsChangingRole] = useState(false);
+
+// دالة تغيير الدور
+const handleChangeRole = async () => {
+  if (!selectedProfile || !selectedNewRole) return;
+  
+  setIsChangingRole(true);
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-role`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          target_user_id: selectedProfile.user_id,
+          new_role: selectedNewRole,
+        }),
+      }
+    );
+    
+    if (!response.ok) throw new Error('Failed to change role');
+    
+    // مسح الكاش وإعادة التحميل
+    sessionStorage.removeItem(`user_role_${selectedProfile.user_id}`);
+    await refetchProfiles();
+    
+    toast({ title: 'تم بنجاح', description: t('permissions.roleChanged') });
+    setIsRoleChangeOpen(false);
+  } catch (error) {
+    toast({ title: 'خطأ', description: 'فشل في تغيير الصلاحية', variant: 'destructive' });
+  } finally {
+    setIsChangingRole(false);
+  }
+};
 ```
+
+### زر تغيير الدور في الجدول
+
+```tsx
+// إضافة زر جديد في أزرار الإجراءات
+<Button
+  size="sm"
+  variant="ghost"
+  onClick={() => {
+    setSelectedProfile(profile);
+    setSelectedNewRole(profile.role === 'admin' ? 'employee' : 'admin');
+    setIsRoleChangeOpen(true);
+  }}
+  title={t('permissions.changeRole')}
+>
+  <UserCog className="w-4 h-4" />
+</Button>
+```
+
+### نافذة حوار تغيير الدور
+
+```tsx
+<Dialog open={isRoleChangeOpen} onOpenChange={setIsRoleChangeOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>{t('permissions.changeRole')}</DialogTitle>
+      <DialogDescription>{t('permissions.changeRoleDesc')}</DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-4 py-4">
+      <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+        <User className="w-5 h-5" />
+        <div>
+          <p className="font-medium">{selectedProfile?.full_name}</p>
+          <Badge>{selectedProfile?.role}</Badge>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <Label>{t('permissions.newRole')}</Label>
+        <RadioGroup value={selectedNewRole} onValueChange={setSelectedNewRole}>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="employee" />
+            <Label>موظف</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="admin" />
+            <Label>مدير</Label>
+          </div>
+        </RadioGroup>
+      </div>
+    </div>
+    
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setIsRoleChangeOpen(false)}>
+        {t('common.cancel')}
+      </Button>
+      <Button onClick={handleChangeRole} disabled={isChangingRole}>
+        {t('common.save')}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+---
+
+## ملخص الملفات المطلوب تعديلها
+
+| الملف | التغيير |
+|-------|---------|
+| `src/contexts/LanguageContext.tsx` | تصحيح ترجمة `allNetworks` + إضافة ترجمات تغيير الدور |
+| `src/pages/EmployeePermissions.tsx` | إضافة ميزة تغيير الدور |
+| `supabase/functions/update-user-role/index.ts` | إنشاء Edge Function جديدة |
 
 ---
 
 ## ترتيب التنفيذ
 
-| # | المهمة | الأولوية | الوقت المقدر |
-|---|--------|----------|--------------|
-| 1 | إصلاح "النطاقات" → "الشبكات" | عالية | 1 دقيقة |
-| 2 | اختبار صفحة ملخص النطاق | عالية | 5 دقائق |
-| 3 | EPIC B - نظام المناوبات | متوسطة | 30 دقيقة |
-| 4 | EPIC C - نوافذ الصيانة | متوسطة | 30 دقيقة |
-| 5 | Lifecycle Center | متوسطة | 25 دقيقة |
-
----
-
-## الترجمات المطلوب إضافتها
-
-```typescript
-// On-Call
-'nav.onCall': 'المناوبات',
-'onCall.title': 'إدارة المناوبات',
-'onCall.schedule': 'جدول المناوبات',
-'onCall.addSchedule': 'إضافة جدول',
-'onCall.escalation': 'قواعد التصعيد',
-
-// Maintenance
-'nav.maintenance': 'الصيانة',
-'maintenance.title': 'نوافذ الصيانة',
-'maintenance.add': 'إضافة نافذة صيانة',
-'maintenance.conflict': 'يوجد تعارض!',
-'maintenance.calendar': 'تقويم الصيانة',
-
-// Lifecycle
-'nav.lifecycle': 'دورة الحياة',
-'lifecycle.title': 'مركز دورة الحياة',
-'lifecycle.warranty': 'الضمان',
-'lifecycle.eol': 'نهاية العمر',
-'lifecycle.eos': 'نهاية الدعم',
-'lifecycle.expiring': 'قريب الانتهاء',
-```
+| # | المهمة | الأولوية |
+|---|--------|----------|
+| 1 | إصلاح ترجمة "جميع الشبكات" | عالية |
+| 2 | إنشاء Edge Function لتغيير الدور | عالية |
+| 3 | تحديث صفحة صلاحيات الموظفين | عالية |
+| 4 | اختبار الصفحات الجديدة (Browser Testing) | متوسطة |
+| 5 | إضافة بيانات lifecycle للسيرفرات | متوسطة |
 
