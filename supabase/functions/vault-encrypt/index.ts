@@ -5,6 +5,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function normalizeHexKey(input: string): string {
+  // Common copy/paste mistakes: whitespace/newlines or 0x prefix
+  const trimmed = input.trim();
+  return trimmed.startsWith('0x') || trimmed.startsWith('0X') ? trimmed.slice(2) : trimmed;
+}
+
+function isValidAes256HexKey(hex: string): boolean {
+  // 32 bytes => 64 hex chars
+  return /^[0-9a-fA-F]{64}$/.test(hex);
+}
+
 // Hex string to Uint8Array
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
@@ -27,10 +38,24 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const encryptionKey = Deno.env.get('VAULT_ENCRYPTION_KEY');
+    const rawEncryptionKey = Deno.env.get('VAULT_ENCRYPTION_KEY');
 
-    if (!encryptionKey) {
+    if (!rawEncryptionKey) {
       throw new Error('Encryption key not configured');
+    }
+
+    const encryptionKey = normalizeHexKey(rawEncryptionKey);
+    if (!isValidAes256HexKey(encryptionKey)) {
+      return new Response(
+        JSON.stringify({
+          error:
+            'Invalid VAULT_ENCRYPTION_KEY. It must be exactly 64 hex characters (32 bytes) for AES-256-GCM.',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     // Verify auth
@@ -69,6 +94,18 @@ Deno.serve(async (req) => {
 
     // Import the encryption key
     const keyBytes = hexToBytes(encryptionKey);
+    if (keyBytes.byteLength !== 32) {
+      return new Response(
+        JSON.stringify({
+          error:
+            'Invalid VAULT_ENCRYPTION_KEY length after parsing. Expected 32 bytes (64 hex characters).',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
       keyBytes.buffer as ArrayBuffer,
@@ -105,7 +142,8 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Encryption error:', message);
-    return new Response(JSON.stringify({ error: 'Encryption failed' }), {
+    // Safe to return message here because it contains no secrets; it helps diagnose config issues.
+    return new Response(JSON.stringify({ error: 'Encryption failed', message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
