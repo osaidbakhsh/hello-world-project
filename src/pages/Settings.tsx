@@ -290,6 +290,7 @@ const Settings: React.FC = () => {
         <p className="text-sm mt-2">{result.message}</p>
       </div>
     );
+  };
 
   const handleResetDemoData = async () => {
     setIsResetting(true);
