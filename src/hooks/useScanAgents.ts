@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { ScanAgent } from '@/types/fileshares';
 
@@ -86,4 +87,23 @@ async function hashToken(token: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Hook to fetch agent events for diagnostics
+export function useAgentEvents(agentId?: string) {
+  return useQuery({
+    queryKey: ['agent_events', agentId],
+    queryFn: async () => {
+      if (!agentId) return [];
+      const { data, error } = await (supabase as any)
+        .from('agent_events')
+        .select('*')
+        .eq('agent_id', agentId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!agentId,
+  });
 }

@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppName, useAppSettings } from '@/hooks/useSupabaseData';
+import { useAppName, useAppSettings, useDomains } from '@/hooks/useSupabaseData';
 import { useLoginBackground } from '@/hooks/useLoginBackground';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -10,13 +11,24 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock, ImageIcon, Loader2, LayoutDashboard, Lock, Upload, Database } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock, ImageIcon, Loader2, LayoutDashboard, Lock, Upload, Database, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicenseTemplate, downloadNetworkTemplate, downloadEmployeeTemplate } from '@/utils/excelTemplates';
 import SectionOrderSettings from '@/components/settings/SectionOrderSettings';
 import SidebarOrderSettings from '@/components/settings/SidebarOrderSettings';
 import HTTPSSettingsTab from '@/components/settings/HTTPSSettingsTab';
 import { seedAllData, resetAndSeedData } from '@/utils/seedData';
+import { cn } from '@/lib/utils';
+
+interface TestResult {
+  success: boolean;
+  status: string;
+  message: string;
+  latency_ms?: number;
+  error_details?: any;
+}
 
 const Settings: React.FC = () => {
   const { t, dir, language, setLanguage } = useLanguage();
@@ -25,11 +37,21 @@ const Settings: React.FC = () => {
   const { appName, updateAppName } = useAppName();
   const { getSetting, updateSetting } = useAppSettings();
   const { backgroundUrl, uploadBackground } = useLoginBackground();
+  const { data: domains } = useDomains();
   const [localAppName, setLocalAppName] = React.useState(appName);
   const [isUploadingBg, setIsUploadingBg] = React.useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [selectedDomainId, setSelectedDomainId] = useState<string>('');
   const bgInputRef = useRef<HTMLInputElement>(null);
+
+  // Test states
+  const [mailTestResult, setMailTestResult] = useState<TestResult | null>(null);
+  const [isTestingMail, setIsTestingMail] = useState(false);
+  const [ldapTestResult, setLdapTestResult] = useState<TestResult | null>(null);
+  const [isTestingLdap, setIsTestingLdap] = useState(false);
+  const [ntpTestResult, setNtpTestResult] = useState<TestResult | null>(null);
+  const [isTestingNtp, setIsTestingNtp] = useState(false);
 
   // Mail Settings State
   const [mailSettings, setMailSettings] = React.useState({
@@ -184,6 +206,90 @@ const Settings: React.FC = () => {
       });
     }
   };
+
+  // Test connection handlers
+  const handleTestMail = async () => {
+    if (!selectedDomainId) {
+      toast({ title: t('common.error'), description: t('settings.selectDomainFirst'), variant: 'destructive' });
+      return;
+    }
+    setIsTestingMail(true);
+    setMailTestResult(null);
+    try {
+      const response = await supabase.functions.invoke('test-connection', {
+        body: { domain_id: selectedDomainId, module: 'mail' }
+      });
+      setMailTestResult(response.data || { success: false, status: 'fail', message: 'No response' });
+    } catch (error: any) {
+      setMailTestResult({ success: false, status: 'fail', message: error.message });
+    } finally {
+      setIsTestingMail(false);
+    }
+  };
+
+  const handleTestLdap = async () => {
+    if (!selectedDomainId) {
+      toast({ title: t('common.error'), description: t('settings.selectDomainFirst'), variant: 'destructive' });
+      return;
+    }
+    setIsTestingLdap(true);
+    setLdapTestResult(null);
+    try {
+      const response = await supabase.functions.invoke('test-connection', {
+        body: { domain_id: selectedDomainId, module: 'ldap' }
+      });
+      setLdapTestResult(response.data || { success: false, status: 'fail', message: 'No response' });
+    } catch (error: any) {
+      setLdapTestResult({ success: false, status: 'fail', message: error.message });
+    } finally {
+      setIsTestingLdap(false);
+    }
+  };
+
+  const handleTestNtp = async () => {
+    if (!selectedDomainId) {
+      toast({ title: t('common.error'), description: t('settings.selectDomainFirst'), variant: 'destructive' });
+      return;
+    }
+    setIsTestingNtp(true);
+    setNtpTestResult(null);
+    try {
+      const response = await supabase.functions.invoke('test-connection', {
+        body: { domain_id: selectedDomainId, module: 'ntp' }
+      });
+      setNtpTestResult(response.data || { success: false, status: 'fail', message: 'No response' });
+    } catch (error: any) {
+      setNtpTestResult({ success: false, status: 'fail', message: error.message });
+    } finally {
+      setIsTestingNtp(false);
+    }
+  };
+
+  const renderTestResult = (result: TestResult | null) => {
+    if (!result) return null;
+    return (
+      <div className={cn(
+        "p-4 rounded-lg border mt-4",
+        result.success 
+          ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+          : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
+      )}>
+        <div className="flex items-center gap-2">
+          {result.success ? (
+            <CheckCircle className="w-5 h-5 text-green-600" />
+          ) : (
+            <XCircle className="w-5 h-5 text-red-600" />
+          )}
+          <span className="font-medium">
+            {result.success ? t('settings.testSuccess') : t('settings.testFailed')}
+          </span>
+          {result.latency_ms && (
+            <Badge variant="outline">{result.latency_ms}ms</Badge>
+          )}
+        </div>
+        <p className="text-sm mt-2">{result.message}</p>
+      </div>
+    );
 
   const handleResetDemoData = async () => {
     setIsResetting(true);
@@ -460,6 +566,25 @@ const Settings: React.FC = () => {
 
         {/* Mail Settings Tab */}
         <TabsContent value="mail" className="space-y-6 mt-6">
+          {/* Domain Selector for Tests */}
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center gap-4">
+                <Label>{t('common.domain')}</Label>
+                <Select value={selectedDomainId} onValueChange={setSelectedDomainId}>
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder={t('settings.selectDomainFirst')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {domains?.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -549,10 +674,12 @@ const Settings: React.FC = () => {
                 <Button onClick={handleSaveMailSettings} className="flex-1">
                   حفظ الإعدادات
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" onClick={handleTestMail} disabled={isTestingMail || !selectedDomainId}>
+                  {isTestingMail ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : null}
                   اختبار الاتصال
                 </Button>
               </div>
+              {renderTestResult(mailTestResult)}
             </CardContent>
           </Card>
         </TabsContent>
@@ -651,13 +778,15 @@ const Settings: React.FC = () => {
                 <Button onClick={handleSaveLdapSettings} className="flex-1">
                   حفظ الإعدادات
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" onClick={handleTestLdap} disabled={isTestingLdap || !selectedDomainId}>
+                  {isTestingLdap ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : null}
                   اختبار الاتصال
                 </Button>
                 <Button variant="outline">
                   مزامنة المستخدمين
                 </Button>
               </div>
+              {renderTestResult(ldapTestResult)}
 
               <div className="p-4 border rounded-lg bg-info/10 border-info/20">
                 <div className="flex gap-2 items-start">
@@ -746,10 +875,12 @@ const Settings: React.FC = () => {
                 <Button onClick={handleSaveNtpSettings} className="flex-1">
                   حفظ الإعدادات
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" onClick={handleTestNtp} disabled={isTestingNtp || !selectedDomainId}>
+                  {isTestingNtp ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : null}
                   اختبار المزامنة
                 </Button>
               </div>
+              {renderTestResult(ntpTestResult)}
 
               <div className="p-4 border rounded-lg bg-warning/10 border-warning/20">
                 <div className="flex gap-2 items-start">
