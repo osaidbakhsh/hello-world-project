@@ -312,6 +312,97 @@ export type Database = {
           },
         ]
       }
+      connection_test_runs: {
+        Row: {
+          created_at: string | null
+          domain_id: string
+          error_details: Json | null
+          fileshare_id: string | null
+          id: string
+          latency_ms: number | null
+          ldap_config_id: string | null
+          mail_config_id: string | null
+          message: string | null
+          module: string
+          ntp_config_id: string | null
+          requested_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          domain_id: string
+          error_details?: Json | null
+          fileshare_id?: string | null
+          id?: string
+          latency_ms?: number | null
+          ldap_config_id?: string | null
+          mail_config_id?: string | null
+          message?: string | null
+          module: string
+          ntp_config_id?: string | null
+          requested_by?: string | null
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          domain_id?: string
+          error_details?: Json | null
+          fileshare_id?: string | null
+          id?: string
+          latency_ms?: number | null
+          ldap_config_id?: string | null
+          mail_config_id?: string | null
+          message?: string | null
+          module?: string
+          ntp_config_id?: string | null
+          requested_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connection_test_runs_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connection_test_runs_fileshare_id_fkey"
+            columns: ["fileshare_id"]
+            isOneToOne: false
+            referencedRelation: "file_shares"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connection_test_runs_ldap_config_id_fkey"
+            columns: ["ldap_config_id"]
+            isOneToOne: false
+            referencedRelation: "ldap_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connection_test_runs_mail_config_id_fkey"
+            columns: ["mail_config_id"]
+            isOneToOne: false
+            referencedRelation: "mail_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connection_test_runs_ntp_config_id_fkey"
+            columns: ["ntp_config_id"]
+            isOneToOne: false
+            referencedRelation: "ntp_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connection_test_runs_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       datacenters: {
         Row: {
           created_at: string | null
@@ -365,6 +456,7 @@ export type Database = {
           can_edit: boolean | null
           created_at: string | null
           domain_id: string
+          domain_role: string | null
           id: string
           profile_id: string
         }
@@ -372,6 +464,7 @@ export type Database = {
           can_edit?: boolean | null
           created_at?: string | null
           domain_id: string
+          domain_role?: string | null
           id?: string
           profile_id: string
         }
@@ -379,6 +472,7 @@ export type Database = {
           can_edit?: boolean | null
           created_at?: string | null
           domain_id?: string
+          domain_role?: string | null
           id?: string
           profile_id?: string
         }
@@ -401,18 +495,21 @@ export type Database = {
       }
       domains: {
         Row: {
+          code: string | null
           created_at: string | null
           description: string | null
           id: string
           name: string
         }
         Insert: {
+          code?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           name: string
         }
         Update: {
+          code?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -848,6 +945,66 @@ export type Database = {
           },
         ]
       }
+      ldap_configs: {
+        Row: {
+          base_dn: string | null
+          bind_dn: string | null
+          created_at: string | null
+          created_by: string | null
+          domain_id: string
+          host: string
+          id: string
+          is_active: boolean | null
+          name: string
+          port: number | null
+          updated_at: string | null
+          use_tls: boolean | null
+        }
+        Insert: {
+          base_dn?: string | null
+          bind_dn?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          domain_id: string
+          host: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          port?: number | null
+          updated_at?: string | null
+          use_tls?: boolean | null
+        }
+        Update: {
+          base_dn?: string | null
+          bind_dn?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string
+          host?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          port?: number | null
+          updated_at?: string | null
+          use_tls?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ldap_configs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ldap_configs_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       licenses: {
         Row: {
           assigned_to: string | null
@@ -907,6 +1064,66 @@ export type Database = {
           },
           {
             foreignKeyName: "licenses_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mail_configs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          domain_id: string
+          from_email: string | null
+          from_name: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          smtp_host: string
+          smtp_port: number | null
+          updated_at: string | null
+          use_tls: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          smtp_host: string
+          smtp_port?: number | null
+          updated_at?: string | null
+          use_tls?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          smtp_host?: string
+          smtp_port?: number | null
+          updated_at?: string | null
+          use_tls?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mail_configs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mail_configs_domain_id_fkey"
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "domains"
@@ -1120,6 +1337,57 @@ export type Database = {
           },
         ]
       }
+      ntp_configs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          domain_id: string
+          id: string
+          is_active: boolean | null
+          name: string
+          servers: string[]
+          sync_interval_seconds: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          servers?: string[]
+          sync_interval_seconds?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          servers?: string[]
+          sync_interval_seconds?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ntp_configs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ntp_configs_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       on_call_assignments: {
         Row: {
           created_at: string | null
@@ -1324,6 +1592,108 @@ export type Database = {
           {
             foreignKeyName: "purchase_requests_profile_id_fkey"
             columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_upload_rows: {
+        Row: {
+          created_at: string | null
+          errors: string[] | null
+          id: string
+          payload: Json | null
+          report_upload_id: string
+          row_number: number
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          errors?: string[] | null
+          id?: string
+          payload?: Json | null
+          report_upload_id: string
+          row_number: number
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          errors?: string[] | null
+          id?: string
+          payload?: Json | null
+          report_upload_id?: string
+          row_number?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_upload_rows_report_upload_id_fkey"
+            columns: ["report_upload_id"]
+            isOneToOne: false
+            referencedRelation: "report_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_uploads: {
+        Row: {
+          created_at: string | null
+          domain_id: string | null
+          employee_id: string | null
+          file_path: string
+          id: string
+          import_summary: Json | null
+          imported_rows: number | null
+          original_filename: string
+          rejected_rows: number | null
+          uploaded_by: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          domain_id?: string | null
+          employee_id?: string | null
+          file_path: string
+          id?: string
+          import_summary?: Json | null
+          imported_rows?: number | null
+          original_filename: string
+          rejected_rows?: number | null
+          uploaded_by?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          domain_id?: string | null
+          employee_id?: string | null
+          file_path?: string
+          id?: string
+          import_summary?: Json | null
+          imported_rows?: number | null
+          original_filename?: string
+          rejected_rows?: number | null
+          uploaded_by?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_uploads_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_uploads_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_uploads_uploaded_by_fkey"
+            columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1686,6 +2056,47 @@ export type Database = {
             columns: ["network_id"]
             isOneToOne: false
             referencedRelation: "networks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_health_checks: {
+        Row: {
+          check_type: string
+          checked_by: string | null
+          created_at: string | null
+          error_details: Json | null
+          error_message: string | null
+          id: string
+          latency_ms: number | null
+          status: string
+        }
+        Insert: {
+          check_type: string
+          checked_by?: string | null
+          created_at?: string | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          status: string
+        }
+        Update: {
+          check_type?: string
+          checked_by?: string | null
+          created_at?: string | null
+          error_details?: Json | null
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_health_checks_checked_by_fkey"
+            columns: ["checked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2513,6 +2924,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_domain_admin: { Args: { _domain_id: string }; Returns: boolean }
       is_employee_only: { Args: never; Returns: boolean }
       is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }

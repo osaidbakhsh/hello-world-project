@@ -77,6 +77,7 @@ const allMenuItems: MenuItem[] = [
   { id: 'employeeReports', path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports', adminOnly: true },
   { id: 'reports', path: '/reports', icon: FileBarChart, label: 'nav.reports' },
   { id: 'auditLog', path: '/audit-log', icon: History, label: 'nav.auditLog', adminOnly: true },
+  { id: 'systemHealth', path: '/system-health', icon: Shield, label: 'nav.systemHealth', adminOnly: true },
   { id: 'settings', path: '/settings', icon: Settings, label: 'nav.settings', adminOnly: true },
 ];
 
