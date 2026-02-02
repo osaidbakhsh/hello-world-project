@@ -1958,6 +1958,62 @@ export type Database = {
         }
         Relationships: []
       }
+      vacation_balances: {
+        Row: {
+          annual_balance: number | null
+          created_at: string | null
+          created_by: string | null
+          emergency_balance: number | null
+          id: string
+          notes: string | null
+          profile_id: string
+          sick_balance: number | null
+          updated_at: string | null
+          used_annual: number | null
+          used_emergency: number | null
+          used_sick: number | null
+          year: number
+        }
+        Insert: {
+          annual_balance?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          emergency_balance?: number | null
+          id?: string
+          notes?: string | null
+          profile_id: string
+          sick_balance?: number | null
+          updated_at?: string | null
+          used_annual?: number | null
+          used_emergency?: number | null
+          used_sick?: number | null
+          year?: number
+        }
+        Update: {
+          annual_balance?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          emergency_balance?: number | null
+          id?: string
+          notes?: string | null
+          profile_id?: string
+          sick_balance?: number | null
+          updated_at?: string | null
+          used_annual?: number | null
+          used_emergency?: number | null
+          used_sick?: number | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vacation_balances_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vacations: {
         Row: {
           approved_by: string | null
