@@ -1,745 +1,649 @@
 
+# Full Remediation + UI Fix Pack Implementation Plan
 
-# Comprehensive Revision Plan
-
-## Delta Summary (Changes from Previously Approved Plan)
-
-This revision adds critical fixes and enhancements to the previously implemented modules:
-
-| Module | Previously Approved | This Revision Adds |
-|--------|--------------------|--------------------|
-| Datacenter/Clusters | Basic ClusterTable created | Fix delete guardrails (prevent if nodes/VMs exist), add Clusters tab in main page, domain selector in ClusterForm, edit/delete actions in overview cards |
-| Datacenter Completeness | Placeholders showing | Fix Arabic translations, compute real metrics with progress bars |
-| Network Scan | Basic simulated scan | Advanced Discovery mode for air-gapped networks, agent-based subnet discovery, CSV export, max-host guardrails |
-| System Health | Label not translated | Add Arabic translation for nav.systemHealth |
-| Procurement | Basic CRUD created | Add dashboard KPIs, sample data generator (super_admin only), "Uploaded By" display, employee filter, Excel/CSV export |
-| Sidebar | Items registered | Move Procurement + System Health under Settings group, update SidebarOrderSettings |
-| Mail Test | Edge function created | Already implemented - no changes needed |
+## Executive Summary
+This plan addresses 5 critical RLS security vulnerabilities, 2 warnings, storage isolation issues, datacenter UI fixes, network scan enhancements, procurement improvements, and sidebar reorganization identified in the audit.
 
 ---
 
-## Phase 1: Datacenter Cluster Management Enhancements
+## SECTION A: SECURITY REMEDIATION (Critical Fixes)
 
-### 1.1 Fix Missing Arabic Translation for nav.systemHealth
+### A1) Servers Table RLS Fix - NULL network_id Exposure
 
-**File:** `src/contexts/LanguageContext.tsx`
-
-**Location:** Arabic section (around line 267)
-
-**Add:**
-```javascript
-'nav.systemHealth': 'صحة النظام',
+**Current Policy (Vulnerable):**
+```sql
+-- Policy "Users can view servers in their networks"
+USING: (is_admin() OR can_access_network(network_id) OR (network_id IS NULL))
 ```
 
-### 1.2 Fix Missing Datacenter Translations
+**Issue:** Any authenticated user can see all servers where `network_id IS NULL`.
 
-**File:** `src/contexts/LanguageContext.tsx`
+**Solution (Option 2 - Admin-only for NULL):**
+```sql
+-- Drop existing policies
+DROP POLICY IF EXISTS "Users can view servers in their networks" ON servers;
+DROP POLICY IF EXISTS "Users can add servers to their networks" ON servers;
 
-**Add to Arabic section:**
-```javascript
-'datacenter.nodesWithSerial': 'النودات مع الرقم التسلسلي',
-'datacenter.vmsLinked': 'الأجهزة الافتراضية المرتبطة',
-'datacenter.completenessDesc': 'مستوى اكتمال بيانات البنية التحتية',
-'datacenter.completenessScore': 'نسبة الاكتمال',
-'datacenter.noSerialTooltip': 'أضف الرقم التسلسلي للنود',
-'datacenter.noVmLinkTooltip': 'اربط الجهاز الافتراضي بسيرفر مرجعي',
-```
+-- Recreate with proper restrictions
+CREATE POLICY "servers_select" ON servers FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (network_id IS NOT NULL AND can_access_network(network_id))
+  )
+);
 
-### 1.3 Add Clusters Tab to Datacenter Page
-
-**File:** `src/pages/Datacenter.tsx`
-
-**Changes:**
-- Import `ClusterTable` component
-- Add new tab "Clusters" between "Datacenters" and "Physical"
-- Tab icon: `Layers` or `Server`
-
-```jsx
-<TabsTrigger value="clusters" className="gap-2">
-  <Layers className="w-4 h-4" />
-  {t('datacenter.clustersTab')}
-</TabsTrigger>
-
-<TabsContent value="clusters">
-  <ClusterTable domainId={selectedDomainId} />
-</TabsContent>
-```
-
-### 1.4 Enhance ClusterTable with Delete Guardrails
-
-**File:** `src/components/datacenter/ClusterTable.tsx`
-
-**Changes:**
-- Before delete, check if cluster has linked nodes or VMs
-- If yes, show error message with count instead of proceeding
-- Display clear reason: "Cannot delete - X nodes and Y VMs are linked"
-
-```typescript
-const attemptDelete = (cluster: Cluster) => {
-  const stats = getClusterStats(cluster.id);
-  if (stats.nodesCount > 0 || stats.vmsCount > 0) {
-    toast({
-      title: language === 'ar' ? 'لا يمكن الحذف' : 'Cannot Delete',
-      description: language === 'ar' 
-        ? `هذا الكلستر مرتبط بـ ${stats.nodesCount} نود و ${stats.vmsCount} جهاز افتراضي`
-        : `This cluster has ${stats.nodesCount} nodes and ${stats.vmsCount} VMs linked`,
-      variant: 'destructive',
-    });
-    return;
-  }
-  setClusterToDelete(cluster);
-  setDeleteDialogOpen(true);
-};
-```
-
-### 1.5 Add Domain Selector to ClusterForm
-
-**File:** `src/components/datacenter/ClusterForm.tsx`
-
-**Changes:**
-- Add domain selector as FIRST field
-- Filter datacenters dropdown by selected domain
-- Update hook to fetch datacenters for selected domain
-
-```jsx
-// Props update
-interface Props {
-  domainId?: string;  // Made optional
-  onClose: () => void;
-}
-
-// Add state for selected domain
-const [selectedDomainId, setSelectedDomainId] = useState(domainId || '');
-const { data: domains } = useDomains();
-const { data: datacenters } = useDatacenters(selectedDomainId);
-
-// First field in form
-<div className="space-y-2">
-  <Label>{t('common.domain')} *</Label>
-  <Select value={selectedDomainId} onValueChange={setSelectedDomainId}>
-    <SelectTrigger>
-      <SelectValue placeholder={t('common.selectDomain')} />
-    </SelectTrigger>
-    <SelectContent>
-      {domains?.map(d => (
-        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
-```
-
-### 1.6 Enhance DatacenterOverview with Real Completeness Metrics
-
-**File:** `src/components/datacenter/DatacenterOverview.tsx`
-
-**Changes:**
-- Pass nodes and VMs data as props (or fetch via hooks)
-- Compute actual metrics:
-  - Nodes with serial: `nodes.filter(n => n.serial_number).length / nodes.length`
-  - VMs linked to server: `vms.filter(v => v.server_ref_id).length / vms.length`
-- Display with progress bars and tooltips
-
-```jsx
-// Import hooks
-import { useClusterNodes, useVMs } from '@/hooks/useDatacenter';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-
-// Inside component
-const { data: nodes } = useClusterNodes(domainId);
-const { data: vms } = useVMs(domainId);
-
-const nodesWithSerial = nodes?.filter(n => n.serial_number).length || 0;
-const totalNodes = nodes?.length || 0;
-const nodesSerialPercent = totalNodes > 0 ? Math.round((nodesWithSerial / totalNodes) * 100) : 0;
-
-const vmsLinked = vms?.filter(v => v.server_ref_id).length || 0;
-const totalVMs = vms?.length || 0;
-const vmsLinkedPercent = totalVMs > 0 ? Math.round((vmsLinked / totalVMs) * 100) : 0;
-
-// In completeness card
-<div className="space-y-4">
-  <div>
-    <div className="flex items-center justify-between mb-2">
-      <span>{t('datacenter.nodesWithSerial')}</span>
-      <span className="font-medium">{nodesWithSerial} / {totalNodes} ({nodesSerialPercent}%)</span>
-    </div>
-    <Progress value={nodesSerialPercent} className="h-2" />
-  </div>
-  <div>
-    <div className="flex items-center justify-between mb-2">
-      <span>{t('datacenter.vmsLinked')}</span>
-      <span className="font-medium">{vmsLinked} / {totalVMs} ({vmsLinkedPercent}%)</span>
-    </div>
-    <Progress value={vmsLinkedPercent} className="h-2" />
-  </div>
-</div>
-```
-
-### 1.7 Add Edit/Delete Actions to Cluster Cards in Overview
-
-**File:** `src/components/datacenter/DatacenterOverview.tsx`
-
-**Changes:**
-- Add Edit and Delete buttons to cluster cards
-- Only visible to admin/super_admin
-- Use same delete guardrail logic
-
-```jsx
-import { Pencil, Trash2 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-
-const { isAdmin, isSuperAdmin } = useAuth();
-
-// In cluster card
-{(isAdmin || isSuperAdmin) && (
-  <div className="flex gap-1 mt-3 pt-3 border-t">
-    <Button size="sm" variant="ghost" onClick={() => onEditCluster(cluster)}>
-      <Pencil className="w-4 h-4" />
-    </Button>
-    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onDeleteCluster(cluster)}>
-      <Trash2 className="w-4 h-4" />
-    </Button>
-  </div>
-)}
+CREATE POLICY "servers_insert" ON servers FOR INSERT
+WITH CHECK (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (network_id IS NOT NULL AND can_access_network(network_id))
+  )
+);
 ```
 
 ---
 
-## Phase 2: Network Scan Advanced Discovery Mode
+### A2) Licenses Table RLS Fix - NULL domain_id Exposure
 
-### 2.1 Add Scan Mode Selection
-
-**File:** `src/pages/NetworkScan.tsx`
-
-**Add new state and UI:**
-```typescript
-const [scanMode, setScanMode] = useState<'standard' | 'advanced'>('standard');
-const [maxHosts, setMaxHosts] = useState(254);
-const [discoveredSubnets, setDiscoveredSubnets] = useState<string[]>([]);
-const [selectedSubnets, setSelectedSubnets] = useState<string[]>([]);
+**Current Policy (Vulnerable):**
+```sql
+-- Policy "Users can view licenses in their domains"
+USING: (is_admin() OR can_access_domain(domain_id) OR (domain_id IS NULL))
 ```
 
-**UI Changes:**
-```jsx
-<div className="space-y-2">
-  <Label>{language === 'ar' ? 'وضع الفحص' : 'Scan Mode'}</Label>
-  <Select value={scanMode} onValueChange={(v: any) => setScanMode(v)}>
-    <SelectTrigger>
-      <SelectValue />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="standard">{language === 'ar' ? 'قياسي' : 'Standard'}</SelectItem>
-      <SelectItem value="advanced">{language === 'ar' ? 'اكتشاف متقدم' : 'Advanced Discovery'}</SelectItem>
-    </SelectContent>
-  </Select>
-</div>
+**Issue:** Any user can see licenses with NULL `domain_id`.
 
-{scanMode === 'advanced' && (
-  <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-    <p className="text-sm text-muted-foreground">
-      {language === 'ar' 
-        ? 'سيتم اكتشاف الشبكات الفرعية المتاحة عبر الوكيل'
-        : 'Available subnets will be discovered via agent'}
-    </p>
-    <div className="flex gap-2">
-      <div className="space-y-2 flex-1">
-        <Label>{language === 'ar' ? 'الحد الأقصى للأجهزة' : 'Max Hosts per Subnet'}</Label>
-        <Input 
-          type="number" 
-          value={maxHosts} 
-          onChange={e => setMaxHosts(Math.min(1000, parseInt(e.target.value) || 254))}
-          max={1000}
-        />
-      </div>
-    </div>
-    {/* Show discovered subnets as checkboxes */}
-    {discoveredSubnets.length > 0 && (
-      <div className="space-y-2">
-        <Label>{language === 'ar' ? 'الشبكات المكتشفة' : 'Discovered Subnets'}</Label>
-        {discoveredSubnets.map(subnet => (
-          <div key={subnet} className="flex items-center gap-2">
-            <Checkbox 
-              checked={selectedSubnets.includes(subnet)}
-              onCheckedChange={(checked) => {
-                if (checked) setSelectedSubnets([...selectedSubnets, subnet]);
-                else setSelectedSubnets(selectedSubnets.filter(s => s !== subnet));
-              }}
-            />
-            <span>{subnet}</span>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
+**Solution:**
+```sql
+DROP POLICY IF EXISTS "Users can view licenses in their domains" ON licenses;
+
+CREATE POLICY "licenses_select" ON licenses FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin()
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+  )
+);
 ```
 
-### 2.2 Add Guardrail for Large Scans
+---
 
-```typescript
-const estimateHostCount = (cidr: string) => {
-  const prefix = parseInt(cidr.split('/')[1]) || 24;
-  return Math.pow(2, 32 - prefix);
-};
+### A3) website_applications RLS Fix - Publicly Readable
 
-// Before starting scan
-if (scanMode === 'standard' && estimateHostCount(ipRange) > 1000) {
-  toast({
-    title: language === 'ar' ? 'تحذير' : 'Warning',
-    description: language === 'ar' 
-      ? `هذا النطاق يحتوي على ${estimateHostCount(ipRange)} عنوان. هل تريد المتابعة؟`
-      : `This range contains ${estimateHostCount(ipRange)} addresses. Continue?`,
-    variant: 'destructive',
-  });
-  return;
-}
+**Current Policy (Vulnerable):**
+```sql
+-- Policy "Users can view active website applications"
+USING: ((is_active = true) OR is_admin())
 ```
 
-### 2.3 Add CSV Export for Results
+**Issue:** No `auth.uid()` check - unauthenticated users can read active apps.
 
-**File:** `src/pages/NetworkScan.tsx`
+**Solution:**
+```sql
+DROP POLICY IF EXISTS "Users can view active website applications" ON website_applications;
 
-```typescript
-const exportToCsv = () => {
-  if (!scanResults.length) return;
+CREATE POLICY "website_applications_select" ON website_applications FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() OR is_active = true
+  )
+);
+```
+
+---
+
+### A4) on_call_schedules + on_call_assignments RLS Fix - USING(true)
+
+**Current Policy (Vulnerable):**
+```sql
+-- Policy "Users can view on call schedules"
+USING: true
+-- Policy "Users can view on_call_assignments"
+USING: true
+```
+
+**Issue:** Unauthenticated access allowed.
+
+**Solution:**
+```sql
+DROP POLICY IF EXISTS "Users can view on call schedules" ON on_call_schedules;
+DROP POLICY IF EXISTS "Users can view on_call_assignments" ON on_call_assignments;
+
+CREATE POLICY "on_call_schedules_select" ON on_call_schedules FOR SELECT
+USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "on_call_assignments_select" ON on_call_assignments FOR SELECT
+USING (auth.uid() IS NOT NULL);
+```
+
+---
+
+### A5) Leaked Password Protection
+
+**Current State:** DISABLED (confirmed by linter)
+
+**Required Action:** Manual configuration in Supabase Dashboard
+
+**Steps for Project Owner:**
+1. Open Lovable Cloud → Backend Settings
+2. Navigate to Auth → Security
+3. Enable "Leaked Password Protection"
+4. Save changes
+
+**Note:** This cannot be set programmatically via migrations.
+
+---
+
+## SECTION B: WARNINGS - Audit Log Insert Restrictions
+
+### B1) audit_logs Insert Restriction
+
+**Current Policy:**
+```sql
+-- Policy "Authenticated users can insert audit logs"
+WITH CHECK: (auth.uid() IS NOT NULL)
+```
+
+**Issue:** Any authenticated user can insert arbitrary audit logs.
+
+**Solution - Controlled Insert via Trigger:**
+```sql
+-- Replace permissive insert with actor validation
+DROP POLICY IF EXISTS "Authenticated users can insert audit logs" ON audit_logs;
+
+-- Create function to validate audit log inserts
+CREATE OR REPLACE FUNCTION validate_audit_log_insert()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Ensure user_id matches current user
+  IF NEW.user_id IS NOT NULL AND NEW.user_id != get_my_profile_id() THEN
+    RAISE EXCEPTION 'Cannot insert audit log for another user';
+  END IF;
   
-  const headers = ['IP Address', 'Hostname', 'OS Type', 'Device Type', 'Open Ports', 'Status'];
-  const rows = scanResults.map(r => [
-    r.ip_address,
-    r.hostname || '',
-    r.os_type || '',
-    r.device_type,
-    r.open_ports.join(';'),
-    existingServers.some(s => s.ip_address === r.ip_address) ? 'Existing' : 'New'
-  ]);
+  -- Set user_id to current user if not provided
+  IF NEW.user_id IS NULL THEN
+    NEW.user_id := get_my_profile_id();
+  END IF;
   
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `network-scan-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`;
-  a.click();
-};
+  RETURN NEW;
+END;
+$$;
 
-// Add button in results header
-<Button variant="outline" size="sm" onClick={exportToCsv} className="gap-2">
-  <FileDown className="w-4 h-4" />
-  {language === 'ar' ? 'تصدير CSV' : 'Export CSV'}
-</Button>
+CREATE TRIGGER audit_log_insert_validator
+BEFORE INSERT ON audit_logs
+FOR EACH ROW EXECUTE FUNCTION validate_audit_log_insert();
+
+-- New restricted policy
+CREATE POLICY "audit_logs_insert" ON audit_logs FOR INSERT
+WITH CHECK (
+  auth.uid() IS NOT NULL
+  AND (user_id IS NULL OR user_id = get_my_profile_id())
+);
 ```
 
-### 2.4 Agent-Based Discovery (Air-Gapped Support)
+### B2) vault_audit_logs Insert Restriction
 
-For air-gapped environments, the scan should leverage the existing `scan_agents` infrastructure:
+Same approach as audit_logs:
+```sql
+DROP POLICY IF EXISTS "Authenticated users can insert vault audit logs" ON vault_audit_logs;
 
+CREATE OR REPLACE FUNCTION validate_vault_audit_log_insert()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.user_id IS NOT NULL AND NEW.user_id != get_my_profile_id() THEN
+    RAISE EXCEPTION 'Cannot insert vault audit log for another user';
+  END IF;
+  IF NEW.user_id IS NULL THEN
+    NEW.user_id := get_my_profile_id();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER vault_audit_log_insert_validator
+BEFORE INSERT ON vault_audit_logs
+FOR EACH ROW EXECUTE FUNCTION validate_vault_audit_log_insert();
+
+CREATE POLICY "vault_audit_logs_insert" ON vault_audit_logs FOR INSERT
+WITH CHECK (
+  auth.uid() IS NOT NULL
+  AND (user_id IS NULL OR user_id = get_my_profile_id())
+);
+```
+
+---
+
+## SECTION C: STORAGE ISOLATION
+
+### C1) employee-reports Domain-Scoped Access
+
+**Current Issue:** Any authenticated user can read/delete any employee report.
+
+**Solution - Storage Policy Enhancement:**
+```sql
+-- Drop overly permissive policies
+DROP POLICY IF EXISTS "Authenticated users can read employee reports" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete employee reports" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload employee reports" ON storage.objects;
+DROP POLICY IF EXISTS "employee_reports_delete" ON storage.objects;
+DROP POLICY IF EXISTS "employee_reports_insert" ON storage.objects;
+DROP POLICY IF EXISTS "employee_reports_select" ON storage.objects;
+
+-- Admin-only access for employee reports
+CREATE POLICY "employee_reports_select_v2" ON storage.objects FOR SELECT
+USING (bucket_id = 'employee-reports' AND is_admin());
+
+CREATE POLICY "employee_reports_insert_v2" ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'employee-reports' AND is_admin());
+
+CREATE POLICY "employee_reports_delete_v2" ON storage.objects FOR DELETE
+USING (bucket_id = 'employee-reports' AND is_admin());
+```
+
+### C2) MIME Type Restrictions
+
+**procurement-quotations bucket:**
+```sql
+UPDATE storage.buckets 
+SET allowed_mime_types = ARRAY['application/pdf']
+WHERE id = 'procurement-quotations';
+```
+
+**employee-reports bucket:**
+```sql
+UPDATE storage.buckets 
+SET allowed_mime_types = ARRAY[
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'text/csv'
+]
+WHERE id = 'employee-reports';
+```
+
+---
+
+## SECTION D: DATACENTER UI FIXES
+
+### D1) Cluster Management - Already Implemented ✅
+
+Based on file review:
+- `ClusterTable.tsx` already has Edit/Delete with guardrails (lines 79-100)
+- `ClusterForm.tsx` already has domain selector as first field (lines 100-117)
+- `DatacenterOverview.tsx` has edit/delete on cluster cards (lines 236-250)
+- Guardrails check `nodes?.filter()` and `vms?.filter()` for linked items
+
+**No additional changes needed for cluster management.**
+
+### D2) Completeness Section Translations
+
+**Current State:** Translations exist in Arabic (lines 93-98 of LanguageContext.tsx)
+
+**Issue:** English translations may be missing. Need to verify English section.
+
+**Files to Check/Modify:**
+| File | Change |
+|------|--------|
+| `src/contexts/LanguageContext.tsx` | Verify English translations exist |
+
+**English translations to add if missing:**
+```javascript
+// In English section
+'datacenter.nodesWithSerial': 'Nodes with Serial Number',
+'datacenter.vmsLinked': 'Linked VMs',
+'datacenter.completenessDesc': 'Infrastructure data completeness',
+'datacenter.completenessScore': 'Completeness',
+'datacenter.clustersTab': 'Clusters',
+'datacenter.cannotDeleteCluster': 'Cannot Delete Cluster',
+```
+
+### D3) Required Translations Verification
+
+**Arabic (confirmed in LanguageContext.tsx lines 93-99):**
+- ✅ `datacenter.clustersTab`: 'الكلسترات'
+- ✅ `datacenter.nodesWithSerial`: 'النودات مع الرقم التسلسلي'
+- ✅ `datacenter.vmsLinked`: 'الأجهزة الافتراضية المرتبطة'
+- ✅ `datacenter.completenessDesc`: 'مستوى اكتمال بيانات البنية التحتية'
+- ✅ `nav.systemHealth`: 'صحة النظام' (line 99)
+
+**Action:** Verify English section has matching keys.
+
+---
+
+## SECTION E: NETWORK SCAN - Advanced Mode Without Agent
+
+### Current State Analysis:
+From `NetworkScan.tsx`:
+- Scan mode selector exists (standard/advanced) - lines 90-93
+- `discoverSubnets()` function exists but simulates discovery - lines 183-213
+- CSV export implemented - lines 376-396
+- Domain scoping via `selectedDomainId` - lines 143-166
+
+### Required Enhancements:
+
+**E1) Use Networks Table for Subnet Discovery**
+
+**Modify `NetworkScan.tsx` around line 183:**
 ```typescript
 const discoverSubnets = async () => {
-  // If agent is available for this domain, use it
+  // Check for online agents in the selected domain
   const { data: agents } = await supabase
     .from('scan_agents')
     .select('*')
-    .eq('domain_id', selectedDomainId)
     .eq('status', 'online')
+    .eq('domain_id', selectedDomainId)
     .limit(1);
   
   if (agents?.length) {
-    // Create discovery job for agent
-    const { data: job } = await supabase
-      .from('scan_jobs')
-      .insert({
-        name: 'Subnet Discovery',
-        domain_id: selectedDomainId,
-        scan_mode: 'discovery',
-        agent_id: agents[0].id,
-        status: 'queued',
-      })
-      .select()
-      .single();
-    
+    // Agent-based discovery - future implementation
     toast({
-      title: language === 'ar' ? 'جاري الاكتشاف' : 'Discovery Started',
+      title: t('scan.discoverSubnets'),
       description: language === 'ar' 
         ? 'الوكيل سيقوم باكتشاف الشبكات الفرعية'
         : 'Agent will discover available subnets',
     });
+    // Create discovery job - placeholder for agent implementation
   } else {
-    // No agent - use default private subnets
-    setDiscoveredSubnets(['192.168.1.0/24', '192.168.0.0/24', '10.0.0.0/24']);
+    // Use networks table as source
+    const domainNetworks = filteredNetworks
+      ?.filter(n => n.subnet)
+      .map(n => n.subnet!) || [];
+    
+    if (domainNetworks.length > 0) {
+      setDiscoveredSubnets(domainNetworks);
+      toast({
+        title: language === 'ar' ? 'الشبكات المحفوظة' : 'Saved Networks',
+        description: language === 'ar'
+          ? `تم العثور على ${domainNetworks.length} شبكة`
+          : `Found ${domainNetworks.length} networks`,
+      });
+    } else {
+      // Fallback to common private subnets
+      setDiscoveredSubnets(['192.168.1.0/24', '192.168.0.0/24', '10.0.0.0/24']);
+      toast({
+        title: t('scan.noAgent'),
+        description: language === 'ar'
+          ? 'سيتم عرض الشبكات الافتراضية الخاصة'
+          : 'Showing default private subnets',
+        variant: 'default',
+      });
+    }
   }
 };
 ```
 
----
+**E2) Add Manual Subnet Input**
 
-## Phase 3: Procurement Module Enhancements
-
-### 3.1 Add Dashboard KPIs to Procurement List
-
-**File:** `src/pages/Procurement.tsx`
-
-**Add KPI cards above the table:**
-```jsx
-// Compute stats
-const stats = useMemo(() => ({
-  total: requests?.length || 0,
-  draft: requests?.filter(r => r.status === 'draft').length || 0,
-  pending: requests?.filter(r => ['submitted', 'under_review'].includes(r.status)).length || 0,
-  approved: requests?.filter(r => r.status === 'approved').length || 0,
-  rejected: requests?.filter(r => r.status === 'rejected').length || 0,
-}), [requests]);
-
-// KPI Cards
-<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-  <Card>
-    <CardContent className="p-4">
-      <p className="text-sm text-muted-foreground">{language === 'ar' ? 'إجمالي الطلبات' : 'Total Requests'}</p>
-      <p className="text-2xl font-bold">{stats.total}</p>
-    </CardContent>
-  </Card>
-  <Card>
-    <CardContent className="p-4">
-      <p className="text-sm text-muted-foreground">{t('procurement.status.draft')}</p>
-      <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
-    </CardContent>
-  </Card>
-  <Card>
-    <CardContent className="p-4">
-      <p className="text-sm text-muted-foreground">{language === 'ar' ? 'قيد المراجعة' : 'Pending'}</p>
-      <p className="text-2xl font-bold text-blue-600">{stats.pending}</p>
-    </CardContent>
-  </Card>
-  <Card>
-    <CardContent className="p-4">
-      <p className="text-sm text-muted-foreground">{t('procurement.status.approved')}</p>
-      <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
-    </CardContent>
-  </Card>
-  <Card>
-    <CardContent className="p-4">
-      <p className="text-sm text-muted-foreground">{t('procurement.status.rejected')}</p>
-      <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
-    </CardContent>
-  </Card>
-</div>
-```
-
-### 3.2 Add Sample Data Generator (Super Admin Only)
-
-**File:** `src/pages/Procurement.tsx`
-
-```jsx
-import { useAuth } from '@/contexts/AuthContext';
-
-const { isSuperAdmin, profile } = useAuth();
-const [showSampleDialog, setShowSampleDialog] = useState(false);
-const [isGenerating, setIsGenerating] = useState(false);
-
-const generateSampleData = async () => {
-  if (!selectedDomainId || selectedDomainId === 'all') {
-    toast({ title: t('common.error'), description: language === 'ar' ? 'اختر نطاقاً محدداً' : 'Select a specific domain', variant: 'destructive' });
-    return;
-  }
-  
-  setIsGenerating(true);
-  try {
-    // Generate request number
-    const { data: requestNumber } = await supabase.rpc('generate_procurement_request_number', { p_domain_id: selectedDomainId });
-    
-    // Create sample request
-    const { data: request } = await supabase
-      .from('procurement_requests')
-      .insert({
-        domain_id: selectedDomainId,
-        request_number: requestNumber,
-        title: language === 'ar' ? 'طلب تجريبي - أجهزة حاسوب' : 'Sample Request - Computer Equipment',
-        description: language === 'ar' ? 'طلب تجريبي لأغراض الاختبار' : 'Sample request for testing purposes',
-        status: 'draft',
-        priority: 'medium',
-        currency: 'SAR',
-        created_by: profile?.id,
-      })
-      .select()
-      .single();
-    
-    // Add sample items
-    await supabase.from('procurement_request_items').insert([
-      { request_id: request.id, item_name: 'Laptop Dell XPS 15', quantity: 5, unit: 'pcs', estimated_unit_price: 5500 },
-      { request_id: request.id, item_name: 'Monitor 27"', quantity: 10, unit: 'pcs', estimated_unit_price: 1200 },
-      { request_id: request.id, item_name: 'USB-C Dock', quantity: 5, unit: 'pcs', estimated_unit_price: 350 },
-    ]);
-    
-    // Add activity log
-    await supabase.from('procurement_activity_logs').insert({
-      request_id: request.id,
-      actor_profile_id: profile?.id,
-      action: 'created',
-      details: { source: 'sample_generator' },
-    });
-    
-    toast({ title: t('common.success'), description: language === 'ar' ? 'تم إنشاء البيانات التجريبية' : 'Sample data created' });
-    queryClient.invalidateQueries({ queryKey: ['procurement_requests'] });
-  } catch (error: any) {
-    toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
-  } finally {
-    setIsGenerating(false);
-    setShowSampleDialog(false);
-  }
-};
-
-// Button (only for super_admin)
-{isSuperAdmin && (
-  <Button variant="outline" onClick={() => setShowSampleDialog(true)} className="gap-2">
-    <Database className="w-4 h-4" />
-    {language === 'ar' ? 'بيانات تجريبية' : 'Sample Data'}
-  </Button>
-)}
-```
-
-### 3.3 Add "Created By" Display and Employee Filter
-
-**File:** `src/pages/Procurement.tsx`
-
-**Add to table:**
-```jsx
-<TableHead>{language === 'ar' ? 'المنشئ' : 'Created By'}</TableHead>
-
-// In row
-<TableCell>{request.profiles?.full_name || '-'}</TableCell>
-```
-
-**Add employee filter (for admins):**
-```jsx
-const { data: employees } = useQuery({
-  queryKey: ['employees_for_filter'],
-  queryFn: async () => {
-    const { data } = await supabase.from('profiles').select('id, full_name').order('full_name');
-    return data;
-  },
-  enabled: isAdmin,
-});
-
-const [employeeFilter, setEmployeeFilter] = useState<string>('all');
-
-// Filter UI
-{isAdmin && (
-  <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-    <SelectTrigger className="w-[200px]">
-      <SelectValue placeholder={language === 'ar' ? 'جميع الموظفين' : 'All Employees'} />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all">{language === 'ar' ? 'جميع الموظفين' : 'All Employees'}</SelectItem>
-      {employees?.map(e => (
-        <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-)}
-
-// Apply filter
-const filteredRequests = requests?.filter(r => 
-  (!searchQuery || r.request_number.toLowerCase().includes(searchQuery.toLowerCase()) || r.title.toLowerCase().includes(searchQuery.toLowerCase())) &&
-  (employeeFilter === 'all' || r.created_by === employeeFilter)
-);
-```
-
-### 3.4 Add Excel/CSV Export
-
-**File:** `src/pages/Procurement.tsx`
-
+**Add new state:**
 ```typescript
-import * as XLSX from 'xlsx';
-
-const exportToExcel = () => {
-  if (!filteredRequests?.length) return;
-  
-  const data = filteredRequests.map(r => ({
-    'Request Number': r.request_number,
-    'Title': r.title,
-    'Domain': r.domains?.name,
-    'Status': r.status,
-    'Priority': r.priority,
-    'Created By': r.profiles?.full_name,
-    'Needed By': r.needed_by || '',
-    'Created At': format(new Date(r.created_at), 'yyyy-MM-dd'),
-  }));
-  
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Procurement Requests');
-  XLSX.writeFile(wb, `procurement-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-};
-
-// Button
-<Button variant="outline" onClick={exportToExcel} className="gap-2">
-  <FileDown className="w-4 h-4" />
-  {language === 'ar' ? 'تصدير Excel' : 'Export Excel'}
-</Button>
+const [manualSubnet, setManualSubnet] = useState('');
 ```
 
-### 3.5 Show Uploader Name in Quotation Cards
-
-**File:** `src/pages/ProcurementDetail.tsx`
-
-The quotation already fetches `profiles(full_name)` via the hook. Add display:
-
+**Add UI section for manual subnet entry:**
 ```jsx
-// In quotation card
-{q.profiles?.full_name && (
-  <div className="flex justify-between text-sm">
-    <span className="text-muted-foreground">{language === 'ar' ? 'رفعه' : 'Uploaded by'}</span>
-    <span>{q.profiles.full_name}</span>
+{scanMode === 'advanced' && (
+  <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+    {/* Existing content */}
+    
+    {/* Manual subnet add */}
+    <div className="flex gap-2">
+      <div className="flex-1">
+        <Label>{language === 'ar' ? 'إضافة شبكة يدوياً' : 'Add Subnet Manually'}</Label>
+        <Input
+          placeholder="e.g., 192.168.50.0/24"
+          value={manualSubnet}
+          onChange={e => setManualSubnet(e.target.value)}
+        />
+      </div>
+      <Button
+        className="mt-6"
+        onClick={() => {
+          if (manualSubnet && !discoveredSubnets.includes(manualSubnet)) {
+            setDiscoveredSubnets([...discoveredSubnets, manualSubnet]);
+            setManualSubnet('');
+          }
+        }}
+      >
+        {language === 'ar' ? 'إضافة' : 'Add'}
+      </Button>
+    </div>
   </div>
 )}
 ```
 
----
+**E3) Guardrails for Large Scans**
 
-## Phase 4: Sidebar Reorganization
-
-### 4.1 Move Procurement & System Health Under Settings
-
-The sidebar currently has a flat structure. Based on the user request, we need to group items conceptually but the current implementation doesn't support nested menus.
-
-**Alternative Approach:** Reorder items so Procurement and System Health appear just before Settings in the sidebar:
-
-**File:** `src/components/layout/Sidebar.tsx`
-
-**Reorder allMenuItems:**
+Already implemented at line 247-252:
 ```typescript
-const allMenuItems: MenuItem[] = [
-  { id: 'dashboard', path: '/', icon: LayoutDashboard, label: 'nav.dashboard' },
-  { id: 'domainSummary', path: '/domain-summary', icon: Building2, label: 'nav.domainSummary', adminOnly: true },
-  { id: 'datacenter', path: '/datacenter', icon: Server, label: 'nav.datacenter', adminOnly: true },
-  { id: 'servers', path: '/servers', icon: Server, label: 'nav.servers' },
-  { id: 'employees', path: '/employees', icon: Users, label: 'nav.employees', adminOnly: true },
-  { id: 'employeePermissions', path: '/employee-permissions', icon: Shield, label: 'nav.employeePermissions', adminOnly: true },
-  { id: 'vacations', path: '/vacations', icon: Calendar, label: 'nav.vacations' },
-  { id: 'licenses', path: '/licenses', icon: KeyRound, label: 'nav.licenses' },
-  { id: 'tasks', path: '/tasks', icon: ListTodo, label: 'nav.tasks' },
-  { id: 'vault', path: '/vault', icon: Lock, label: 'nav.vault' },
-  { id: 'itTools', path: '/it-tools', icon: Wrench, label: 'nav.itTools' },
-  { id: 'onCall', path: '/on-call', icon: Phone, label: 'nav.onCall' },
-  { id: 'maintenance', path: '/maintenance', icon: Wrench, label: 'nav.maintenance' },
-  { id: 'lifecycle', path: '/lifecycle', icon: Clock, label: 'nav.lifecycle', adminOnly: true },
-  { id: 'fileShares', path: '/file-shares', icon: FolderKanban, label: 'nav.fileShares', adminOnly: true },
-  { id: 'scanAgents', path: '/scan-agents', icon: Bot, label: 'nav.scanAgents', adminOnly: true },
-  { id: 'networks', path: '/networks', icon: Network, label: 'nav.networks', adminOnly: true },
-  { id: 'networkScan', path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
-  { id: 'webApps', path: '/web-apps', icon: Globe, label: 'nav.webApps' },
-  { id: 'employeeReports', path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports', adminOnly: true },
-  { id: 'reports', path: '/reports', icon: FileBarChart, label: 'nav.reports' },
-  { id: 'auditLog', path: '/audit-log', icon: History, label: 'nav.auditLog', adminOnly: true },
-  // Grouped under "Settings" conceptually
-  { id: 'procurement', path: '/procurement', icon: ShoppingCart, label: 'nav.procurement' },
-  { id: 'systemHealth', path: '/system-health', icon: Shield, label: 'nav.systemHealth', adminOnly: true },
-  { id: 'settings', path: '/settings', icon: Settings, label: 'nav.settings', adminOnly: true },
-];
+if (totalHosts > 1000) {
+  setShowLargeRangeWarning(true);
+  return;
+}
 ```
 
-### 4.2 Update SidebarOrderSettings
+**E4) Agent Future Integration Points**
 
-**File:** `src/components/settings/SidebarOrderSettings.tsx`
-
-**Add missing items to defaultMenuItems:**
-```typescript
-const defaultMenuItems: MenuItem[] = [
-  // ... existing items ...
-  { id: 'procurement', labelKey: 'nav.procurement', enabled: true },
-  { id: 'systemHealth', labelKey: 'nav.systemHealth', enabled: true },
-  { id: 'settings', labelKey: 'nav.settings', enabled: true },
-];
-```
+The code is already structured to support agent-based discovery:
+- Agent check at line 185-190
+- Scan job creation at line 267-280 includes `agent_id` field
+- `scan_agents` table exists with `domain_id` for domain scoping
 
 ---
 
-## Phase 5: Translations Update Summary
+## SECTION F: PROCUREMENT ENHANCEMENTS
 
-### Arabic Translations to Add:
-```javascript
-// nav.systemHealth
-'nav.systemHealth': 'صحة النظام',
+### Current State (Already Implemented):
+- ✅ KPI Dashboard cards - lines 232-263
+- ✅ Sample Data Generator (super_admin only) - lines 75-139
+- ✅ Employee filter - lines 46-54, 281-293
+- ✅ Excel export - lines 141-160
+- ✅ "Created By" column in table - lines 340, 354
 
-// datacenter completeness
-'datacenter.nodesWithSerial': 'النودات مع الرقم التسلسلي',
-'datacenter.vmsLinked': 'الأجهزة الافتراضية المرتبطة',
-'datacenter.completenessDesc': 'مستوى اكتمال بيانات البنية التحتية',
-'datacenter.clustersTab': 'الكلسترات',
-'datacenter.cannotDeleteCluster': 'لا يمكن حذف الكلستر',
-'datacenter.clusterHasLinkedItems': 'هذا الكلستر مرتبط بـ {nodes} نود و {vms} جهاز افتراضي',
+### Remaining Enhancement: Uploader Name in Quotations
 
-// network scan
-'scan.advancedDiscovery': 'اكتشاف متقدم',
-'scan.standard': 'قياسي',
-'scan.maxHosts': 'الحد الأقصى للأجهزة',
-'scan.discoveredSubnets': 'الشبكات المكتشفة',
-'scan.exportCsv': 'تصدير CSV',
-'scan.estimatedHosts': 'الأجهزة المقدرة',
-'scan.noAgent': 'لا يوجد وكيل متصل',
+**File:** `src/pages/ProcurementDetail.tsx`
 
-// procurement
-'procurement.dashboard': 'لوحة المشتريات',
-'procurement.totalRequests': 'إجمالي الطلبات',
-'procurement.pendingReview': 'قيد المراجعة',
-'procurement.generateSample': 'بيانات تجريبية',
-'procurement.createdBy': 'المنشئ',
-'procurement.uploadedBy': 'رفعه',
-'procurement.filterEmployee': 'تصفية حسب الموظف',
-'procurement.exportExcel': 'تصدير Excel',
-```
+**Current:** Quotation display likely exists but needs verification
+
+**Enhancement needed:** Ensure `profiles(full_name)` is joined in query and displayed
 
 ---
 
-## Files to Modify Summary
+## SECTION G: SIDEBAR ORGANIZATION
+
+### Current State (Already Implemented):
+From `Sidebar.tsx` lines 58-84:
+- ✅ `procurement` at line 79
+- ✅ `systemHealth` at line 82
+- ✅ `settings` at line 83
+
+From `SidebarOrderSettings.tsx` lines 16-42:
+- ✅ All three items included in `defaultMenuItems`
+
+**Translation Check:**
+- ✅ `nav.systemHealth`: 'صحة النظام' (line 99 in LanguageContext)
+- ✅ `nav.procurement`: 'المشتريات' (line 51)
+
+**No additional changes needed for sidebar.**
+
+---
+
+## SECTION H: FILES TO MODIFY
 
 | File | Changes |
 |------|---------|
-| `src/contexts/LanguageContext.tsx` | Add missing translations for nav.systemHealth, datacenter completeness, network scan, procurement |
-| `src/pages/Datacenter.tsx` | Add Clusters tab, import ClusterTable properly |
-| `src/components/datacenter/ClusterTable.tsx` | Add delete guardrails, improve RFLevel options |
-| `src/components/datacenter/ClusterForm.tsx` | Add domain selector as first field, filter datacenters by domain |
-| `src/components/datacenter/DatacenterOverview.tsx` | Compute real completeness metrics, add edit/delete to cluster cards |
-| `src/pages/NetworkScan.tsx` | Add advanced mode, CSV export, max-host guardrails |
-| `src/pages/Procurement.tsx` | Add KPI dashboard, sample data generator, employee filter, Excel export |
-| `src/pages/ProcurementDetail.tsx` | Show uploader name in quotation cards |
-| `src/components/layout/Sidebar.tsx` | Reorder items (Procurement, SystemHealth before Settings) |
-| `src/components/settings/SidebarOrderSettings.tsx` | Add procurement and systemHealth to defaultMenuItems |
+| `supabase/migrations/XXXXX_security_fixes.sql` | All RLS policy fixes (A1-A4, B1-B2, C1-C2) |
+| `src/contexts/LanguageContext.tsx` | Verify English translations for datacenter keys |
+| `src/pages/NetworkScan.tsx` | Use networks table for subnet discovery, add manual subnet input |
+| `src/pages/ProcurementDetail.tsx` | Verify uploader name display |
 
 ---
 
-## Technical Notes
+## SECTION I: DATABASE MIGRATION SQL
 
-### Air-Gapped Network Scan Limitations
-- Browser-based network scanning is not possible due to security restrictions
-- The agent-based infrastructure (`scan_agents`, `scan_jobs`) is the correct approach
-- For environments without agents, we provide default private subnets for manual selection
+```sql
+-- ============================================
+-- SECURITY REMEDIATION MIGRATION
+-- ============================================
 
-### RLS Verification
-All existing RLS policies remain in place:
-- Procurement: Domain-scoped access via `can_access_domain(domain_id)`
-- Clusters: Domain-scoped via existing datacenter RLS
-- Scan results: Domain-scoped via `scan_jobs.domain_id`
+-- A1: Fix servers RLS
+DROP POLICY IF EXISTS "Users can view servers in their networks" ON servers;
+DROP POLICY IF EXISTS "Users can add servers to their networks" ON servers;
 
-### Storage Security
-- `procurement-quotations` bucket remains private
-- Files accessed via signed URLs with 60-second expiry
-- Domain scoping maintained through RLS on `procurement_quotations` table
+CREATE POLICY "servers_select_v2" ON servers FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (network_id IS NOT NULL AND can_access_network(network_id))
+  )
+);
+
+CREATE POLICY "servers_insert_v2" ON servers FOR INSERT
+WITH CHECK (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (network_id IS NOT NULL AND can_access_network(network_id))
+  )
+);
+
+-- A2: Fix licenses RLS
+DROP POLICY IF EXISTS "Users can view licenses in their domains" ON licenses;
+
+CREATE POLICY "licenses_select_v2" ON licenses FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin()
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+  )
+);
+
+-- A3: Fix website_applications RLS
+DROP POLICY IF EXISTS "Users can view active website applications" ON website_applications;
+
+CREATE POLICY "website_applications_select_v2" ON website_applications FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() OR is_active = true
+  )
+);
+
+-- A4: Fix on_call RLS
+DROP POLICY IF EXISTS "Users can view on call schedules" ON on_call_schedules;
+DROP POLICY IF EXISTS "Users can view on_call_assignments" ON on_call_assignments;
+
+CREATE POLICY "on_call_schedules_select_v2" ON on_call_schedules FOR SELECT
+USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "on_call_assignments_select_v2" ON on_call_assignments FOR SELECT
+USING (auth.uid() IS NOT NULL);
+
+-- B1: Fix audit_logs insert
+DROP POLICY IF EXISTS "Authenticated users can insert audit logs" ON audit_logs;
+
+CREATE POLICY "audit_logs_insert_v2" ON audit_logs FOR INSERT
+WITH CHECK (
+  auth.uid() IS NOT NULL
+  AND (user_id IS NULL OR user_id = get_my_profile_id())
+);
+
+-- B2: Fix vault_audit_logs insert  
+DROP POLICY IF EXISTS "Authenticated users can insert vault audit logs" ON vault_audit_logs;
+
+CREATE POLICY "vault_audit_logs_insert_v2" ON vault_audit_logs FOR INSERT
+WITH CHECK (
+  auth.uid() IS NOT NULL
+  AND (user_id IS NULL OR user_id = get_my_profile_id())
+);
+
+-- C1: Fix employee-reports storage policies
+DROP POLICY IF EXISTS "Authenticated users can read employee reports" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete employee reports" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload employee reports" ON storage.objects;
+DROP POLICY IF EXISTS "employee_reports_delete" ON storage.objects;
+DROP POLICY IF EXISTS "employee_reports_insert" ON storage.objects;
+DROP POLICY IF EXISTS "employee_reports_select" ON storage.objects;
+
+CREATE POLICY "employee_reports_admin_select" ON storage.objects FOR SELECT
+USING (bucket_id = 'employee-reports' AND is_admin());
+
+CREATE POLICY "employee_reports_admin_insert" ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'employee-reports' AND is_admin());
+
+CREATE POLICY "employee_reports_admin_delete" ON storage.objects FOR DELETE
+USING (bucket_id = 'employee-reports' AND is_admin());
+
+-- C2: MIME type restrictions
+UPDATE storage.buckets 
+SET allowed_mime_types = ARRAY['application/pdf']
+WHERE id = 'procurement-quotations';
+
+UPDATE storage.buckets 
+SET allowed_mime_types = ARRAY[
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'text/csv'
+]
+WHERE id = 'employee-reports';
+```
 
 ---
 
-## Test Report Template
+## SECTION J: TEST REPORT TEMPLATE
 
-| # | Scenario | Steps | Expected | Actual | Result |
-|---|----------|-------|----------|--------|--------|
-| 1 | Super_admin can edit/delete clusters | Login as super_admin, go to Datacenter, Clusters tab, click edit/delete | Edit/Delete work | - | - |
-| 2 | Delete blocked if cluster has nodes/VMs | Create cluster with nodes, try delete | Toast shows "Cannot delete - X nodes linked" | - | - |
-| 3 | Datacenter completeness shows metrics | Go to Datacenter overview | Shows "X / Y (Z%)" with progress bars | - | - |
-| 4 | System Health label in Arabic | Switch to Arabic, check sidebar | Shows "صحة النظام" not "nav.systemHealth" | - | - |
-| 5 | Procurement dashboard KPIs | Go to /procurement | Shows 5 KPI cards with counts | - | - |
-| 6 | Sample data generator (super_admin) | Click "Sample Data" button | Creates request with items | - | - |
-| 7 | Employee filter in procurement | Select employee from filter | List filters by creator | - | - |
-| 8 | Excel export | Click "Export Excel" | Downloads .xlsx file | - | - |
-| 9 | Sidebar shows Procurement before Settings | Check sidebar order | Procurement > System Health > Settings | - | - |
-| 10 | Cross-domain access blocked | Login as domain_admin, try access other domain's procurement | RLS blocks access | - | - |
+| # | Scenario | Steps | Expected | Status |
+|---|----------|-------|----------|--------|
+| 1 | Unauthenticated cannot read website_applications | Logout, query website_applications | Empty/Error | PENDING |
+| 2 | Unauthenticated cannot read on_call_schedules | Logout, query on_call_schedules | Empty/Error | PENDING |
+| 3 | Employee cannot see servers with NULL network_id | Login as employee, query servers | No NULL network_id rows | PENDING |
+| 4 | Licenses with NULL domain_id are admin-only | Login as employee, query licenses | No NULL domain_id rows | PENDING |
+| 5 | Audit logs cannot be inserted for other users | Try inserting log with different user_id | Error thrown | PENDING |
+| 6 | employee-reports cross-domain blocked | Non-admin try to read reports | Access denied | PENDING |
+| 7 | super_admin can edit/delete clusters | Edit/Delete cluster | Success | PENDING |
+| 8 | Delete blocked if cluster has nodes/VMs | Delete cluster with nodes | Toast with counts shown | PENDING |
+| 9 | Completeness shows translated labels | View datacenter in Arabic | Arabic labels displayed | PENDING |
+| 10 | Network scan advanced lists saved networks | Enable advanced mode | Networks table subnets shown | PENDING |
+| 11 | CSV export works | Export scan results | CSV file downloads | PENDING |
+| 12 | Procurement dashboard shows KPIs | View /procurement | 5 KPI cards visible | PENDING |
+| 13 | Sample data works (super_admin) | Click sample data button | Request created | PENDING |
+| 14 | Employee filter works | Select employee filter | List filtered | PENDING |
+| 15 | Excel export respects filters | Apply filter, export | Filtered data exported | PENDING |
+| 16 | Sidebar shows translated system health | Check Arabic sidebar | "صحة النظام" displayed | PENDING |
+| 17 | Sidebar reorder includes procurement/systemHealth | Open sidebar settings | Both items visible | PENDING |
+| 18 | Cross-domain procurement blocked | Try access other domain request | RLS blocks | PENDING |
 
+---
+
+## SECTION K: MANUAL STEPS REQUIRED
+
+1. **Enable Leaked Password Protection:**
+   - Navigate to Lovable Cloud Backend Settings
+   - Go to Auth → Security
+   - Toggle "Leaked Password Protection" ON
+   - Save
+
+2. **Verify after deployment:**
+   - Run security linter again to confirm no warnings
+   - Test all scenarios in test report
+
+---
+
+## Limitations & Notes
+
+1. **Air-Gapped Network Scan:** Without an agent, actual network discovery is not possible from browser. The implementation uses saved networks from the database as the source of subnets.
+
+2. **Agent Future Path:** The code structure supports adding agent-based discovery later. The agent would:
+   - Query local interfaces and routes
+   - Check ARP cache
+   - Report discovered subnets back to the application
+
+3. **SMTP Test Email:** Already implemented in `send-test-email` edge function. In air-gapped environments, SMTP servers must be internal and reachable from the Supabase edge function runtime.
