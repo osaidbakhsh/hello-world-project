@@ -18,7 +18,8 @@ import {
   FileUp,
   LayoutGrid,
   Network,
-  Monitor
+  Monitor,
+  Building2
 } from 'lucide-react';
 import DatacenterOverview from '@/components/datacenter/DatacenterOverview';
 import NodeTable from '@/components/datacenter/NodeTable';
@@ -26,6 +27,7 @@ import VMTable from '@/components/datacenter/VMTable';
 import TopologyView from '@/components/datacenter/TopologyView';
 import ClusterForm from '@/components/datacenter/ClusterForm';
 import DatacenterForm from '@/components/datacenter/DatacenterForm';
+import DatacenterTable from '@/components/datacenter/DatacenterTable';
 
 const Datacenter: React.FC = () => {
   const { t, language } = useLanguage();
@@ -113,6 +115,10 @@ const Datacenter: React.FC = () => {
               <LayoutGrid className="w-4 h-4" />
               {t('datacenter.overview')}
             </TabsTrigger>
+            <TabsTrigger value="datacenters" className="gap-2">
+              <Building2 className="w-4 h-4" />
+              {language === 'ar' ? 'مراكز البيانات' : 'Datacenters'}
+            </TabsTrigger>
             <TabsTrigger value="physical" className="gap-2">
               <Cpu className="w-4 h-4" />
               {t('datacenter.physical')}
@@ -133,6 +139,10 @@ const Datacenter: React.FC = () => {
               stats={stats}
               clusters={clusters || []}
             />
+          </TabsContent>
+
+          <TabsContent value="datacenters">
+            <DatacenterTable domainId={selectedDomainId} />
           </TabsContent>
 
           <TabsContent value="physical">

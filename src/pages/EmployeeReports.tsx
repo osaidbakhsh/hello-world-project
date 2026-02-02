@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, FileSpreadsheet, Upload, Download, Trash2, Calendar, User } from 'lucide-react';
+import { Search, FileSpreadsheet, Upload, Download, Trash2, Calendar, User, FileText, Image } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
@@ -78,30 +78,44 @@ const EmployeeReports: React.FC = () => {
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setSelectedFile(file);
+    const fileName = file.name.toLowerCase();
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        setPreviewData(jsonData.slice(0, 5)); // Preview first 5 rows
-      } catch (error) {
-        toast({
-          title: t('common.error'),
-          description: t('employeeReports.readError'),
-          variant: 'destructive',
-        });
-      }
-    };
-    reader.readAsArrayBuffer(file);
+    // Handle different file types
+    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          setPreviewData(jsonData.slice(0, 5)); // Preview first 5 rows
+        } catch (error) {
+          toast({
+            title: t('common.error'),
+            description: t('employeeReports.readError'),
+            variant: 'destructive',
+          });
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else if (fileName.endsWith('.pdf')) {
+      setPreviewData([{ type: 'PDF', name: file.name, size: `${(file.size / 1024).toFixed(1)} KB` }]);
+    } else if (fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+      const previewUrl = URL.createObjectURL(file);
+      setPreviewData([{ type: 'Image', name: file.name, preview: previewUrl }]);
+    } else if (fileName.endsWith('.txt')) {
+      const text = await file.text();
+      setPreviewData([{ type: 'Text', content: text.substring(0, 500) }]);
+    } else {
+      setPreviewData([{ type: 'File', name: file.name, size: `${(file.size / 1024).toFixed(1)} KB` }]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -301,21 +315,38 @@ const EmployeeReports: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('employeeReports.file')} * (Excel)</Label>
+                  <Label>{t('employeeReports.file')} *</Label>
                   <Input
                     ref={fileInputRef}
                     type="file"
-                    accept=".xlsx,.xls"
+                    accept=".xlsx,.xls,.pdf,.txt,.png,.jpg,.jpeg"
                     onChange={handleFileChange}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {t('employeeReports.fileTypes')}
+                  </p>
                 </div>
                 {previewData.length > 0 && (
                   <div className="space-y-2">
                     <Label>{t('employeeReports.preview')}</Label>
                     <div className="max-h-40 overflow-auto border rounded-md p-2 bg-muted/50">
-                      <pre className="text-xs">
-                        {JSON.stringify(previewData, null, 2)}
-                      </pre>
+                      {previewData[0]?.type === 'Image' ? (
+                        <img src={previewData[0].preview} alt="Preview" className="max-h-32 mx-auto" />
+                      ) : previewData[0]?.type === 'PDF' ? (
+                        <div className="flex items-center gap-2 p-2">
+                          <FileText className="w-8 h-8 text-red-500" />
+                          <div>
+                            <p className="font-medium">{previewData[0].name}</p>
+                            <p className="text-xs text-muted-foreground">{previewData[0].size}</p>
+                          </div>
+                        </div>
+                      ) : previewData[0]?.type === 'Text' ? (
+                        <pre className="text-xs whitespace-pre-wrap">{previewData[0].content}...</pre>
+                      ) : (
+                        <pre className="text-xs">
+                          {JSON.stringify(previewData, null, 2)}
+                        </pre>
+                      )}
                     </div>
                   </div>
                 )}
