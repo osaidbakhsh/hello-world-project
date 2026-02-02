@@ -2921,6 +2921,10 @@ const translations: Record<Language, Record<string, string>> = {
     'datacenter.noVMs': 'No virtual machines',
     'datacenter.nodesWithSerial': 'Nodes with serial',
     'datacenter.vmsLinked': 'VMs linked',
+    'datacenter.addDatacenter': 'Add Datacenter',
+    
+    // System Health
+    'nav.systemHealth': 'System Health',
     
     // Auth - Password Reset
     'auth.forgotPassword': 'Forgot password?',

@@ -25,12 +25,14 @@ import NodeTable from '@/components/datacenter/NodeTable';
 import VMTable from '@/components/datacenter/VMTable';
 import TopologyView from '@/components/datacenter/TopologyView';
 import ClusterForm from '@/components/datacenter/ClusterForm';
+import DatacenterForm from '@/components/datacenter/DatacenterForm';
 
 const Datacenter: React.FC = () => {
   const { t, language } = useLanguage();
   const { data: domains, isLoading: domainsLoading } = useDomains();
   const [selectedDomainId, setSelectedDomainId] = useState<string>('');
   const [showClusterForm, setShowClusterForm] = useState(false);
+  const [showDatacenterForm, setShowDatacenterForm] = useState(false);
 
   const { data: clusters } = useClusters(selectedDomainId || undefined);
   const stats = useDatacenterStats(selectedDomainId || undefined);
@@ -78,6 +80,10 @@ const Datacenter: React.FC = () => {
           </Select>
 
           {/* Action Buttons */}
+          <Button variant="outline" onClick={() => setShowDatacenterForm(true)}>
+            <Plus className="w-4 h-4 me-2" />
+            {language === 'ar' ? 'إضافة مركز بيانات' : 'Add Datacenter'}
+          </Button>
           <Button onClick={() => setShowClusterForm(true)}>
             <Plus className="w-4 h-4 me-2" />
             {t('datacenter.addCluster')}
@@ -148,6 +154,14 @@ const Datacenter: React.FC = () => {
         <ClusterForm
           domainId={selectedDomainId}
           onClose={() => setShowClusterForm(false)}
+        />
+      )}
+
+      {/* Datacenter Form Dialog */}
+      {showDatacenterForm && (
+        <DatacenterForm
+          domainId={selectedDomainId}
+          onClose={() => setShowDatacenterForm(false)}
         />
       )}
     </div>

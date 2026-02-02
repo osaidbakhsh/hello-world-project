@@ -167,14 +167,16 @@ const ClusterForm: React.FC<Props> = ({ domainId, onClose }) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="RF1">RF1 (1 copy)</SelectItem>
                 <SelectItem value="RF2">RF2 (2 copies)</SelectItem>
                 <SelectItem value="RF3">RF3 (3 copies)</SelectItem>
+                <SelectItem value="N/A">{language === 'ar' ? 'غير متاح' : 'N/A'}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="col-span-2 space-y-2">
-            <Label>{t('common.notes')}</Label>
+            <Label>{language === 'ar' ? 'ملاحظات' : 'Notes'}</Label>
             <Textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
