@@ -91,6 +91,7 @@ const NetworkScan: React.FC = () => {
   const [maxHosts, setMaxHosts] = useState(254);
   const [discoveredSubnets, setDiscoveredSubnets] = useState<string[]>([]);
   const [selectedSubnets, setSelectedSubnets] = useState<string[]>([]);
+  const [manualSubnet, setManualSubnet] = useState('');
 
   // Import form state
   const [importEnvironment, setImportEnvironment] = useState('production');
@@ -179,7 +180,7 @@ const NetworkScan: React.FC = () => {
     }
   };
 
-  // Discover subnets (for advanced mode)
+  // Discover subnets (for advanced mode) - Uses networks table
   const discoverSubnets = async () => {
     // Check for online agents in the selected domain
     const { data: agents } = await supabase
@@ -190,26 +191,65 @@ const NetworkScan: React.FC = () => {
       .limit(1);
     
     if (agents?.length) {
-      // Create discovery job for agent
+      // Agent available - could trigger agent-based discovery in the future
       toast({
         title: t('scan.discoverSubnets'),
         description: language === 'ar' 
           ? 'الوكيل سيقوم باكتشاف الشبكات الفرعية'
           : 'Agent will discover available subnets',
       });
-      // For now, simulate discovered subnets
-      setDiscoveredSubnets(['192.168.1.0/24', '192.168.10.0/24', '10.0.0.0/24', '172.16.0.0/24']);
+      // For now, still use networks table as primary source
+    }
+    
+    // Use networks table as source (works without agent for air-gapped environments)
+    const domainNetworks = filteredNetworks
+      ?.filter(n => n.subnet)
+      .map(n => n.subnet!) || [];
+    
+    if (domainNetworks.length > 0) {
+      setDiscoveredSubnets(domainNetworks);
+      toast({
+        title: t('scan.savedNetworks') || (language === 'ar' ? 'الشبكات المحفوظة' : 'Saved Networks'),
+        description: language === 'ar'
+          ? `تم العثور على ${domainNetworks.length} شبكة`
+          : `Found ${domainNetworks.length} networks from saved data`,
+      });
     } else {
-      // No agent available - show default private subnets
+      // Fallback to common private subnets if no networks defined
+      setDiscoveredSubnets(['192.168.1.0/24', '192.168.0.0/24', '10.0.0.0/24']);
       toast({
         title: t('scan.noAgent'),
-        description: language === 'ar' 
+        description: language === 'ar'
           ? 'سيتم عرض الشبكات الافتراضية الخاصة'
           : 'Showing default private subnets',
         variant: 'default',
       });
-      setDiscoveredSubnets(['192.168.1.0/24', '192.168.0.0/24', '10.0.0.0/24']);
     }
+  };
+
+  // Add manual subnet
+  const addManualSubnet = () => {
+    const trimmed = manualSubnet.trim();
+    if (!trimmed) return;
+    
+    // Basic CIDR validation
+    const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+    if (!cidrRegex.test(trimmed)) {
+      toast({
+        title: t('common.error'),
+        description: language === 'ar' 
+          ? 'صيغة غير صالحة. استخدم صيغة CIDR مثل 192.168.1.0/24'
+          : 'Invalid format. Use CIDR notation like 192.168.1.0/24',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!discoveredSubnets.includes(trimmed)) {
+      setDiscoveredSubnets([...discoveredSubnets, trimmed]);
+      setSelectedSubnets([...selectedSubnets, trimmed]);
+    }
+    setManualSubnet('');
   };
 
   // Start scan
@@ -586,11 +626,11 @@ const NetworkScan: React.FC = () => {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Radar className="w-4 h-4" />
                     {language === 'ar' 
-                      ? 'سيتم اكتشاف الشبكات الفرعية المتاحة عبر الوكيل أو الشبكات الافتراضية'
-                      : 'Available subnets will be discovered via agent or default private ranges'}
+                      ? 'سيتم استخدام الشبكات المحفوظة أو إضافة شبكات يدوياً'
+                      : 'Uses saved networks from database or add subnets manually'}
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label>{t('scan.maxHosts')}</Label>
                       <Input 
@@ -609,9 +649,30 @@ const NetworkScan: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Manual subnet input */}
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-2">
+                      <Label>{t('scan.addSubnetManually') || (language === 'ar' ? 'إضافة شبكة يدوياً' : 'Add Subnet Manually')}</Label>
+                      <Input
+                        placeholder="e.g., 192.168.50.0/24"
+                        value={manualSubnet}
+                        onChange={e => setManualSubnet(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addManualSubnet()}
+                      />
+                    </div>
+                    <Button variant="secondary" onClick={addManualSubnet}>
+                      {language === 'ar' ? 'إضافة' : 'Add'}
+                    </Button>
+                  </div>
+
                   {discoveredSubnets.length > 0 && (
                     <div className="space-y-2">
-                      <Label>{t('scan.discoveredSubnets')}</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>{t('scan.discoveredSubnets')}</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {selectedSubnets.length} / {discoveredSubnets.length} {language === 'ar' ? 'محدد' : 'selected'}
+                        </span>
+                      </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         {discoveredSubnets.map(subnet => (
                           <div key={subnet} className="flex items-center gap-2 p-2 border rounded hover:bg-muted/50">
@@ -623,7 +684,10 @@ const NetworkScan: React.FC = () => {
                                 else setSelectedSubnets(selectedSubnets.filter(s => s !== subnet));
                               }}
                             />
-                            <label htmlFor={subnet} className="text-sm font-mono cursor-pointer">{subnet}</label>
+                            <label htmlFor={subnet} className="text-sm font-mono cursor-pointer flex-1">{subnet}</label>
+                            <span className="text-xs text-muted-foreground">
+                              ~{estimateHostCount(subnet)}
+                            </span>
                           </div>
                         ))}
                       </div>

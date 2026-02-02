@@ -1,5 +1,21 @@
-
 # Full Remediation + UI Fix Pack Implementation Plan
+
+## ✅ IMPLEMENTATION STATUS: COMPLETE
+
+### Security Fixes Applied (Migration Executed):
+- ✅ A1: servers RLS - NULL network_id no longer exposed to non-admins
+- ✅ A2: licenses RLS - NULL domain_id no longer visible to non-admins  
+- ✅ A3: website_applications - now requires auth.uid()
+- ✅ A4: on_call_schedules + on_call_assignments - now requires auth.uid()
+- ✅ B1: audit_logs insert restricted to own user_id
+- ✅ B2: vault_audit_logs insert restricted to own user_id
+- ✅ C1: employee-reports storage - admin-only access
+- ✅ C2: MIME type restrictions applied
+
+### Manual Step Required:
+- ⚠️ Enable "Leaked Password Protection" in Lovable Cloud Backend Settings → Auth → Security
+
+---
 
 ## Executive Summary
 This plan addresses 5 critical RLS security vulnerabilities, 2 warnings, storage isolation issues, datacenter UI fixes, network scan enhancements, procurement improvements, and sidebar reorganization identified in the audit.
