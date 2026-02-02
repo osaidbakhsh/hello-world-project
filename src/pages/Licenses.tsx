@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLicenses, useDomains, useServers, useLicenseMutations } from '@/hooks/useSupabaseData';
-import type { License } from '@/lib/supabase';
+import type { License } from '@/types/supabase-models';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

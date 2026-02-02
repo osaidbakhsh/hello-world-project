@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProfiles, useYearlyGoals, useTasks, useVacations } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Profile, Task, Vacation, YearlyGoal } from '@/lib/supabase';
+import type { Profile, Task, Vacation, YearlyGoal } from '@/types/supabase-models';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

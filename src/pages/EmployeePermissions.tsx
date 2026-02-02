@@ -53,7 +53,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Profile } from '@/lib/supabase';
+import type { Profile } from '@/types/supabase-models';
 
 interface DomainPermission {
   domain_id: string;

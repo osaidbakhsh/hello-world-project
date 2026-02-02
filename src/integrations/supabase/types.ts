@@ -1825,6 +1825,7 @@ export type Database = {
         Row: {
           created_at: string | null
           device_type: string | null
+          domain_id: string | null
           hostname: string | null
           id: string
           ip_address: string
@@ -1841,6 +1842,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           device_type?: string | null
+          domain_id?: string | null
           hostname?: string | null
           id?: string
           ip_address: string
@@ -1857,6 +1859,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           device_type?: string | null
+          domain_id?: string | null
           hostname?: string | null
           id?: string
           ip_address?: string
@@ -1871,6 +1874,13 @@ export type Database = {
           vendor?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "scan_results_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scan_results_scan_job_id_fkey"
             columns: ["scan_job_id"]

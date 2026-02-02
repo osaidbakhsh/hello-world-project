@@ -125,6 +125,46 @@ Deno.serve(async (req) => {
       );
     }
 
+    // =====================================================
+    // SECURITY: Verify domain access using server-side check
+    // =====================================================
+    
+    // Check if user is super_admin
+    const { data: superAdminRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'super_admin')
+      .maybeSingle();
+    
+    const isSuperAdmin = !!superAdminRole;
+
+    if (!isSuperAdmin) {
+      // Check if user has domain access via domain_memberships
+      const { data: membership } = await supabaseAdmin
+        .from('domain_memberships')
+        .select('id, domain_role, can_edit')
+        .eq('domain_id', domain_id)
+        .eq('profile_id', profile?.id)
+        .maybeSingle();
+
+      if (!membership) {
+        return new Response(
+          JSON.stringify({ error: 'Access denied: You do not have access to this domain' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // For write operations (running test), require domain_admin role
+      const isDomainAdmin = membership.domain_role === 'domain_admin' || membership.can_edit === true;
+      if (!isDomainAdmin) {
+        return new Response(
+          JSON.stringify({ error: 'Access denied: Domain admin access required to run tests' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     let testResult: {
       status: 'success' | 'fail' | 'validation_only';
       message: string;
@@ -147,6 +187,12 @@ Deno.serve(async (req) => {
         
         if (error || !config) {
           testResult = { status: 'fail', message: 'LDAP configuration not found', error_details: error };
+          break;
+        }
+
+        // Verify config belongs to the requested domain
+        if (config.domain_id !== domain_id) {
+          testResult = { status: 'fail', message: 'Configuration does not belong to this domain', error_details: null };
           break;
         }
 
@@ -189,6 +235,12 @@ Deno.serve(async (req) => {
           break;
         }
 
+        // Verify config belongs to the requested domain
+        if (config.domain_id !== domain_id) {
+          testResult = { status: 'fail', message: 'Configuration does not belong to this domain', error_details: null };
+          break;
+        }
+
         const serversValidation = validateNtpServers(config.servers || []);
         
         testResult = {
@@ -217,6 +269,12 @@ Deno.serve(async (req) => {
         
         if (error || !config) {
           testResult = { status: 'fail', message: 'Mail configuration not found', error_details: error };
+          break;
+        }
+
+        // Verify config belongs to the requested domain
+        if (config.domain_id !== domain_id) {
+          testResult = { status: 'fail', message: 'Configuration does not belong to this domain', error_details: null };
           break;
         }
 
@@ -257,8 +315,24 @@ Deno.serve(async (req) => {
           break;
         }
 
+        // Verify file share belongs to the requested domain
+        if (fileShare.domain_id !== domain_id) {
+          testResult = { status: 'fail', message: 'File share does not belong to this domain', error_details: null };
+          break;
+        }
+
         // Validate path format
         const pathValid = fileShare.path && fileShare.path.trim().length > 0;
+        const verifyStatus = pathValid ? 'ok' : 'fail';
+        
+        // Update file share verify status
+        await supabaseAdmin
+          .from('file_shares')
+          .update({ 
+            verify_status: verifyStatus,
+            last_verified_at: new Date().toISOString()
+          })
+          .eq('id', config_id);
         
         testResult = {
           status: pathValid ? 'validation_only' : 'fail',
