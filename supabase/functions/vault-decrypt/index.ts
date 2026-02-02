@@ -27,6 +27,48 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
+// Decode double-hex-encoded string (hex of hex) back to original hex
+// Example: "363162" (hex of "61b") -> "61b"
+function decodeDoubleHex(input: string): string {
+  // Check if it's double-encoded: all chars are 0-9a-f and length is double expected
+  // For IV: expected 24 chars, double would be 48
+  // For encrypted data: variable, but if all bytes decode to valid hex chars, it's double-encoded
+  if (!/^[0-9a-fA-F]*$/.test(input) || input.length % 2 !== 0) {
+    return input;
+  }
+  
+  // Try to decode as double-hex
+  let decoded = '';
+  for (let i = 0; i < input.length; i += 2) {
+    const byte = parseInt(input.substr(i, 2), 16);
+    const char = String.fromCharCode(byte);
+    // Valid hex char check
+    if (!/^[0-9a-fA-F]$/.test(char)) {
+      // Not double-encoded, return original
+      return input;
+    }
+    decoded += char;
+  }
+  return decoded;
+}
+
+// Normalize hex string - handles double-encoding if detected
+function normalizeHexData(input: string, expectedLength: number): string {
+  // If length matches expected, assume it's correct
+  if (input.length === expectedLength) {
+    return input;
+  }
+  // If length is double expected, try to decode
+  if (input.length === expectedLength * 2) {
+    const decoded = decodeDoubleHex(input);
+    if (decoded.length === expectedLength) {
+      return decoded;
+    }
+  }
+  // Return as-is and let validation fail if it's wrong
+  return input;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -173,25 +215,33 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get the requested field (already hex TEXT, no conversion needed)
-    const encryptedHex = secrets[`${field}_encrypted`] as string | null;
-    const ivHex = secrets[`${field}_iv`] as string | null;
+    // Get the requested field (already hex TEXT, may be double-encoded)
+    const encryptedHexRaw = secrets[`${field}_encrypted`] as string | null;
+    const ivHexRaw = secrets[`${field}_iv`] as string | null;
 
-    if (!encryptedHex || !ivHex) {
+    if (!encryptedHexRaw || !ivHexRaw) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Validate IV length (should be 24 hex chars = 12 bytes for GCM)
+    // Normalize IV (should be 24 hex chars = 12 bytes for GCM)
+    const ivHex = normalizeHexData(ivHexRaw, 24);
+    
+    // Validate IV length after normalization
     if (ivHex.length !== 24) {
-      console.error('Invalid IV length:', ivHex.length, 'expected 24');
+      console.error('Invalid IV length after normalization:', ivHex.length, 'expected 24, raw was:', ivHexRaw.length);
       return new Response(JSON.stringify({ error: 'Decryption failed' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Normalize encrypted data (no fixed length, but detect double-encoding by IV pattern)
+    // If IV was double-encoded, encrypted data likely is too
+    const wasDoubleEncoded = ivHexRaw.length === 48;
+    const encryptedHex = wasDoubleEncoded ? decodeDoubleHex(encryptedHexRaw) : encryptedHexRaw;
 
     // Decrypt the field using strict hex parsing
     const keyBytes = hexToBytes(encryptionKey);
