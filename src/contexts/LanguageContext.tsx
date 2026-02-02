@@ -11,6 +11,24 @@ interface LanguageContextType {
 
 const translations: Record<Language, Record<string, string>> = {
   ar: {
+    // Common
+    'common.domain': 'النطاق',
+    'common.allDomains': 'جميع النطاقات',
+    
+    // Vacations Balance
+    'vacations.balance': 'رصيد الإجازات',
+    'vacations.annualBalance': 'الرصيد السنوي',
+    'vacations.sickBalance': 'الرصيد المرضي',
+    'vacations.emergencyBalance': 'الرصيد الطارئ',
+    'vacations.usedDays': 'الأيام المستخدمة',
+    'vacations.remainingDays': 'الأيام المتبقية',
+    'vacations.manageBalance': 'إدارة الرصيد',
+    'vacations.insufficientBalance': 'رصيد الإجازات غير كافٍ',
+    'vacations.balanceUpdated': 'تم تحديث الرصيد بنجاح',
+    'vacations.profileNotFound': 'لم يتم العثور على بيانات حسابك. يرجى تسجيل الخروج والدخول مجدداً.',
+    'vacations.listView': 'عرض قائمة',
+    'vacations.calendarView': 'عرض تقويم',
+    
     // Navigation
     'nav.dashboard': 'لوحة التحكم',
     'nav.servers': 'السيرفرات',
@@ -779,10 +797,7 @@ const translations: Record<Language, Record<string, string>> = {
     'vacations.fillRequired': 'يرجى ملء جميع الحقول المطلوبة',
     'vacations.selectEmployee': 'يرجى اختيار الموظف',
     'vacations.addSuccess': 'تم إضافة الإجازة بنجاح',
-    'vacations.profileNotFound': 'لم يتم العثور على بيانات حسابك. يرجى تسجيل الخروج والدخول مجدداً.',
     'vacations.addError': 'فشل في إضافة الإجازة',
-    'vacations.listView': 'عرض القائمة',
-    'vacations.calendarView': 'عرض التقويم',
     
     // Employee Reports
     'employeeReports.title': 'تقارير الموظفين',
@@ -1488,6 +1503,24 @@ const translations: Record<Language, Record<string, string>> = {
     'itTools.csrTip5': 'جدد الشهادة قبل 30 يوماً من انتهائها',
   },
   en: {
+    // Common
+    'common.domain': 'Domain',
+    'common.allDomains': 'All Domains',
+    
+    // Vacations Balance
+    'vacations.balance': 'Vacation Balance',
+    'vacations.annualBalance': 'Annual Balance',
+    'vacations.sickBalance': 'Sick Balance',
+    'vacations.emergencyBalance': 'Emergency Balance',
+    'vacations.usedDays': 'Used Days',
+    'vacations.remainingDays': 'Remaining Days',
+    'vacations.manageBalance': 'Manage Balance',
+    'vacations.insufficientBalance': 'Insufficient vacation balance',
+    'vacations.balanceUpdated': 'Balance updated successfully',
+    'vacations.profileNotFound': 'Profile not found. Please logout and login again.',
+    'vacations.listView': 'List View',
+    'vacations.calendarView': 'Calendar View',
+    
     // Navigation
     'nav.dashboard': 'Dashboard',
     'nav.servers': 'Servers',
@@ -2244,10 +2277,7 @@ const translations: Record<Language, Record<string, string>> = {
     'vacations.fillRequired': 'Please fill all required fields',
     'vacations.selectEmployee': 'Please select an employee',
     'vacations.addSuccess': 'Vacation added successfully',
-    'vacations.profileNotFound': 'Your profile was not found. Please log out and log in again.',
     'vacations.addError': 'Failed to add vacation',
-    'vacations.listView': 'List View',
-    'vacations.calendarView': 'Calendar View',
     
     // Employee Reports
     'employeeReports.title': 'Employee Reports',

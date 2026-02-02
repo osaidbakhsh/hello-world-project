@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVacations, useProfiles } from '@/hooks/useSupabaseData';
+import { useVacationBalance } from '@/hooks/useVacationBalance';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +39,8 @@ import {
 } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Calendar, User, Check, X, Clock, Download, FileSpreadsheet, FileText, List, CalendarDays } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Plus, Search, Calendar, User, Check, X, Clock, Download, FileSpreadsheet, FileText, List, CalendarDays, Palmtree, Stethoscope, AlertTriangle } from 'lucide-react';
 import VacationCalendar from '@/components/vacations/VacationCalendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +53,7 @@ const Vacations: React.FC = () => {
   const { profile, isAdmin } = useAuth();
   const { data: vacations, isLoading, refetch } = useVacations();
   const { data: profiles } = useProfiles();
+  const { data: vacationBalance } = useVacationBalance();
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -329,6 +332,86 @@ const Vacations: React.FC = () => {
 
   return (
     <div className="space-y-6" dir={dir}>
+      {/* Vacation Balance Cards - Show for non-admin employees */}
+      {!isAdmin && vacationBalance && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Palmtree className="w-5 h-5 text-primary" />
+                  <span className="font-medium">{t('vacations.annualBalance')}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{t('vacations.remainingDays')}</span>
+                  <span className="font-bold text-lg">{vacationBalance.annual_balance - vacationBalance.used_annual}</span>
+                </div>
+                <Progress 
+                  value={((vacationBalance.annual_balance - vacationBalance.used_annual) / vacationBalance.annual_balance) * 100} 
+                  className="h-2" 
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{t('vacations.usedDays')}: {vacationBalance.used_annual}</span>
+                  <span>/ {vacationBalance.annual_balance}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-destructive/5 to-destructive/10 border-destructive/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="w-5 h-5 text-destructive" />
+                  <span className="font-medium">{t('vacations.sickBalance')}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{t('vacations.remainingDays')}</span>
+                  <span className="font-bold text-lg">{vacationBalance.sick_balance - vacationBalance.used_sick}</span>
+                </div>
+                <Progress 
+                  value={((vacationBalance.sick_balance - vacationBalance.used_sick) / vacationBalance.sick_balance) * 100} 
+                  className="h-2" 
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{t('vacations.usedDays')}: {vacationBalance.used_sick}</span>
+                  <span>/ {vacationBalance.sick_balance}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-warning" />
+                  <span className="font-medium">{t('vacations.emergencyBalance')}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{t('vacations.remainingDays')}</span>
+                  <span className="font-bold text-lg">{vacationBalance.emergency_balance - vacationBalance.used_emergency}</span>
+                </div>
+                <Progress 
+                  value={((vacationBalance.emergency_balance - vacationBalance.used_emergency) / vacationBalance.emergency_balance) * 100} 
+                  className="h-2" 
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{t('vacations.usedDays')}: {vacationBalance.used_emergency}</span>
+                  <span>/ {vacationBalance.emergency_balance}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">

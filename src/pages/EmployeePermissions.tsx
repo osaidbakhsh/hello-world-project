@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfiles, useDomains, useDomainMemberships } from '@/hooks/useSupabaseData';
+import { useVacationBalance, useUpdateVacationBalance } from '@/hooks/useVacationBalance';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,7 +49,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { 
   Users, Shield, Network, Search, Save, UserCog, Eye, Pencil, 
   Plus, Key, Download, Mail, Phone, Building, User, Loader2,
-  RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, ShieldCheck
+  RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle, ShieldCheck, Calendar
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -91,12 +92,23 @@ const EmployeePermissions: React.FC = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isLdapImportOpen, setIsLdapImportOpen] = useState(false);
   const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
+  const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
   
   // Loading states
   const [isSaving, setIsSaving] = useState(false);
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [isChangingRole, setIsChangingRole] = useState(false);
+  const [isSavingBalance, setIsSavingBalance] = useState(false);
+  
+  // Vacation balance form
+  const [balanceForm, setBalanceForm] = useState({
+    annual_balance: 21,
+    sick_balance: 15,
+    emergency_balance: 5,
+  });
+  
+  const updateVacationBalance = useUpdateVacationBalance();
   
   // Form data
   const [newEmployeeForm, setNewEmployeeForm] = useState<NewEmployeeForm>({
@@ -159,6 +171,63 @@ const EmployeePermissions: React.FC = () => {
   const handleOpenDeleteConfirm = (profile: Profile) => {
     setSelectedProfile(profile);
     setIsDeleteConfirmOpen(true);
+  };
+
+  const handleOpenBalanceDialog = async (profile: Profile) => {
+    setSelectedProfile(profile);
+    // Fetch current balance
+    try {
+      const currentYear = new Date().getFullYear();
+      const { data } = await supabase
+        .from('vacation_balances')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .eq('year', currentYear)
+        .maybeSingle();
+      
+      if (data) {
+        setBalanceForm({
+          annual_balance: data.annual_balance || 21,
+          sick_balance: data.sick_balance || 15,
+          emergency_balance: data.emergency_balance || 5,
+        });
+      } else {
+        setBalanceForm({
+          annual_balance: 21,
+          sick_balance: 15,
+          emergency_balance: 5,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+    }
+    setIsBalanceDialogOpen(true);
+  };
+
+  const handleSaveBalance = async () => {
+    if (!selectedProfile) return;
+    setIsSavingBalance(true);
+    try {
+      await updateVacationBalance.mutateAsync({
+        profileId: selectedProfile.id,
+        annual_balance: balanceForm.annual_balance,
+        sick_balance: balanceForm.sick_balance,
+        emergency_balance: balanceForm.emergency_balance,
+      });
+      toast({
+        title: language === 'ar' ? 'تم بنجاح' : 'Success',
+        description: t('vacations.balanceUpdated'),
+      });
+      setIsBalanceDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingBalance(false);
+    }
   };
 
   const handleOpenRoleChange = (profile: Profile) => {
@@ -695,6 +764,14 @@ const EmployeePermissions: React.FC = () => {
                             <Button
                               size="sm"
                               variant="ghost"
+                              onClick={() => handleOpenBalanceDialog(profile)}
+                              title={t('vacations.manageBalance')}
+                            >
+                              <Calendar className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               onClick={() => handleOpenRoleChange(profile)}
                               title={t('permissions.changeRole')}
                               disabled={profile.user_id === user?.id}
@@ -1196,6 +1273,72 @@ const EmployeePermissions: React.FC = () => {
                 <>
                   <Loader2 className="w-4 h-4 me-2 animate-spin" />
                   {language === 'ar' ? 'جاري التغيير...' : 'Changing...'}
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 me-2" />
+                  {t('common.save')}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vacation Balance Dialog */}
+      <Dialog open={isBalanceDialogOpen} onOpenChange={setIsBalanceDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              {t('vacations.manageBalance')}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProfile?.full_name} - {new Date().getFullYear()}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('vacations.annualBalance')}</Label>
+              <Input
+                type="number"
+                min="0"
+                value={balanceForm.annual_balance}
+                onChange={(e) => setBalanceForm({ ...balanceForm, annual_balance: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>{t('vacations.sickBalance')}</Label>
+              <Input
+                type="number"
+                min="0"
+                value={balanceForm.sick_balance}
+                onChange={(e) => setBalanceForm({ ...balanceForm, sick_balance: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>{t('vacations.emergencyBalance')}</Label>
+              <Input
+                type="number"
+                min="0"
+                value={balanceForm.emergency_balance}
+                onChange={(e) => setBalanceForm({ ...balanceForm, emergency_balance: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBalanceDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleSaveBalance} disabled={isSavingBalance}>
+              {isSavingBalance ? (
+                <>
+                  <Loader2 className="w-4 h-4 me-2 animate-spin" />
+                  {language === 'ar' ? 'جاري الحفظ...' : 'Saving...'}
                 </>
               ) : (
                 <>

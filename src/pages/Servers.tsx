@@ -971,13 +971,14 @@ const Servers: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('servers.name')}</TableHead>
-                  <TableHead>{t('servers.ip')}</TableHead>
-                  <TableHead>{t('servers.os')}</TableHead>
-                  <TableHead>{t('servers.environment')}</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>{t('servers.network')}</TableHead>
-                  <TableHead>{t('common.actions')}</TableHead>
+                  <TableHead className="text-center">{t('servers.name')}</TableHead>
+                  <TableHead className="text-center">{t('servers.ip')}</TableHead>
+                  <TableHead className="text-center">{t('servers.os')}</TableHead>
+                  <TableHead className="text-center">{t('servers.environment')}</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center">{t('common.domain')}</TableHead>
+                  <TableHead className="text-center">{t('servers.network')}</TableHead>
+                  <TableHead className="text-center">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -990,55 +991,62 @@ const Servers: React.FC = () => {
                     </TableRow>
                   ))
                 ) : sortedServers.length > 0 ? (
-                  sortedServers.map((server) => (
-                    <TableRow key={server.id} className="stagger-item">
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <ServerIcon className="w-4 h-4 text-primary" />
+                  sortedServers.map((server) => {
+                    const network = allNetworks.find((n) => n.id === server.network_id);
+                    const domain = domains.find((d) => d.id === network?.domain_id);
+                    return (
+                      <TableRow key={server.id} className="stagger-item">
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <ServerIcon className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="text-start">
+                              <p className="font-medium">{server.name}</p>
+                              <p className="text-xs text-muted-foreground">{server.owner}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{server.name}</p>
-                            <p className="text-xs text-muted-foreground">{server.owner}</p>
+                        </TableCell>
+                        <TableCell className="text-center font-mono text-sm">{server.ip_address}</TableCell>
+                        <TableCell className="text-center">{server.operating_system}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={getEnvBadgeClass(server.environment)}>
+                            {t(`env.${server.environment}`)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className={cn('w-2 h-2 rounded-full', getStatusColor(server.status))} />
+                            <span className="capitalize">{server.status}</span>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{server.ip_address}</TableCell>
-                      <TableCell>{server.operating_system}</TableCell>
-                      <TableCell>
-                        <Badge className={getEnvBadgeClass(server.environment)}>
-                          {t(`env.${server.environment}`)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className={cn('w-2 h-2 rounded-full', getStatusColor(server.status))} />
-                          <span className="capitalize">{server.status}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {allNetworks.find((n) => n.id === server.network_id)?.name || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => handleEdit(server)}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(server.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {domain?.name || '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {network?.name || '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button size="icon" variant="ghost" onClick={() => handleEdit(server)}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(server.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12">
+                    <TableCell colSpan={8} className="text-center py-12">
                       <div className="flex flex-col items-center gap-2">
                         <HardDrive className="w-12 h-12 text-muted-foreground/50" />
                         <p className="text-muted-foreground">No servers found</p>
