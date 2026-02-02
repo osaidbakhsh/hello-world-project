@@ -1,422 +1,454 @@
 
+
 # Comprehensive Enhancement Plan
 
-## Summary of Issues Identified
+## Overview
+This plan addresses 4 major feature requests/issues:
 
-From the user's screenshots and feedback, I've identified the following issues:
-
-1. **Network Scan** - Needs real network scanning like "Advanced IP Scanner", not just searching existing servers
-2. **Mail Settings** - Test connection fails with "no unique constraint matching ON CONFLICT" error
-3. **Employee Reports** - Only accepts Excel files, needs PDF/TXT/PNG support
-4. **Tasks Import** - Employee name "Anas" in Excel not being matched correctly
-5. **VM Auto-fill** - When selecting a server, should also auto-fill RAM, vCPU, Disk, Environment, Owner, Beneficiary
-6. **Datacenter Management** - Need a dedicated tab/section to manage datacenters with full CRUD
+1. **Mail Settings Test Issue** - Test shows "success" with fake data because it only validates format, not actual SMTP connection. Need to add "Send Test Email" feature.
+2. **Datacenter Completeness Translations** - `datacenter.nodesWithSerial` and `datacenter.vmsLinked` not translated in Arabic
+3. **Cluster Management Enhancement** - Add cluster table with edit/delete, domain selector in cluster form
+4. **Procurement Module** - Full domain-scoped procurement system with PDF quotations
 
 ---
 
-## Phase 1: Fix Mail/NTP/LDAP Test Connection Error
+## Phase 1: Fix Mail Settings Test - Add Real Email Test
 
-**Root Cause:** The `mail_configs`, `ntp_configs`, and `ldap_configs` tables have only PRIMARY KEY constraint on `id`, not a UNIQUE constraint on `domain_id`. The upsert with `onConflict: 'domain_id'` fails.
+### Current Issue
+The test-connection edge function only validates configuration format (host/port/email regex) but does NOT actually connect to SMTP or send an email. It reports "success" even with fake data.
 
-**Solution:** Change the upsert logic to use INSERT with check for existing config instead of relying on onConflict.
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/pages/Settings.tsx` | Change upsert logic to check existing then insert/update |
-
-### Implementation
-```typescript
-const handleTestMail = async () => {
-  if (!selectedDomainId) {
-    toast({ title: t('common.error'), description: t('settings.selectDomainFirst'), variant: 'destructive' });
-    return;
-  }
-  setIsTestingMail(true);
-  setMailTestResult(null);
-  try {
-    // Check if config exists for this domain
-    const { data: existingConfig } = await supabase
-      .from('mail_configs')
-      .select('id')
-      .eq('domain_id', selectedDomainId)
-      .single();
-    
-    const configData = {
-      domain_id: selectedDomainId,
-      name: 'Default Mail Config',
-      smtp_host: mailSettings.smtp_host || 'smtp.example.com',
-      smtp_port: parseInt(mailSettings.smtp_port) || 587,
-      use_tls: mailSettings.smtp_encryption === 'tls',
-      from_email: mailSettings.smtp_from_email,
-      from_name: mailSettings.smtp_from_name,
-      smtp_username: mailSettings.smtp_user,
-      is_active: mailSettings.smtp_enabled,
-    };
-    
-    let configId;
-    if (existingConfig) {
-      // Update existing
-      const { error } = await supabase
-        .from('mail_configs')
-        .update(configData)
-        .eq('id', existingConfig.id);
-      if (error) throw error;
-      configId = existingConfig.id;
-    } else {
-      // Insert new
-      const { data, error } = await supabase
-        .from('mail_configs')
-        .insert(configData)
-        .select()
-        .single();
-      if (error) throw error;
-      configId = data.id;
-    }
-    
-    // Now test with config_id
-    const response = await supabase.functions.invoke('test-connection', {
-      body: { domain_id: selectedDomainId, module: 'mail', config_id: configId }
-    });
-    setMailTestResult(response.data || { success: false, status: 'fail', message: 'No response' });
-  } catch (error: any) {
-    setMailTestResult({ success: false, status: 'fail', message: error.message });
-  } finally {
-    setIsTestingMail(false);
-  }
-};
-```
-
-Apply same pattern for `handleTestNtp` and `handleTestLdap`.
-
----
-
-## Phase 2: Enhanced Employee Reports - Support Multiple File Types
-
-**Current Behavior:** Only accepts `.xlsx,.xls` files
-
-**New Behavior:** Accept PDF, TXT, PNG, JPG, and Excel files
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/pages/EmployeeReports.tsx` | Expand file accept types, update preview logic |
-
-### Changes
-```jsx
-// Change file input accept attribute
-accept=".xlsx,.xls,.pdf,.txt,.png,.jpg,.jpeg"
-
-// Update preview logic - only show preview for Excel files
-if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-  // Excel preview logic
-} else if (file.name.endsWith('.pdf')) {
-  setPreviewData([{ type: 'PDF', name: file.name, size: file.size }]);
-} else if (file.name.endsWith('.png') || file.name.endsWith('.jpg') || file.name.endsWith('.jpeg')) {
-  // Image preview using URL.createObjectURL
-  setPreviewData([{ type: 'Image', name: file.name, preview: URL.createObjectURL(file) }]);
-} else if (file.name.endsWith('.txt')) {
-  // Text file preview - read first 500 chars
-  const text = await file.text();
-  setPreviewData([{ type: 'Text', content: text.substring(0, 500) }]);
-}
-```
-
----
-
-## Phase 3: Fix Tasks Import - Improve Employee Name Matching
-
-**Issue:** Excel has "Anas" but the matching logic doesn't find the employee profile correctly.
-
-**Root Cause:** The matching logic uses `includes` which may fail on exact names or case sensitivity issues.
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/pages/Tasks.tsx` | Improve employee name matching with normalized comparison |
-
-### Enhanced Matching Logic
-```typescript
-const normalizeArabicName = (name: string) => {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    // Normalize Arabic characters
-    .replace(/أ|إ|آ/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي');
-};
-
-// Match employees by name
-const preview = jsonData.map((row: any) => {
-  const employeeName = row['الموظف'] || row['اسم الموظف'] || row['Employee'] || row['employee_name'] || '';
-  const normalizedInput = normalizeArabicName(employeeName);
-  
-  const foundEmployee = profiles.find(p => {
-    const normalizedProfile = normalizeArabicName(p.full_name);
-    // Exact match
-    if (normalizedProfile === normalizedInput) return true;
-    // Contains match
-    if (normalizedProfile.includes(normalizedInput) || normalizedInput.includes(normalizedProfile)) return true;
-    // First name match
-    const inputFirstName = normalizedInput.split(' ')[0];
-    const profileFirstName = normalizedProfile.split(' ')[0];
-    if (inputFirstName === profileFirstName && inputFirstName.length >= 3) return true;
-    return false;
-  });
-  
-  return {
-    ...row,
-    employee_name: employeeName,
-    title: row['المهمة'] || row['عنوان المهمة'] || row['Task'] || row['title'] || '',
-    description: row['الوصف'] || row['Description'] || row['description'] || '',
-    due_date: row['تاريخ الاستحقاق'] || row['Due Date'] || row['due_date'] || '',
-    frequency: mapFrequency(row['التكرار'] || row['Frequency'] || row['frequency'] || 'once'),
-    profile_id: foundEmployee?.id || null,
-  };
-});
-```
-
-Also add frequency mapping:
-```typescript
-const mapFrequency = (freq: string) => {
-  const freqLower = freq.toLowerCase();
-  if (freqLower.includes('يوم') || freqLower === 'daily') return 'daily';
-  if (freqLower.includes('أسبوع') || freqLower === 'weekly' || freqLower.includes('شهري')) return 'weekly';
-  if (freqLower.includes('شهر') || freqLower === 'monthly') return 'monthly';
-  if (freqLower.includes('مرة') || freqLower === 'once') return 'once';
-  return 'once';
-};
-```
-
----
-
-## Phase 4: VM Auto-fill Enhancement
-
-**Issue:** When selecting a server, only name, IP, OS, environment are filled. User wants RAM, vCPU, Disk, Owner, Beneficiary also filled.
-
-**Challenge:** The `servers` table has `ram` and `cpu` as text fields (e.g., "16GB", "4 cores"), but VM table expects numeric values. Need to parse these.
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/components/datacenter/VMTable.tsx` | Enhance auto-fill to include more fields with parsing |
-
-### Implementation
-```typescript
-// Helper function to parse RAM from text like "16GB" or "16 GB"
-const parseRamGb = (ramStr: string | null): number => {
-  if (!ramStr) return 16; // default
-  const match = ramStr.match(/(\d+)/);
-  return match ? parseInt(match[1]) : 16;
-};
-
-// Helper function to parse CPU cores from text like "4 cores" or "4"
-const parseCpuCores = (cpuStr: string | null): number => {
-  if (!cpuStr) return 4; // default
-  const match = cpuStr.match(/(\d+)/);
-  return match ? parseInt(match[1]) : 4;
-};
-
-// Helper function to parse disk from text like "500GB" or "500"
-const parseDiskGb = (diskStr: string | null): number => {
-  if (!diskStr) return 100; // default
-  const match = diskStr.match(/(\d+)/);
-  return match ? parseInt(match[1]) : 100;
-};
-
-// Enhanced auto-fill effect
-React.useEffect(() => {
-  if (formData.server_ref_id && !editingVM && formData.server_ref_id !== 'none') {
-    const server = domainServers.find(s => s.id === formData.server_ref_id);
-    if (server) {
-      setFormData(prev => ({
-        ...prev,
-        name: server.name || prev.name,
-        ip_address: server.ip_address || prev.ip_address,
-        os: server.operating_system || prev.os,
-        environment: (server.environment as VMEnvironment) || prev.environment,
-        ram_gb: parseRamGb(server.ram),
-        vcpu: parseCpuCores(server.cpu),
-        disk_total_gb: parseDiskGb(server.disk_space),
-        owner_department: server.beneficiary_department || server.owner || prev.owner_department,
-        beneficiary: server.business_owner || prev.beneficiary,
-      }));
-    }
-  }
-}, [formData.server_ref_id, domainServers, editingVM]);
-```
-
----
-
-## Phase 5: Datacenter Management Tab
-
-**Issue:** Need a dedicated section to view and manage datacenters with edit/delete functionality.
+### Solution
+Create a new edge function `send-test-email` that:
+1. Actually connects to the SMTP server
+2. Attempts to send a real test email
+3. Returns success/failure based on actual connection
 
 ### Files to Create
 | File | Description |
 |------|-------------|
-| `src/components/datacenter/DatacenterTable.tsx` | Table component with CRUD for datacenters |
+| `supabase/functions/send-test-email/index.ts` | New edge function to send actual test email |
 
 ### Files to Modify
 | File | Change |
 |------|--------|
-| `src/pages/Datacenter.tsx` | Add "Datacenters" tab between Overview and Physical |
-| `src/hooks/useDatacenter.ts` | Add hooks for datacenter CRUD operations |
+| `src/pages/Settings.tsx` | Add "Send Test Email" button with recipient field |
+| `src/contexts/LanguageContext.tsx` | Add translations for test email feature |
 
-### DatacenterTable.tsx Structure
+### Edge Function Implementation
 ```typescript
-const DatacenterTable: React.FC<Props> = ({ domainId }) => {
-  const { data: datacenters } = useDatacenters(domainId);
-  // State for edit/delete dialogs
-  // Table with columns: Name, Location, Clusters Count, Nodes Count, VMs Count, Actions
-  // Edit dialog with full form
-  // Delete confirmation dialog
-};
+// send-test-email/index.ts
+- Accepts: { config_id, recipient_email, domain_id }
+- Fetches mail_configs from database
+- Uses Deno's SMTP library to connect
+- Sends actual test email
+- Returns { success, message, error_details }
 ```
 
-### New Tab in Datacenter.tsx
+### UI Enhancement
 ```jsx
-<TabsList>
-  <TabsTrigger value="overview">...</TabsTrigger>
-  <TabsTrigger value="datacenters" className="gap-2">
-    <Database className="w-4 h-4" />
-    {language === 'ar' ? 'مراكز البيانات' : 'Datacenters'}
-  </TabsTrigger>
-  <TabsTrigger value="physical">...</TabsTrigger>
-  ...
-</TabsList>
-
-<TabsContent value="datacenters">
-  <DatacenterTable domainId={selectedDomainId} />
-</TabsContent>
+// Add in Settings.tsx Mail section
+<div className="space-y-2">
+  <Label>{t('settings.testRecipient')}</Label>
+  <Input
+    type="email"
+    placeholder="test@example.com"
+    value={testRecipientEmail}
+    onChange={(e) => setTestRecipientEmail(e.target.value)}
+  />
+</div>
+<Button onClick={handleSendTestEmail} disabled={isSendingTestEmail || !testRecipientEmail}>
+  {isSendingTestEmail ? <Loader2 className="animate-spin" /> : <Mail />}
+  {t('settings.sendTestEmail')}
+</Button>
 ```
-
-### Enhanced Datacenter Fields
-Add professional fields to DatacenterForm:
-- Power Capacity (kW)
-- Cooling Type (Air/Water/Liquid)
-- Tier Level (Tier 1-4)
-- Rack Count
-- Total Floor Space (sqm)
-- Compliance Certifications
-- Contact Person
-- Emergency Contact
 
 ---
 
-## Phase 6: Network Scan Like Advanced IP Scanner
+## Phase 2: Fix Datacenter Completeness Translations
 
-**Current Behavior:** Simulates scan and shows fake results.
+### Current Issue
+In `DatacenterOverview.tsx`, the completeness section uses translation keys that are missing in Arabic:
+- `datacenter.nodesWithSerial` - Shows "datacenter.nodesWithSerial" instead of translated text
+- `datacenter.vmsLinked` - Shows "datacenter.vmsLinked" instead of translated text
 
-**Issue:** User wants real network scanning that discovers devices on internal/external networks.
-
-**Technical Limitation:** Browser-based scanning is not possible due to security restrictions. Real network scanning requires an agent.
-
-### Solution Options
-
-**Option A (Recommended):** Improve the agent-based scanning system
-- The existing agent infrastructure (`scan_agents`, `scan_jobs`, `scan_results`) is designed for this
-- Enhance the UI to show that an agent is required for real scanning
-- When agent is available, use it for actual scanning
-
-**Option B:** Enhance simulation with better device discovery
-- Parse the selected network's subnet
-- Generate more realistic results based on common IP patterns
-- Show comparison with existing servers to identify "new" vs "known" devices
+### Root Cause
+The keys exist in English but are missing in Arabic translation section.
 
 ### Files to Modify
 | File | Change |
 |------|--------|
-| `src/pages/NetworkScan.tsx` | Add comparison with existing servers, better UI for discovery |
+| `src/contexts/LanguageContext.tsx` | Add missing Arabic translations |
+| `src/components/datacenter/DatacenterOverview.tsx` | Improve completeness display with actual data |
 
-### UI Enhancements
+### Translation Additions
+```javascript
+// Arabic translations to add
+'datacenter.nodesWithSerial': 'النودات مع الرقم التسلسلي',
+'datacenter.vmsLinked': 'الأجهزة الافتراضية المرتبطة',
+'datacenter.completenessDesc': 'مستوى اكتمال بيانات البنية التحتية',
+```
+
+### Enhance Completeness Card
+Calculate actual completeness metrics:
+- Nodes with serial number count / Total nodes
+- VMs linked to servers count / Total VMs
+- Display as progress bars with percentages
+
+---
+
+## Phase 3: Cluster Management Enhancement
+
+### Current Issue
+1. No cluster list table with edit/delete actions
+2. When creating a cluster, no domain selector - uses parent domain only
+3. Datacenter dropdown should filter by selected domain
+
+### Solution
+1. Create `ClusterTable.tsx` component with full CRUD
+2. Add domain selector as first field in ClusterForm
+3. Filter datacenters by selected domain
+
+### Files to Create
+| File | Description |
+|------|-------------|
+| `src/components/datacenter/ClusterTable.tsx` | Table with edit/delete for clusters |
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/components/datacenter/ClusterForm.tsx` | Add domain selector, filter datacenters by domain |
+| `src/pages/Datacenter.tsx` | Add Clusters tab to show ClusterTable |
+| `src/hooks/useDatacenter.ts` | Add useUpdateCluster, useDeleteCluster (already exist) |
+| `src/contexts/LanguageContext.tsx` | Add cluster-related translations |
+
+### ClusterForm Enhancement
 ```jsx
-// Add comparison indicator in results table
-<TableCell>
-  {existingServers.some(s => s.ip_address === result.ip_address) ? (
-    <Badge className="bg-blue-500/10 text-blue-700">
-      {language === 'ar' ? 'موجود' : 'Existing'}
-    </Badge>
-  ) : (
-    <Badge className="bg-green-500/10 text-green-700">
-      {language === 'ar' ? 'جديد' : 'New'}
-    </Badge>
-  )}
-</TableCell>
+// Add domain selector as first field
+<div className="space-y-2">
+  <Label>{t('common.domain')} *</Label>
+  <Select value={selectedDomainId} onValueChange={handleDomainChange}>
+    <SelectTrigger>
+      <SelectValue placeholder={t('common.selectDomain')} />
+    </SelectTrigger>
+    <SelectContent>
+      {domains?.map((d) => (
+        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+
+// Datacenters filtered by domain
+const filteredDatacenters = datacenters?.filter(dc => dc.domain_id === selectedDomainId);
+```
+
+### ClusterTable Component
+```typescript
+// Similar structure to DatacenterTable
+- Display clusters with: Name, Type, Datacenter, Nodes, VMs, Actions
+- Edit dialog with full form
+- Delete confirmation with check for linked nodes
 ```
 
 ---
 
-## Database Migrations Required
+## Phase 4: Procurement Module (Full Implementation)
 
-### Migration: Add unique constraint on domain_id for config tables
+### Overview
+Complete procurement system with:
+- Domain-scoped requests
+- Multiple items per request
+- PDF quotation uploads
+- Status workflow
+- Activity audit log
+- Reporting & price comparison
+
+### Database Schema
+
+#### Tables to Create
+
+**1. procurement_requests**
 ```sql
--- Add unique constraints for upsert to work properly
-CREATE UNIQUE INDEX IF NOT EXISTS mail_configs_domain_id_idx 
-  ON mail_configs(domain_id) 
-  WHERE domain_id IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS ntp_configs_domain_id_idx 
-  ON ntp_configs(domain_id) 
-  WHERE domain_id IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS ldap_configs_domain_id_idx 
-  ON ldap_configs(domain_id) 
-  WHERE domain_id IS NOT NULL;
+CREATE TABLE procurement_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  domain_id uuid REFERENCES domains(id) ON DELETE CASCADE NOT NULL,
+  request_number text UNIQUE NOT NULL,
+  title text NOT NULL,
+  description text,
+  status text NOT NULL DEFAULT 'draft' 
+    CHECK (status IN ('draft','submitted','under_review','approved','rejected','ordered','received','closed')),
+  priority text DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
+  currency text DEFAULT 'SAR',
+  needed_by date,
+  created_by uuid REFERENCES profiles(id),
+  approved_by uuid REFERENCES profiles(id),
+  approved_at timestamptz,
+  rejection_reason text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 ```
 
-### Migration: Enhance datacenters table with professional fields
+**2. procurement_request_items**
 ```sql
-ALTER TABLE datacenters 
-  ADD COLUMN IF NOT EXISTS power_capacity_kw integer,
-  ADD COLUMN IF NOT EXISTS cooling_type text,
-  ADD COLUMN IF NOT EXISTS tier_level text,
-  ADD COLUMN IF NOT EXISTS rack_count integer,
-  ADD COLUMN IF NOT EXISTS floor_space_sqm numeric,
-  ADD COLUMN IF NOT EXISTS certifications text[],
-  ADD COLUMN IF NOT EXISTS contact_person text,
-  ADD COLUMN IF NOT EXISTS emergency_contact text;
+CREATE TABLE procurement_request_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id uuid REFERENCES procurement_requests(id) ON DELETE CASCADE NOT NULL,
+  item_name text NOT NULL,
+  quantity numeric NOT NULL DEFAULT 1,
+  unit text DEFAULT 'pcs',
+  specs text,
+  estimated_unit_price numeric,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
+
+**3. procurement_quotations**
+```sql
+CREATE TABLE procurement_quotations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id uuid REFERENCES procurement_requests(id) ON DELETE CASCADE NOT NULL,
+  vendor_name text NOT NULL,
+  quotation_ref text,
+  quote_date date,
+  valid_until date,
+  subtotal numeric,
+  tax numeric,
+  shipping numeric,
+  discount numeric,
+  total numeric,
+  currency text DEFAULT 'SAR',
+  file_path text NOT NULL,
+  original_filename text NOT NULL,
+  uploaded_by uuid REFERENCES profiles(id),
+  created_at timestamptz DEFAULT now()
+);
+```
+
+**4. procurement_activity_logs**
+```sql
+CREATE TABLE procurement_activity_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id uuid REFERENCES procurement_requests(id) ON DELETE CASCADE NOT NULL,
+  actor_profile_id uuid REFERENCES profiles(id),
+  action text NOT NULL,
+  details jsonb,
+  created_at timestamptz DEFAULT now()
+);
+```
+
+### RLS Policies
+```sql
+-- Read access: domain members only
+CREATE POLICY "Domain members can view procurement requests"
+ON procurement_requests FOR SELECT
+USING (is_super_admin() OR can_access_domain(domain_id));
+
+-- Insert: domain members can create
+CREATE POLICY "Domain members can create requests"
+ON procurement_requests FOR INSERT
+WITH CHECK (is_admin() OR can_access_domain(domain_id));
+
+-- Update: creator can edit draft, domain admin can change status
+CREATE POLICY "Request update policy"
+ON procurement_requests FOR UPDATE
+USING (
+  is_super_admin() 
+  OR is_domain_admin(domain_id)
+  OR (status = 'draft' AND created_by = get_my_profile_id())
+);
+
+-- Delete: creator or domain admin only
+CREATE POLICY "Request delete policy"
+ON procurement_requests FOR DELETE
+USING (
+  is_super_admin() 
+  OR is_domain_admin(domain_id)
+  OR (status = 'draft' AND created_by = get_my_profile_id())
+);
+```
+
+### Storage Bucket
+```sql
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('procurement-quotations', 'procurement-quotations', false);
+
+-- Storage RLS
+CREATE POLICY "Authenticated users can upload quotations"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'procurement-quotations');
+
+CREATE POLICY "Domain members can view quotations"
+ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'procurement-quotations');
+```
+
+### Files to Create
+
+| File | Description |
+|------|-------------|
+| `src/pages/Procurement.tsx` | Main procurement list page |
+| `src/pages/ProcurementDetail.tsx` | Request detail with items, quotations, approval |
+| `src/pages/ProcurementCreate.tsx` | Wizard to create new request |
+| `src/components/procurement/ProcurementForm.tsx` | Request form component |
+| `src/components/procurement/ProcurementItemsTable.tsx` | Items table with inline edit |
+| `src/components/procurement/QuotationCard.tsx` | Display quotation with preview/download |
+| `src/components/procurement/QuotationUpload.tsx` | Upload PDF with metadata |
+| `src/components/procurement/PriceComparison.tsx` | Compare vendors side-by-side |
+| `src/components/procurement/ActivityTimeline.tsx` | Show audit history |
+| `src/hooks/useProcurement.ts` | React Query hooks for procurement |
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Add procurement routes |
+| `src/components/layout/Sidebar.tsx` | Add procurement menu item |
+| `src/contexts/LanguageContext.tsx` | Add all procurement translations |
+
+### Route Structure
+```typescript
+// App.tsx
+<Route path="/procurement" element={<Procurement />} />
+<Route path="/procurement/new" element={<ProcurementCreate />} />
+<Route path="/procurement/:id" element={<ProcurementDetail />} />
+```
+
+### Sidebar Menu Item
+```typescript
+// Add to allMenuItems in Sidebar.tsx
+{ 
+  id: 'procurement', 
+  path: '/procurement', 
+  icon: ShoppingCart, 
+  label: 'nav.procurement',
+  adminOnly: false // All domain members can access
+},
+```
+
+### UI Flow
+
+**1. List Page (`/procurement`)**
+- Domain selector (required)
+- Status filter tabs: All, Draft, Pending, Approved, Rejected
+- Search by request number/title
+- Table columns: #, Title, Status, Priority, Items Count, Total Est., Created, Actions
+- "New Request" button
+
+**2. Create Page (`/procurement/new`)**
+- Step 1: Basic Info (domain, title, description, priority, needed_by)
+- Step 2: Items (dynamic table with add/remove)
+- Step 3: Quotations (optional PDF uploads)
+- Step 4: Review & Submit
+
+**3. Detail Page (`/procurement/:id`)**
+- Header with status badge, actions
+- Info section (title, description, dates)
+- Items table (read-only or editable if draft)
+- Quotations section with:
+  - Upload button
+  - Cards for each quotation (vendor, total, preview, download)
+  - Price comparison table
+- Approval actions (for domain_admin):
+  - Approve button
+  - Reject button (with reason dialog)
+  - Status transition buttons
+- Activity timeline
+
+### Translations
+```javascript
+// Arabic
+'nav.procurement': 'المشتريات',
+'procurement.title': 'طلبات المشتريات',
+'procurement.subtitle': 'إدارة طلبات الشراء والعروض',
+'procurement.newRequest': 'طلب جديد',
+'procurement.requestNumber': 'رقم الطلب',
+'procurement.status.draft': 'مسودة',
+'procurement.status.submitted': 'مُقدم',
+'procurement.status.under_review': 'قيد المراجعة',
+'procurement.status.approved': 'موافق عليه',
+'procurement.status.rejected': 'مرفوض',
+'procurement.status.ordered': 'تم الطلب',
+'procurement.status.received': 'تم الاستلام',
+'procurement.status.closed': 'مغلق',
+'procurement.priority.low': 'منخفض',
+'procurement.priority.medium': 'متوسط',
+'procurement.priority.high': 'عالي',
+'procurement.priority.urgent': 'عاجل',
+'procurement.items': 'العناصر',
+'procurement.addItem': 'إضافة عنصر',
+'procurement.itemName': 'اسم العنصر',
+'procurement.quantity': 'الكمية',
+'procurement.unit': 'الوحدة',
+'procurement.specs': 'المواصفات',
+'procurement.estimatedPrice': 'السعر التقديري',
+'procurement.quotations': 'عروض الأسعار',
+'procurement.uploadQuotation': 'رفع عرض سعر',
+'procurement.vendorName': 'اسم المورد',
+'procurement.quotationRef': 'مرجع العرض',
+'procurement.quoteDate': 'تاريخ العرض',
+'procurement.validUntil': 'صالح حتى',
+'procurement.subtotal': 'المجموع الفرعي',
+'procurement.tax': 'الضريبة',
+'procurement.shipping': 'الشحن',
+'procurement.discount': 'الخصم',
+'procurement.total': 'الإجمالي',
+'procurement.approve': 'موافقة',
+'procurement.reject': 'رفض',
+'procurement.rejectionReason': 'سبب الرفض',
+'procurement.priceComparison': 'مقارنة الأسعار',
+'procurement.lowestPrice': 'أقل سعر',
+'procurement.activity': 'سجل النشاط',
+'procurement.neededBy': 'مطلوب بتاريخ',
+'procurement.submit': 'تقديم الطلب',
+'procurement.saveDraft': 'حفظ كمسودة',
+'procurement.downloadPdf': 'تحميل PDF',
+'procurement.previewPdf': 'معاينة PDF',
+'procurement.noQuotations': 'لم يتم رفع عروض أسعار بعد',
+'procurement.confirmSubmit': 'هل تريد تقديم هذا الطلب؟ لن تتمكن من التعديل بعد التقديم.',
+'procurement.confirmReject': 'هل تريد رفض هذا الطلب؟',
 ```
 
 ---
 
-## New Translations
+## Implementation Order
 
-### Arabic
-```text
-'datacenter.datacentersTab': 'مراكز البيانات',
-'datacenter.powerCapacity': 'سعة الطاقة (كيلوواط)',
-'datacenter.coolingType': 'نوع التبريد',
-'datacenter.tierLevel': 'مستوى المركز',
-'datacenter.rackCount': 'عدد الخزائن',
-'datacenter.floorSpace': 'المساحة (م²)',
-'datacenter.certifications': 'الشهادات',
-'datacenter.contactPerson': 'جهة الاتصال',
-'datacenter.emergencyContact': 'رقم الطوارئ',
-'employeeReports.fileTypes': 'الملفات المدعومة: Excel, PDF, صور',
-'scan.existingServer': 'موجود',
-'scan.newDevice': 'جديد',
-'scan.compareWithExisting': 'مقارنة مع السيرفرات الموجودة',
-```
+1. **Database Migrations** (Phase 4) - Create procurement tables + storage bucket
+2. **Translations** (Phases 1-4) - Add all missing translations
+3. **Mail Test Enhancement** (Phase 1) - Create edge function + UI
+4. **Datacenter Completeness** (Phase 2) - Fix translations + enhance display
+5. **Cluster Management** (Phase 3) - Create table + enhance form
+6. **Procurement UI** (Phase 4) - Build all components and pages
 
-### English
-```text
-'datacenter.datacentersTab': 'Datacenters',
-'datacenter.powerCapacity': 'Power Capacity (kW)',
-'datacenter.coolingType': 'Cooling Type',
-'datacenter.tierLevel': 'Tier Level',
-'datacenter.rackCount': 'Rack Count',
-'datacenter.floorSpace': 'Floor Space (sqm)',
-'datacenter.certifications': 'Certifications',
-'datacenter.contactPerson': 'Contact Person',
-'datacenter.emergencyContact': 'Emergency Contact',
-'employeeReports.fileTypes': 'Supported files: Excel, PDF, Images',
-'scan.existingServer': 'Existing',
-'scan.newDevice': 'New',
-'scan.compareWithExisting': 'Compare with existing servers',
-```
+---
+
+## Technical Notes
+
+### SMTP Test Limitations
+Real SMTP testing from Deno Edge Functions is possible but:
+- May be blocked by some SMTP servers due to cloud IP reputation
+- Gmail requires App Passwords or OAuth
+- Microsoft 365 may require modern auth
+
+The edge function should:
+1. Try to establish TCP connection
+2. If successful, attempt SMTP handshake
+3. If credentials provided, try authentication
+4. Send test email if all steps pass
+
+### Procurement Security
+- All RLS enforced at database level
+- Frontend hides actions based on role but backend validates
+- Status transitions validated:
+  - draft → submitted (creator only)
+  - submitted → under_review → approved/rejected (domain_admin only)
+  - approved → ordered → received → closed (domain_admin only)
+
+### PDF Storage Security
+- Private bucket (not public)
+- Access via signed URLs only
+- Files organized by: `{domain_id}/{request_id}/{timestamp}_{filename}.pdf`
+- Max file size: 20MB (enforce in frontend + edge function)
 
 ---
 
@@ -425,51 +457,37 @@ ALTER TABLE datacenters
 ### Files to Create
 | File | Description |
 |------|-------------|
-| `src/components/datacenter/DatacenterTable.tsx` | Full CRUD table for datacenters |
+| `supabase/functions/send-test-email/index.ts` | SMTP test email function |
+| `src/components/datacenter/ClusterTable.tsx` | Cluster list with CRUD |
+| `src/pages/Procurement.tsx` | Procurement list page |
+| `src/pages/ProcurementDetail.tsx` | Request detail page |
+| `src/pages/ProcurementCreate.tsx` | Create request wizard |
+| `src/components/procurement/ProcurementForm.tsx` | Request form |
+| `src/components/procurement/ProcurementItemsTable.tsx` | Items table |
+| `src/components/procurement/QuotationCard.tsx` | Quotation display |
+| `src/components/procurement/QuotationUpload.tsx` | PDF upload |
+| `src/components/procurement/PriceComparison.tsx` | Vendor comparison |
+| `src/components/procurement/ActivityTimeline.tsx` | Audit log |
+| `src/hooks/useProcurement.ts` | React Query hooks |
 
 ### Files to Modify
 | File | Changes |
 |------|---------|
-| `src/contexts/LanguageContext.tsx` | Add new translations |
-| `src/pages/Settings.tsx` | Fix upsert logic for config tables |
-| `src/pages/EmployeeReports.tsx` | Support PDF/TXT/PNG file uploads |
-| `src/pages/Tasks.tsx` | Improve employee name matching |
-| `src/pages/Datacenter.tsx` | Add datacenters tab |
-| `src/pages/NetworkScan.tsx` | Add comparison with existing servers |
-| `src/components/datacenter/VMTable.tsx` | Enhanced auto-fill with RAM/CPU/Disk parsing |
-| `src/components/datacenter/DatacenterForm.tsx` | Add professional datacenter fields |
-| `src/hooks/useDatacenter.ts` | Add CRUD hooks for datacenters |
+| `src/contexts/LanguageContext.tsx` | Add ~100 new translation keys |
+| `src/pages/Settings.tsx` | Add send test email feature |
+| `src/components/datacenter/ClusterForm.tsx` | Add domain selector |
+| `src/components/datacenter/DatacenterOverview.tsx` | Improve completeness display |
+| `src/pages/Datacenter.tsx` | Add Clusters tab |
+| `src/App.tsx` | Add procurement routes |
+| `src/components/layout/Sidebar.tsx` | Add procurement menu |
 
----
+### Database Migrations
+1. Create procurement_requests table
+2. Create procurement_request_items table
+3. Create procurement_quotations table
+4. Create procurement_activity_logs table
+5. Add RLS policies for all tables
+6. Create procurement-quotations storage bucket
+7. Add storage RLS policies
+8. Create request_number sequence function
 
-## Implementation Order
-
-1. **Database Migration** - Add unique constraints and new datacenter fields
-2. **Settings.tsx** - Fix mail/NTP/LDAP test connection (highest priority)
-3. **Tasks.tsx** - Fix employee name matching for import
-4. **VMTable.tsx** - Enhance auto-fill with all fields
-5. **EmployeeReports.tsx** - Support multiple file types
-6. **DatacenterTable.tsx + hooks** - Create datacenter management
-7. **Datacenter.tsx** - Add datacenters tab
-8. **NetworkScan.tsx** - Add server comparison feature
-9. **Translations** - Add all new keys
-
----
-
-## Technical Notes
-
-### Network Scanning Limitations
-Real network scanning from a browser is not possible due to:
-- CORS restrictions
-- No access to raw sockets
-- Browser security sandbox
-
-The agent-based approach (`scan_agents` system) is the correct architecture for real scanning. The "simulated" scan is acceptable for demo/testing, but production use requires deploying scan agents.
-
-### Server Data Parsing
-The servers table stores RAM/CPU/Disk as text fields which may contain various formats:
-- "16GB", "16 GB", "16"
-- "4 cores", "4 CPU", "4"
-- "500GB", "500 GB", "0.5TB"
-
-The parsing functions need to handle these variations gracefully.
