@@ -58,6 +58,25 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
   // Filter servers - get all servers since servers don't have direct domain_id
   const domainServers = servers || [];
 
+  // Helper functions to parse specs from text
+  const parseRamGb = (ramStr: string | null): number => {
+    if (!ramStr) return 16;
+    const match = ramStr.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 16;
+  };
+
+  const parseCpuCores = (cpuStr: string | null): number => {
+    if (!cpuStr) return 4;
+    const match = cpuStr.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 4;
+  };
+
+  const parseDiskGb = (diskStr: string | null): number => {
+    if (!diskStr) return 100;
+    const match = diskStr.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 100;
+  };
+
   // Auto-fill form when a server is selected (for new VMs only)
   React.useEffect(() => {
     if (formData.server_ref_id && !editingVM && formData.server_ref_id !== 'none') {
@@ -69,6 +88,11 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
           ip_address: server.ip_address || prev.ip_address,
           os: server.operating_system || prev.os,
           environment: (server.environment as VMEnvironment) || prev.environment,
+          ram_gb: parseRamGb(server.ram),
+          vcpu: parseCpuCores(server.cpu),
+          disk_total_gb: parseDiskGb(server.disk_space),
+          owner_department: (server as any).beneficiary_department || (server as any).owner || prev.owner_department,
+          beneficiary: (server as any).business_owner || prev.beneficiary,
         }));
       }
     }

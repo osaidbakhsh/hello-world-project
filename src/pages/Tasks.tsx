@@ -206,6 +206,28 @@ const Tasks: React.FC = () => {
     toast({ title: t('common.success'), description: 'تم تصدير المهام بنجاح' });
   };
 
+  // Normalize name for matching (handles Arabic variations and case)
+  const normalizeArabicName = (name: string) => {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      // Normalize Arabic characters
+      .replace(/أ|إ|آ/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ى/g, 'ي');
+  };
+
+  // Map frequency from Excel to valid values
+  const mapFrequency = (freq: string) => {
+    const freqLower = (freq || '').toLowerCase();
+    if (freqLower.includes('يوم') || freqLower === 'daily') return 'daily';
+    if (freqLower.includes('أسبوع') || freqLower === 'weekly') return 'weekly';
+    if (freqLower.includes('شهر') || freqLower === 'monthly') return 'monthly';
+    if (freqLower.includes('مرة') || freqLower === 'once') return 'once';
+    return 'once';
+  };
+
   // Handle import file change
   const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -221,20 +243,31 @@ const Tasks: React.FC = () => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         
-        // Match employees by name
+        // Match employees by name with improved matching
         const preview = jsonData.map((row: any) => {
-          const employeeName = row['اسم الموظف'] || row['Employee'] || row['employee_name'] || '';
-          const foundEmployee = profiles.find(p => 
-            p.full_name.toLowerCase().includes(employeeName.toLowerCase()) ||
-            employeeName.toLowerCase().includes(p.full_name.toLowerCase())
-          );
+          const employeeName = row['الموظف'] || row['اسم الموظف'] || row['Employee'] || row['employee_name'] || '';
+          const normalizedInput = normalizeArabicName(employeeName);
+          
+          const foundEmployee = profiles.find(p => {
+            const normalizedProfile = normalizeArabicName(p.full_name);
+            // Exact match
+            if (normalizedProfile === normalizedInput) return true;
+            // Contains match
+            if (normalizedProfile.includes(normalizedInput) || normalizedInput.includes(normalizedProfile)) return true;
+            // First name match (for names like "Anas" matching "Anas Mohammed")
+            const inputFirstName = normalizedInput.split(' ')[0];
+            const profileFirstName = normalizedProfile.split(' ')[0];
+            if (inputFirstName === profileFirstName && inputFirstName.length >= 3) return true;
+            return false;
+          });
+          
           return {
             ...row,
             employee_name: employeeName,
             title: row['المهمة'] || row['عنوان المهمة'] || row['Task'] || row['title'] || '',
             description: row['الوصف'] || row['Description'] || row['description'] || '',
             due_date: row['تاريخ الاستحقاق'] || row['Due Date'] || row['due_date'] || '',
-            frequency: row['التكرار'] || row['Frequency'] || row['frequency'] || 'once',
+            frequency: mapFrequency(row['التكرار'] || row['Frequency'] || row['frequency'] || 'once'),
             profile_id: foundEmployee?.id || null,
           };
         });

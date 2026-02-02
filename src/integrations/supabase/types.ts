@@ -405,33 +405,57 @@ export type Database = {
       }
       datacenters: {
         Row: {
+          certifications: string[] | null
+          contact_person: string | null
+          cooling_type: string | null
           created_at: string | null
           created_by: string | null
           domain_id: string
+          emergency_contact: string | null
+          floor_space_sqm: number | null
           id: string
           location: string | null
           name: string
           notes: string | null
+          power_capacity_kw: number | null
+          rack_count: number | null
+          tier_level: string | null
           updated_at: string | null
         }
         Insert: {
+          certifications?: string[] | null
+          contact_person?: string | null
+          cooling_type?: string | null
           created_at?: string | null
           created_by?: string | null
           domain_id: string
+          emergency_contact?: string | null
+          floor_space_sqm?: number | null
           id?: string
           location?: string | null
           name: string
           notes?: string | null
+          power_capacity_kw?: number | null
+          rack_count?: number | null
+          tier_level?: string | null
           updated_at?: string | null
         }
         Update: {
+          certifications?: string[] | null
+          contact_person?: string | null
+          cooling_type?: string | null
           created_at?: string | null
           created_by?: string | null
           domain_id?: string
+          emergency_contact?: string | null
+          floor_space_sqm?: number | null
           id?: string
           location?: string | null
           name?: string
           notes?: string | null
+          power_capacity_kw?: number | null
+          rack_count?: number | null
+          tier_level?: string | null
           updated_at?: string | null
         }
         Relationships: [

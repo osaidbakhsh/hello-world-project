@@ -15,6 +15,14 @@ export interface Datacenter {
   created_by: string | null;
   created_at: string | null;
   updated_at: string | null;
+  power_capacity_kw: number | null;
+  cooling_type: string | null;
+  tier_level: string | null;
+  rack_count: number | null;
+  floor_space_sqm: number | null;
+  certifications: string[] | null;
+  contact_person: string | null;
+  emergency_contact: string | null;
   domains?: { name: string };
 }
 
