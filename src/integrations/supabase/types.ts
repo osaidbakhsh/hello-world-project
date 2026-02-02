@@ -2813,6 +2813,53 @@ export type Database = {
           },
         ]
       }
+      vault_item_secrets: {
+        Row: {
+          created_at: string | null
+          id: string
+          notes_encrypted: string | null
+          notes_iv: string | null
+          password_encrypted: string | null
+          password_iv: string | null
+          updated_at: string | null
+          username_encrypted: string | null
+          username_iv: string | null
+          vault_item_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notes_encrypted?: string | null
+          notes_iv?: string | null
+          password_encrypted?: string | null
+          password_iv?: string | null
+          updated_at?: string | null
+          username_encrypted?: string | null
+          username_iv?: string | null
+          vault_item_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notes_encrypted?: string | null
+          notes_iv?: string | null
+          password_encrypted?: string | null
+          password_iv?: string | null
+          updated_at?: string | null
+          username_encrypted?: string | null
+          username_iv?: string | null
+          vault_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_item_secrets_vault_item_id_fkey"
+            columns: ["vault_item_id"]
+            isOneToOne: true
+            referencedRelation: "vault_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vault_items: {
         Row: {
           created_at: string | null
@@ -2923,7 +2970,9 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string
+          permission_level: string | null
           profile_id: string
+          revoked_at: string | null
           vault_item_id: string
         }
         Insert: {
@@ -2933,7 +2982,9 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          permission_level?: string | null
           profile_id: string
+          revoked_at?: string | null
           vault_item_id: string
         }
         Update: {
@@ -2943,7 +2994,9 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          permission_level?: string | null
           profile_id?: string
+          revoked_at?: string | null
           vault_item_id?: string
         }
         Relationships: [
