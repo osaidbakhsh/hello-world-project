@@ -35,6 +35,7 @@ import FileShareDetails from "./pages/FileShareDetails";
 import ScanAgents from "./pages/ScanAgents";
 import Datacenter from "./pages/Datacenter";
 import SystemHealth from "./pages/SystemHealth";
+import VerificationChecklist from "./pages/VerificationChecklist";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -85,6 +86,7 @@ const App = () => (
                 <Route path="/scan-agents" element={<ScanAgents />} />
                 <Route path="/datacenter" element={<Datacenter />} />
                 <Route path="/system-health" element={<SystemHealth />} />
+                <Route path="/verification-checklist" element={<VerificationChecklist />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               

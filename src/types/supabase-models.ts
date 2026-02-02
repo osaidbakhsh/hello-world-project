@@ -168,9 +168,9 @@ export interface DomainMembership {
   id: string;
   profile_id: string;
   domain_id: string;
-  can_edit: boolean;
-  domain_role: 'domain_admin' | 'employee';
-  created_at: string;
+  can_edit: boolean | null;
+  domain_role: string | null;
+  created_at: string | null;
 }
 
 // Config types

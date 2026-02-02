@@ -38,20 +38,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if user is admin
+    // Check if user is SUPER ADMIN ONLY (not admin)
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     
     const { data: roleData } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .in('role', ['super_admin', 'admin'])
-      .limit(1)
-      .single();
+      .eq('role', 'super_admin')  // ONLY super_admin can access this
+      .maybeSingle();
 
     if (!roleData) {
       return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
+        JSON.stringify({ error: 'Super Admin access required for system health checks' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
