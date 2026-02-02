@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProfiles } from '@/hooks/useSupabaseData';
+import { useVisibleEmployees } from '@/hooks/useVisibleEmployees';
 import { useVaultPermissions, useVaultMutations, type VaultItem } from '@/hooks/useVaultData';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -39,7 +39,7 @@ const VaultShareDialog: React.FC<VaultShareDialogProps> = ({
   const { t, dir } = useLanguage();
   const { profile } = useAuth();
   const { toast } = useToast();
-  const { data: profiles } = useProfiles();
+  const { data: visibleEmployees, isLoading: employeesLoading } = useVisibleEmployees();
   const { data: permissions, isLoading: permissionsLoading } = useVaultPermissions(item.id);
   const { shareItem, revokeShare } = useVaultMutations();
 
@@ -47,9 +47,8 @@ const VaultShareDialog: React.FC<VaultShareDialogProps> = ({
   const [permissionLevel, setPermissionLevel] = useState<'view_metadata' | 'view_secret'>('view_metadata');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Filter out owner and already shared users
-  const availableProfiles = profiles?.filter(p => {
-    if (p.id === item.owner_id) return false;
+  // Filter out already shared users (owner is already excluded by RPC)
+  const availableProfiles = visibleEmployees?.filter(p => {
     if (permissions?.some(perm => perm.profile_id === p.id)) return false;
     return true;
   }) || [];
@@ -122,7 +121,7 @@ const VaultShareDialog: React.FC<VaultShareDialogProps> = ({
   };
 
   const getProfileName = (profileId: string) => {
-    return profiles?.find(p => p.id === profileId)?.full_name || t('common.unknown');
+    return visibleEmployees?.find(p => p.id === profileId)?.full_name || t('common.unknown');
   };
 
   return (
@@ -139,18 +138,28 @@ const VaultShareDialog: React.FC<VaultShareDialogProps> = ({
           {/* Add new share */}
           <div className="space-y-3">
             <Label>{t('vault.shareWith')}</Label>
-            <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('vault.selectEmployee')} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableProfiles.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.full_name} ({p.email})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {employeesLoading ? (
+              <div className="flex justify-center py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : availableProfiles.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-2">
+                {t('vault.noEmployeesAvailable')}
+              </div>
+            ) : (
+              <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('vault.selectEmployee')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableProfiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.full_name}{p.email ? ` (${p.email})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             <Label>{t('vault.permissionLevel')}</Label>
             <Select 

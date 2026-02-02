@@ -3265,6 +3265,14 @@ export type Database = {
       is_employee_only: { Args: never; Returns: boolean }
       is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      list_visible_employees: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+        }[]
+      }
       owns_vault_item: { Args: { _vault_item_id: string }; Returns: boolean }
     }
     Enums: {
