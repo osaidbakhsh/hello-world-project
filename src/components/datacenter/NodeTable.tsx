@@ -1,46 +1,54 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useClusterNodes, useClusters, useCreateNode } from '@/hooks/useDatacenter';
+import { useClusterNodes, useClusters, useCreateNode, useUpdateNode, useDeleteNode } from '@/hooks/useDatacenter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Cpu } from 'lucide-react';
-import type { NodeStatus, NodeRole } from '@/types/datacenter';
+import { Plus, Search, Cpu, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import type { NodeStatus, NodeRole, ClusterNode } from '@/types/datacenter';
 
 interface Props {
   domainId: string;
 }
+
+const defaultFormData = {
+  name: '',
+  cluster_id: '',
+  node_role: 'hybrid' as NodeRole,
+  vendor: '',
+  model: '',
+  serial_number: '',
+  cpu_sockets: 2,
+  cpu_cores: 32,
+  ram_gb: 256,
+  storage_total_tb: 10,
+  mgmt_ip: '',
+  status: 'active' as NodeStatus,
+};
 
 const NodeTable: React.FC<Props> = ({ domainId }) => {
   const { t, language } = useLanguage();
   const { data: nodes, isLoading } = useClusterNodes(domainId);
   const { data: clusters } = useClusters(domainId);
   const createNode = useCreateNode();
+  const updateNode = useUpdateNode();
+  const deleteNode = useDeleteNode();
 
   const [search, setSearch] = useState('');
   const [filterCluster, setFilterCluster] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
+  const [editingNode, setEditingNode] = useState<ClusterNode | null>(null);
+  const [nodeToDelete, setNodeToDelete] = useState<ClusterNode | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    cluster_id: '',
-    node_role: 'hybrid' as NodeRole,
-    vendor: '',
-    model: '',
-    serial_number: '',
-    cpu_sockets: 2,
-    cpu_cores: 32,
-    ram_gb: 256,
-    storage_total_tb: 10,
-    mgmt_ip: '',
-    status: 'active' as NodeStatus,
-  });
+  const [formData, setFormData] = useState(defaultFormData);
 
   const filteredNodes = nodes?.filter((node) => {
     const matchesSearch = node.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -57,26 +65,51 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
     decommissioned: 'bg-red-500/10 text-red-700 border-red-500/30',
   };
 
-  const handleSubmit = async () => {
-    await createNode.mutateAsync({
-      ...formData,
-      domain_id: domainId,
-    });
-    setShowForm(false);
+  const openEditForm = (node: ClusterNode) => {
+    setEditingNode(node);
     setFormData({
-      name: '',
-      cluster_id: '',
-      node_role: 'hybrid',
-      vendor: '',
-      model: '',
-      serial_number: '',
-      cpu_sockets: 2,
-      cpu_cores: 32,
-      ram_gb: 256,
-      storage_total_tb: 10,
-      mgmt_ip: '',
-      status: 'active',
+      name: node.name,
+      cluster_id: node.cluster_id,
+      node_role: node.node_role,
+      vendor: node.vendor || '',
+      model: node.model || '',
+      serial_number: node.serial_number || '',
+      cpu_sockets: node.cpu_sockets || 2,
+      cpu_cores: node.cpu_cores || 32,
+      ram_gb: node.ram_gb || 256,
+      storage_total_tb: node.storage_total_tb || 10,
+      mgmt_ip: node.mgmt_ip || '',
+      status: node.status,
     });
+    setShowForm(true);
+  };
+
+  const handleSubmit = async () => {
+    if (editingNode) {
+      await updateNode.mutateAsync({
+        id: editingNode.id,
+        ...formData,
+      });
+    } else {
+      await createNode.mutateAsync({
+        ...formData,
+        domain_id: domainId,
+      });
+    }
+    closeForm();
+  };
+
+  const handleDelete = async () => {
+    if (nodeToDelete) {
+      await deleteNode.mutateAsync(nodeToDelete.id);
+      setNodeToDelete(null);
+    }
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingNode(null);
+    setFormData(defaultFormData);
   };
 
   if (isLoading) {
@@ -150,18 +183,19 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
                 <TableHead>{t('datacenter.storageTb')}</TableHead>
                 <TableHead>{t('datacenter.mgmtIp')}</TableHead>
                 <TableHead>{t('common.status')}</TableHead>
+                <TableHead className="w-[70px]">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredNodes?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {t('datacenter.noNodes')}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredNodes?.map((node) => (
-                  <TableRow key={node.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow key={node.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium">{node.name}</TableCell>
                     <TableCell>{node.clusters?.name || '-'}</TableCell>
                     <TableCell>
@@ -176,6 +210,28 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
                         {t(`datacenter.${node.status}`)}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditForm(node)}>
+                            <Pencil className="w-4 h-4 me-2" />
+                            {t('datacenter.editNode')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => setNodeToDelete(node)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 me-2" />
+                            {t('datacenter.deleteNode')}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -184,15 +240,23 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
         </div>
       </CardContent>
 
-      {/* Add Node Dialog */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      {/* Add/Edit Node Dialog */}
+      <Dialog open={showForm} onOpenChange={(open) => !open && closeForm()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{t('datacenter.addNode')}</DialogTitle>
+            <DialogTitle>
+              {editingNode ? t('datacenter.editNode') : t('datacenter.addNode')}
+            </DialogTitle>
+            <DialogDescription>
+              {editingNode 
+                ? (language === 'ar' ? 'تعديل بيانات النود' : 'Edit node details')
+                : (language === 'ar' ? 'إضافة نود جديد للكلستر' : 'Add a new node to the cluster')
+              }
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
-              <Label>{t('common.name')}</Label>
+              <Label>{t('common.name')} *</Label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -200,7 +264,7 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
               />
             </div>
             <div className="space-y-2">
-              <Label>{t('datacenter.clusters')}</Label>
+              <Label>{t('datacenter.clusters')} *</Label>
               <Select value={formData.cluster_id} onValueChange={(v) => setFormData({ ...formData, cluster_id: v })}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('datacenter.selectCluster')} />
@@ -233,7 +297,7 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
               <Input
                 type="number"
                 value={formData.cpu_cores}
-                onChange={(e) => setFormData({ ...formData, cpu_cores: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, cpu_cores: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div className="space-y-2">
@@ -241,7 +305,7 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
               <Input
                 type="number"
                 value={formData.ram_gb}
-                onChange={(e) => setFormData({ ...formData, ram_gb: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, ram_gb: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div className="space-y-2">
@@ -249,7 +313,7 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
               <Input
                 type="number"
                 value={formData.storage_total_tb}
-                onChange={(e) => setFormData({ ...formData, storage_total_tb: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, storage_total_tb: parseFloat(e.target.value) || 0 })}
               />
             </div>
             <div className="space-y-2">
@@ -280,17 +344,57 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
                 </SelectContent>
               </Select>
             </div>
+            {editingNode && (
+              <div className="space-y-2">
+                <Label>{t('common.status')}</Label>
+                <Select value={formData.status} onValueChange={(v: NodeStatus) => setFormData({ ...formData, status: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">{t('datacenter.active')}</SelectItem>
+                    <SelectItem value="maintenance">{t('datacenter.maintenance')}</SelectItem>
+                    <SelectItem value="decommissioned">{t('datacenter.decommissioned')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>
+            <Button variant="outline" onClick={closeForm}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleSubmit} disabled={!formData.name || !formData.cluster_id}>
-              {t('common.save')}
+            <Button 
+              onClick={handleSubmit} 
+              disabled={!formData.name || !formData.cluster_id || createNode.isPending || updateNode.isPending}
+            >
+              {(createNode.isPending || updateNode.isPending) 
+                ? t('common.saving') 
+                : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!nodeToDelete} onOpenChange={(open) => !open && setNodeToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('common.confirmDelete')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('common.deleteConfirmMessage')}
+              <br />
+              <strong>{nodeToDelete?.name}</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

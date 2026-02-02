@@ -1,46 +1,63 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useVMs, useClusters, useCreateVM } from '@/hooks/useDatacenter';
+import { useVMs, useClusters, useCreateVM, useUpdateVM, useDeleteVM } from '@/hooks/useDatacenter';
+import { useServers, useServerMutations } from '@/hooks/useSupabaseData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Monitor } from 'lucide-react';
-import type { VMStatus, VMEnvironment } from '@/types/datacenter';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, Search, Monitor, MoreHorizontal, Pencil, Trash2, Link } from 'lucide-react';
+import type { VMStatus, VMEnvironment, VM } from '@/types/datacenter';
 
 interface Props {
   domainId: string;
 }
 
+const defaultFormData = {
+  name: '',
+  cluster_id: '',
+  ip_address: '',
+  os: '',
+  environment: 'production' as VMEnvironment,
+  status: 'running' as VMStatus,
+  vcpu: 4,
+  ram_gb: 16,
+  disk_total_gb: 100,
+  owner_department: '',
+  beneficiary: '',
+  server_ref_id: '',
+  createAsServer: false,
+};
+
 const VMTable: React.FC<Props> = ({ domainId }) => {
   const { t, language } = useLanguage();
   const { data: vms, isLoading } = useVMs(domainId);
   const { data: clusters } = useClusters(domainId);
+  const { data: servers } = useServers();
   const createVM = useCreateVM();
+  const updateVM = useUpdateVM();
+  const deleteVM = useDeleteVM();
+  const { createServer } = useServerMutations();
 
   const [search, setSearch] = useState('');
   const [filterCluster, setFilterCluster] = useState<string>('all');
   const [filterEnv, setFilterEnv] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
+  const [editingVM, setEditingVM] = useState<VM | null>(null);
+  const [vmToDelete, setVmToDelete] = useState<VM | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    cluster_id: '',
-    ip_address: '',
-    os: '',
-    environment: 'production' as VMEnvironment,
-    status: 'running' as VMStatus,
-    vcpu: 4,
-    ram_gb: 16,
-    disk_total_gb: 100,
-    owner_department: '',
-    beneficiary: '',
-  });
+  const [formData, setFormData] = useState(defaultFormData);
+
+  // Filter servers - get all servers since servers don't have direct domain_id
+  const domainServers = servers || [];
 
   const filteredVMs = vms?.filter((vm) => {
     const matchesSearch = vm.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -67,26 +84,99 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
     dr: language === 'ar' ? 'DR' : 'DR',
   };
 
-  const handleSubmit = async () => {
-    await createVM.mutateAsync({
-      ...formData,
-      domain_id: domainId,
-      tags: [],
-    });
-    setShowForm(false);
+  const openEditForm = (vm: VM) => {
+    setEditingVM(vm);
     setFormData({
-      name: '',
-      cluster_id: '',
-      ip_address: '',
-      os: '',
-      environment: 'production',
-      status: 'running',
-      vcpu: 4,
-      ram_gb: 16,
-      disk_total_gb: 100,
-      owner_department: '',
-      beneficiary: '',
+      name: vm.name,
+      cluster_id: vm.cluster_id,
+      ip_address: vm.ip_address || '',
+      os: vm.os || '',
+      environment: vm.environment,
+      status: vm.status,
+      vcpu: vm.vcpu || 4,
+      ram_gb: vm.ram_gb || 16,
+      disk_total_gb: vm.disk_total_gb || 100,
+      owner_department: vm.owner_department || '',
+      beneficiary: vm.beneficiary || '',
+      server_ref_id: vm.server_ref_id || '',
+      createAsServer: false,
     });
+    setShowForm(true);
+  };
+
+  const handleSubmit = async () => {
+    let serverRefId = formData.server_ref_id || null;
+
+    // If createAsServer is checked, create a server first
+    if (!editingVM && formData.createAsServer) {
+      try {
+        const result = await createServer({
+          name: formData.name,
+          ip_address: formData.ip_address || null,
+          operating_system: formData.os || 'Unknown',
+          environment: formData.environment,
+          status: formData.status === 'running' ? 'active' : 'inactive',
+          source: 'import',
+          notes: language === 'ar' 
+            ? 'تم الإنشاء تلقائياً من VM في مركز البيانات'
+            : 'Auto-created from VM in Datacenter module',
+        });
+        if (result.data) {
+          serverRefId = result.data.id || null;
+        }
+      } catch (error) {
+        console.error('Failed to create server:', error);
+      }
+    }
+
+    if (editingVM) {
+      await updateVM.mutateAsync({
+        id: editingVM.id,
+        name: formData.name,
+        cluster_id: formData.cluster_id,
+        ip_address: formData.ip_address || null,
+        os: formData.os || null,
+        environment: formData.environment,
+        status: formData.status,
+        vcpu: formData.vcpu,
+        ram_gb: formData.ram_gb,
+        disk_total_gb: formData.disk_total_gb,
+        owner_department: formData.owner_department || null,
+        beneficiary: formData.beneficiary || null,
+        server_ref_id: formData.server_ref_id || null,
+      });
+    } else {
+      await createVM.mutateAsync({
+        name: formData.name,
+        cluster_id: formData.cluster_id,
+        domain_id: domainId,
+        ip_address: formData.ip_address || null,
+        os: formData.os || null,
+        environment: formData.environment,
+        status: formData.status,
+        vcpu: formData.vcpu,
+        ram_gb: formData.ram_gb,
+        disk_total_gb: formData.disk_total_gb,
+        owner_department: formData.owner_department || null,
+        beneficiary: formData.beneficiary || null,
+        server_ref_id: serverRefId,
+        tags: [],
+      });
+    }
+    closeForm();
+  };
+
+  const handleDelete = async () => {
+    if (vmToDelete) {
+      await deleteVM.mutateAsync(vmToDelete.id);
+      setVmToDelete(null);
+    }
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingVM(null);
+    setFormData(defaultFormData);
   };
 
   if (isLoading) {
@@ -172,19 +262,27 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
                 <TableHead>IP</TableHead>
                 <TableHead>{t('datacenter.environment')}</TableHead>
                 <TableHead>{t('common.status')}</TableHead>
+                <TableHead className="w-[70px]">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredVMs?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {t('datacenter.noVMs')}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredVMs?.map((vm) => (
-                  <TableRow key={vm.id} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell className="font-medium">{vm.name}</TableCell>
+                  <TableRow key={vm.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {vm.name}
+                        {vm.server_ref_id && (
+                          <Link className="w-3 h-3 text-muted-foreground" />
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{vm.clusters?.name || '-'}</TableCell>
                     <TableCell>{vm.vcpu || '-'}</TableCell>
                     <TableCell>{vm.ram_gb || '-'} GB</TableCell>
@@ -198,6 +296,28 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
                         {t(`datacenter.${vm.status}`)}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditForm(vm)}>
+                            <Pencil className="w-4 h-4 me-2" />
+                            {t('datacenter.editVM')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => setVmToDelete(vm)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 me-2" />
+                            {t('datacenter.deleteVM')}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -206,15 +326,23 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
         </div>
       </CardContent>
 
-      {/* Add VM Dialog */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      {/* Add/Edit VM Dialog */}
+      <Dialog open={showForm} onOpenChange={(open) => !open && closeForm()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{t('datacenter.addVM')}</DialogTitle>
+            <DialogTitle>
+              {editingVM ? t('datacenter.editVM') : t('datacenter.addVM')}
+            </DialogTitle>
+            <DialogDescription>
+              {editingVM 
+                ? (language === 'ar' ? 'تعديل بيانات الجهاز الافتراضي' : 'Edit virtual machine details')
+                : (language === 'ar' ? 'إضافة جهاز افتراضي جديد' : 'Add a new virtual machine')
+              }
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
-              <Label>{t('common.name')}</Label>
+              <Label>{t('common.name')} *</Label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -222,7 +350,7 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
               />
             </div>
             <div className="space-y-2">
-              <Label>{t('datacenter.clusters')}</Label>
+              <Label>{t('datacenter.clusters')} *</Label>
               <Select value={formData.cluster_id} onValueChange={(v) => setFormData({ ...formData, cluster_id: v })}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('datacenter.selectCluster')} />
@@ -255,7 +383,7 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
               <Input
                 type="number"
                 value={formData.vcpu}
-                onChange={(e) => setFormData({ ...formData, vcpu: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, vcpu: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div className="space-y-2">
@@ -263,7 +391,7 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
               <Input
                 type="number"
                 value={formData.ram_gb}
-                onChange={(e) => setFormData({ ...formData, ram_gb: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, ram_gb: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div className="space-y-2">
@@ -271,7 +399,7 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
               <Input
                 type="number"
                 value={formData.disk_total_gb}
-                onChange={(e) => setFormData({ ...formData, disk_total_gb: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, disk_total_gb: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div className="space-y-2">
@@ -303,17 +431,100 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
                 onChange={(e) => setFormData({ ...formData, beneficiary: e.target.value })}
               />
             </div>
+
+            {/* Server Linking */}
+            <div className="space-y-2">
+              <Label>{t('datacenter.linkToServer')}</Label>
+              <Select 
+                value={formData.server_ref_id || 'none'} 
+                onValueChange={(v) => setFormData({ ...formData, server_ref_id: v === 'none' ? '' : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('common.select')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-</SelectItem>
+                  {domainServers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {editingVM && (
+              <div className="space-y-2">
+                <Label>{t('common.status')}</Label>
+                <Select value={formData.status} onValueChange={(v: VMStatus) => setFormData({ ...formData, status: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="running">{t('datacenter.running')}</SelectItem>
+                    <SelectItem value="stopped">{t('datacenter.stopped')}</SelectItem>
+                    <SelectItem value="suspended">{t('datacenter.suspended')}</SelectItem>
+                    <SelectItem value="template">Template</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Create as Server Checkbox - only for new VMs */}
+            {!editingVM && !formData.server_ref_id && (
+              <div className="col-span-2 flex items-center space-x-2 rtl:space-x-reverse p-4 border rounded-lg bg-muted/30">
+                <Checkbox
+                  id="createAsServer"
+                  checked={formData.createAsServer}
+                  onCheckedChange={(checked) => setFormData({ ...formData, createAsServer: !!checked })}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="createAsServer"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    {t('datacenter.createAsServer')}
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    {t('datacenter.createAsServerHint')}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>
+            <Button variant="outline" onClick={closeForm}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleSubmit} disabled={!formData.name || !formData.cluster_id}>
-              {t('common.save')}
+            <Button 
+              onClick={handleSubmit} 
+              disabled={!formData.name || !formData.cluster_id || createVM.isPending || updateVM.isPending}
+            >
+              {(createVM.isPending || updateVM.isPending) 
+                ? t('common.saving') 
+                : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!vmToDelete} onOpenChange={(open) => !open && setVmToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('common.confirmDelete')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('common.deleteConfirmMessage')}
+              <br />
+              <strong>{vmToDelete?.name}</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
