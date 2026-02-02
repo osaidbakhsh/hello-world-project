@@ -4,178 +4,263 @@
 
 ---
 
-## ملخص المشاكل والميزات
+## ملخص المشاكل المكتشفة
 
-| # | المشكلة/الميزة | الأولوية |
-|---|----------------|----------|
-| 1 | خطأ AbortError عند رفع إجازة للموظف (أنس) | حرج |
-| 2 | عنوان صفحة الإجازات يظهر translation key | حرج |
-| 3 | حسابك يظهر "الموظفون" بدلاً من "مسؤول أعلى" | حرج |
-| 4 | نظام Subtasks احترافي مثل Jira | رئيسي |
-| 5 | إصلاح تصدير PDF | رئيسي |
-| 6 | ربط السيرفر بالدومين ثم الشبكة | رئيسي |
-| 7 | نظام موافقات الإجازات (موافقة تلقائية حالياً) | ثانوي |
+| # | المشكلة | الملف المتأثر | الأولوية |
+|---|---------|--------------|----------|
+| 1 | خطأ AbortError عند رفع إجازة للموظف (أنس) - لا يزال موجوداً | `Vacations.tsx` | حرج |
+| 2 | لا يوجد نظام رصيد إجازات | جديد - تحتاج جدول جديد | رئيسي |
+| 3 | `common.domain` لا يظهر بالشكل الصحيح في فورم السيرفرات | `Servers.tsx`, `LanguageContext.tsx` | متوسط |
+| 4 | الجدول لا يعرض عمود "النطاق" في السيرفرات | `Servers.tsx` | متوسط |
+| 5 | `common.allDomains` لا يظهر بالشكل الصحيح في التراخيص | `LanguageContext.tsx` | متوسط |
+| 6 | الموظف يمكنه تصدير Excel لجميع الموظفين (مشكلة أمنية) | `Employees.tsx` | حرج |
 
 ---
 
-## التحليل التقني المفصل
+## التفاصيل التقنية
 
-### 1. خطأ AbortError عند رفع إجازة
+### 1. خطأ AbortError عند رفع إجازة للموظف
 
-**السبب الجذري**: 
-- عند إنشاء إجازة بدون تحديد `profile_id` للموظف العادي، يتم إرسال `null` أو `undefined`
-- RLS policy في جدول `vacations` تتحقق من: `profile_id = get_my_profile_id()`
-- إذا لم يكن `profile_id` موجوداً أو غير متطابق، يفشل الإدراج
+**التحليل المعمّق**:
 
-**الموقع في الكود** (`src/pages/Vacations.tsx` سطر 133-134):
+الكود الحالي في `Vacations.tsx` (سطر 143-155) يبدو صحيحاً:
 ```typescript
 const vacationData = {
-  profile_id: isAdmin ? formData.profile_id : profile?.id,
+  profile_id: isAdmin ? formData.profile_id : profile!.id,
+  // ...
+  status: isAdmin ? formData.status : 'approved',
   // ...
 };
 ```
 
-**المشكلة**: `profile?.id` قد يكون `undefined` إذا لم يتم تحميل الـ profile بشكل صحيح
+**المشكلة الحقيقية**: 
 
-**الحل**:
-1. التأكد من وجود `profile.id` قبل الإرسال
-2. إضافة validation واضح مع رسالة خطأ مفهومة
-3. تغيير الحالة إلى `approved` تلقائياً للموظف (حسب اختيارك)
-
----
-
-### 2. عنوان صفحة الإجازات
-
-**المشكلة**: الأزرار تظهر `vacations.listView` و `vacations.calendarView` بدلاً من الترجمة
-
-**الموقع** (`src/pages/Vacations.tsx` سطور 333-341):
-```typescript
-// الأزرار تحتاج ترجمة صحيحة
-```
-
-**الحل**: إضافة مفاتيح الترجمة المفقودة في `LanguageContext.tsx`:
-- `vacations.listView` → "عرض قائمة" / "List View"
-- `vacations.calendarView` → "عرض تقويم" / "Calendar View"
-
----
-
-### 3. حسابك يظهر "الموظفون" بدلاً من "مسؤول أعلى"
-
-**المشكلة**: في صفحة `EmployeePermissions.tsx`، نظام الفلترة يعرض الأدوار بناءً على `profile.role` من جدول profiles، لكن الصلاحية الحقيقية في `user_roles`.
-
-**المشكلة الثانية**: عند تحديد التبويب "المسؤولون"، لا يتم فلترة `super_admin` بشكل صحيح.
-
-**الموقع** (`src/pages/EmployeePermissions.tsx` سطر 122-127):
-```typescript
-const filteredProfiles = profiles.filter(profile => {
-  // ...
-  if (activeTab === 'admins') return matchesSearch && (profile.role === 'admin' || profile.role === 'super_admin');
-  // ...
-});
-```
-
-**الحل**:
-1. إضافة تبويب "المسؤولون الأعلى" أو ضم `super_admin` في التبويب الحالي
-2. التأكد من أن العرض في الجدول يظهر الدور الصحيح من `user_roles` وليس `profiles.role`
-
----
-
-### 4. نظام Subtasks احترافي
-
-**الهيكل الحالي**: العمود `parent_task_id` موجود في جدول `tasks`
-
-**المتطلبات حسب اختياراتك**:
-- ✅ إخفاء من اللوحة الرئيسية (الكانبان)
-- ✅ عدّاد وتقدم (عرض نسبة إنجاز المهام الفرعية)
-- ✅ ترتيب Drag&Drop
-
-**التغييرات المطلوبة**:
-
-#### أ) تحديث KanbanBoard.tsx:
-```typescript
-// فلترة المهام لإظهار الرئيسية فقط (بدون parent_task_id)
-const mainTasks = tasks.filter(t => !t.parent_task_id);
-
-// حساب تقدم المهام الفرعية
-const getSubtaskProgress = (taskId: string) => {
-  const subtasks = tasks.filter(t => t.parent_task_id === taskId);
-  if (subtasks.length === 0) return null;
-  const completed = subtasks.filter(s => s.status === 'completed').length;
-  return { total: subtasks.length, completed, percent: Math.round((completed / subtasks.length) * 100) };
-};
-```
-
-#### ب) إضافة واجهة Subtasks في Task Dialog:
-- زر "إضافة مهمة فرعية"
-- قائمة المهام الفرعية مع Checkbox لكل واحدة
-- دعم Drag & Drop لإعادة الترتيب
-
-#### ج) تحديث جدول tasks لإضافة عمود order_index:
+السياسة RLS للـ `vacations` تتحقق من:
 ```sql
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS order_index integer DEFAULT 0;
+(profile_id = get_my_profile_id())
 ```
 
----
+لكن الدالة `get_my_profile_id()` تبحث في جدول `profiles` باستخدام `auth.uid()`. إذا كان هناك أي تأخير في الـ session أو مشكلة في الربط، قد تفشل العملية.
 
-### 5. إصلاح تصدير PDF
+**الحل المقترح**:
 
-**المشكلة المحتملة**: الخطوط العربية لا تُعرض بشكل صحيح
-
-**الحل في `pdfExport.ts`**:
-- استخدام تضمين الخطوط العربية
-- تحديث الاتجاه RTL للجداول
-
-**التحسينات**:
+أ) إضافة تأكيد إضافي قبل الإدراج:
 ```typescript
-// إضافة RTL support للـ PDF
-doc.setR2L(isArabic);
+// التحقق من صحة profile_id قبل الإرسال
+const targetProfileId = isAdmin ? formData.profile_id : profile?.id;
 
-// تحسين alignment للخلايا العربية
-headStyles: {
-  halign: isArabic ? 'right' : 'left',
-  // ...
+if (!targetProfileId) {
+  toast({
+    title: t('common.error'),
+    description: t('vacations.profileNotFound'),
+    variant: 'destructive',
+  });
+  return;
+}
+
+// التأكد من أن الموظف العادي يستخدم معرفه فقط
+if (!isAdmin) {
+  console.log('Creating vacation for profile:', profile?.id, 'user_id:', user?.id);
 }
 ```
 
+ب) استخدام `.single()` بدلاً من مصفوفة في الـ insert:
+```typescript
+// قبل (حالياً)
+await supabase.from('vacations').insert([vacationData]);
+
+// بعد (أفضل)
+await supabase.from('vacations').insert(vacationData).select().single();
+```
+
+ج) إضافة retry logic للتعامل مع أخطاء الشبكة المؤقتة.
+
 ---
 
-### 6. ربط السيرفر بالدومين ثم الشبكة
+### 2. نظام رصيد الإجازات
 
-**الوضع الحالي**: السيرفر يرتبط بالشبكة مباشرة، والشبكة مرتبطة بالدومين.
+**المطلوب**:
+- الموظف يرى رصيد إجازاته
+- Super Admin يضيف/يعدل رصيد الإجازات للموظفين
 
-**المطلوب**: عند إضافة/تعديل سيرفر:
-1. اختيار الدومين أولاً
-2. ثم تظهر الشبكات المرتبطة بهذا الدومين فقط
+**الحل**:
 
-**الموقع** (`src/pages/Servers.tsx` form dialog):
+#### أ) إنشاء جدول جديد `vacation_balances`:
+```sql
+CREATE TABLE public.vacation_balances (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  year integer NOT NULL DEFAULT EXTRACT(YEAR FROM CURRENT_DATE),
+  annual_balance integer DEFAULT 21,
+  sick_balance integer DEFAULT 15,
+  emergency_balance integer DEFAULT 5,
+  used_annual integer DEFAULT 0,
+  used_sick integer DEFAULT 0,
+  used_emergency integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  UNIQUE(profile_id, year)
+);
 
-**التغييرات**:
+-- Enable RLS
+ALTER TABLE public.vacation_balances ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY "Users can view their own balance"
+ON public.vacation_balances FOR SELECT
+USING (profile_id = get_my_profile_id() OR is_admin());
+
+CREATE POLICY "Super Admin can manage all balances"
+ON public.vacation_balances FOR ALL
+USING (is_super_admin());
+```
+
+#### ب) تحديث `Vacations.tsx`:
+- إضافة عرض رصيد الإجازات للموظف في أعلى الصفحة
+- التحقق من الرصيد المتاح قبل إنشاء إجازة جديدة
+- خصم الأيام من الرصيد عند الموافقة
+
+#### ج) إضافة واجهة إدارة الرصيد في `EmployeePermissions.tsx`:
 ```typescript
-// إضافة state للدومين المحدد في الفورم
-const [selectedFormDomainId, setSelectedFormDomainId] = useState<string>('');
+// زر لإدارة رصيد الإجازات
+<Button onClick={() => openBalanceDialog(employee)}>
+  إدارة الرصيد
+</Button>
 
-// فلترة الشبكات في الفورم بناءً على الدومين المحدد
-const formNetworks = useMemo(() => {
-  if (!selectedFormDomainId) return [];
-  return allNetworks.filter(n => n.domain_id === selectedFormDomainId);
-}, [allNetworks, selectedFormDomainId]);
-
-// في الفورم: إضافة dropdown للدومين قبل الشبكة
+// Dialog لتعديل الأرصدة
+<Dialog>
+  <DialogContent>
+    <Label>الرصيد السنوي</Label>
+    <Input type="number" value={annualBalance} />
+    
+    <Label>الرصيد المرضي</Label>
+    <Input type="number" value={sickBalance} />
+    
+    <Label>الرصيد الطارئ</Label>
+    <Input type="number" value={emergencyBalance} />
+  </DialogContent>
+</Dialog>
 ```
 
 ---
 
-### 7. نظام موافقات الإجازات (موافقة تلقائية)
+### 3. إصلاح ترجمة `common.domain`
 
-**حسب اختيارك**: الإجازات تُصبح `approved` تلقائياً عند إنشائها من الموظف.
+**المشكلة**: في `Servers.tsx` سطر 540، يُستخدم `{t('common.domain')}` لكن المفتاح غير موجود.
 
-**التغيير في** `Vacations.tsx`:
+**الحل**: إضافة المفتاح في `LanguageContext.tsx`:
+
 ```typescript
-const vacationData = {
-  // ...
-  status: 'approved', // بدلاً من 'pending'
-  // ...
+// في الترجمات العربية
+'common.domain': 'النطاق',
+'common.allDomains': 'جميع النطاقات',
+
+// في الترجمات الإنجليزية  
+'common.domain': 'Domain',
+'common.allDomains': 'All Domains',
+```
+
+---
+
+### 4. إضافة عمود "النطاق" في جدول السيرفرات
+
+**الملف**: `Servers.tsx` (سطور 971-1037)
+
+**التغييرات**:
+
+أ) إضافة عمود جديد في الـ header:
+```typescript
+<TableHead>{t('servers.name')}</TableHead>
+<TableHead>{t('servers.ip')}</TableHead>
+<TableHead>{t('servers.os')}</TableHead>
+<TableHead>{t('servers.environment')}</TableHead>
+<TableHead>Status</TableHead>
+<TableHead>{t('common.domain')}</TableHead>  // جديد
+<TableHead>{t('servers.network')}</TableHead>
+<TableHead className="text-center">{t('common.actions')}</TableHead>
+```
+
+ب) إضافة بيانات العمود في الـ body:
+```typescript
+<TableCell>
+  {/* الحصول على اسم الدومين من الشبكة المرتبطة */}
+  {(() => {
+    const network = allNetworks.find(n => n.id === server.network_id);
+    const domain = domains.find(d => d.id === network?.domain_id);
+    return domain?.name || '-';
+  })()}
+</TableCell>
+```
+
+ج) توسيط المحتوى في الخلايا:
+```typescript
+<TableHead className="text-center">{t('servers.name')}</TableHead>
+// ... etc
+
+<TableCell className="text-center">...</TableCell>
+```
+
+---
+
+### 5. منع الموظف من تصدير بيانات جميع الموظفين
+
+**الملف**: `Employees.tsx`
+
+**التحليل**: يجب التحقق مما إذا كانت هناك وظيفة Export Excel في الصفحة ومنع الموظف غير الـ Admin من استخدامها.
+
+**الحل**:
+```typescript
+// التحقق من الصلاحية قبل عرض زر التصدير
+{isAdmin && (
+  <Button onClick={handleExportExcel}>
+    <Download className="w-4 h-4 me-2" />
+    Export Excel
+  </Button>
+)}
+```
+
+**أو** إذا كان المقصود أن الموظف يمكنه تصدير بياناته الخاصة فقط:
+```typescript
+const handleExportExcel = () => {
+  const dataToExport = isAdmin 
+    ? filteredEmployees 
+    : filteredEmployees.filter(e => e.id === currentUserProfile?.id);
+  
+  // ... export logic
 };
+```
+
+---
+
+### 6. تنظيم وتوسيط جدول السيرفرات
+
+**الملف**: `Servers.tsx`
+
+**التغييرات في الـ CSS/Classes**:
+
+```typescript
+<Table>
+  <TableHeader>
+    <TableRow className="text-center">
+      <TableHead className="text-center">{t('servers.name')}</TableHead>
+      <TableHead className="text-center">{t('servers.ip')}</TableHead>
+      <TableHead className="text-center">{t('servers.os')}</TableHead>
+      <TableHead className="text-center">{t('servers.environment')}</TableHead>
+      <TableHead className="text-center">Status</TableHead>
+      <TableHead className="text-center">{t('common.domain')}</TableHead>
+      <TableHead className="text-center">{t('servers.network')}</TableHead>
+      <TableHead className="text-center">{t('common.actions')}</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {sortedServers.map((server) => (
+      <TableRow key={server.id}>
+        <TableCell className="text-center">...</TableCell>
+        {/* تكرار لجميع الخلايا */}
+      </TableRow>
+    ))}
+  </TableBody>
+</Table>
 ```
 
 ---
@@ -184,236 +269,99 @@ const vacationData = {
 
 | الملف | الإجراءات |
 |-------|----------|
-| `src/pages/Vacations.tsx` | إصلاح AbortError + موافقة تلقائية + تصحيح profile_id |
-| `src/contexts/LanguageContext.tsx` | إضافة ترجمات مفقودة (listView, calendarView) |
-| `src/pages/EmployeePermissions.tsx` | إصلاح عرض الأدوار + إضافة super_admin في dropdown |
-| `src/pages/Servers.tsx` | ربط الدومين بالشبكة في الفورم |
-| `src/pages/Tasks.tsx` | إضافة واجهة Subtasks مع progress |
-| `src/components/tasks/KanbanBoard.tsx` | إخفاء المهام الفرعية + عرض تقدم |
-| `src/utils/pdfExport.ts` | تحسين دعم RTL والخطوط العربية |
-| `supabase/functions/update-user-role/index.ts` | دعم super_admin بشكل كامل |
+| `src/pages/Vacations.tsx` | إصلاح AbortError + إضافة عرض الرصيد + التحقق من الرصيد قبل الإنشاء |
+| `src/pages/Servers.tsx` | إضافة عمود النطاق + توسيط الجدول |
+| `src/pages/Employees.tsx` | التحقق من صلاحية التصدير |
+| `src/pages/EmployeePermissions.tsx` | إضافة واجهة إدارة رصيد الإجازات للـ Super Admin |
+| `src/contexts/LanguageContext.tsx` | إضافة `common.domain`, `common.allDomains` + ترجمات رصيد الإجازات |
+| `supabase migration` | إنشاء جدول `vacation_balances` مع RLS |
+| `src/hooks/useSupabaseData.ts` | إضافة hook لجلب رصيد الإجازات |
 
 ---
 
-## تفاصيل التنفيذ
+## Migration SQL المطلوبة
 
-### التغييرات في Vacations.tsx
+```sql
+-- Create vacation_balances table
+CREATE TABLE IF NOT EXISTS public.vacation_balances (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  year integer NOT NULL DEFAULT EXTRACT(YEAR FROM CURRENT_DATE),
+  annual_balance integer DEFAULT 21,
+  sick_balance integer DEFAULT 15,
+  emergency_balance integer DEFAULT 5,
+  used_annual integer DEFAULT 0,
+  used_sick integer DEFAULT 0,
+  used_emergency integer DEFAULT 0,
+  notes text,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  UNIQUE(profile_id, year)
+);
 
-```typescript
-// سطر 105-166 - تحديث handleSubmit
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (isSubmitting) return;
-  
-  if (!formData.start_date || !formData.end_date) {
-    toast({ title: t('common.error'), description: t('vacations.fillRequired'), variant: 'destructive' });
-    return;
-  }
+-- Enable RLS
+ALTER TABLE public.vacation_balances ENABLE ROW LEVEL SECURITY;
 
-  // التحقق الحاسم: التأكد من وجود profile للموظف غير الأدمن
-  if (!isAdmin && !profile?.id) {
-    toast({ 
-      title: t('common.error'), 
-      description: 'لم يتم العثور على بيانات حسابك. يرجى تسجيل الخروج والدخول مجدداً.',
-      variant: 'destructive' 
-    });
-    return;
-  }
+-- RLS Policies
+CREATE POLICY "Users can view their own balance"
+ON public.vacation_balances FOR SELECT
+USING (profile_id = get_my_profile_id() OR is_admin());
 
-  setIsSubmitting(true);
+CREATE POLICY "Super Admin can manage all balances"
+ON public.vacation_balances FOR ALL
+USING (is_super_admin())
+WITH CHECK (is_super_admin());
 
-  try {
-    const vacationData = {
-      profile_id: isAdmin ? formData.profile_id : profile!.id, // ! بدلاً من ?
-      start_date: formData.start_date,
-      end_date: formData.end_date,
-      vacation_type: formData.vacation_type,
-      status: 'approved', // موافقة تلقائية
-      notes: formData.notes || null,
-      days_count: calculateDays(formData.start_date, formData.end_date),
-    };
+-- Function to auto-create balance for new year
+CREATE OR REPLACE FUNCTION create_annual_vacation_balance()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.vacation_balances (profile_id, year)
+  VALUES (NEW.id, EXTRACT(YEAR FROM CURRENT_DATE))
+  ON CONFLICT (profile_id, year) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-    const { error } = await supabase.from('vacations').insert([vacationData]);
-    
-    if (error) throw error;
-    
-    toast({ title: t('common.success'), description: t('vacations.addSuccess') });
-    resetForm();
-    setIsDialogOpen(false);
-    refetch();
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      setIsSubmitting(false);
-      return;
-    }
-    
-    console.error('Vacation insert error:', error);
-    toast({
-      title: t('common.error'),
-      description: error.message || 'فشل في إضافة الإجازة',
-      variant: 'destructive',
-    });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+-- Trigger to create balance when profile is created
+DROP TRIGGER IF EXISTS create_vacation_balance_on_profile ON public.profiles;
+CREATE TRIGGER create_vacation_balance_on_profile
+  AFTER INSERT ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION create_annual_vacation_balance();
 ```
 
-### التغييرات في LanguageContext.tsx (إضافة ترجمات)
+---
+
+## الترجمات المطلوب إضافتها
 
 ```typescript
-// إضافة للمفاتيح العربية
-vacations: {
-  // ... existing
-  listView: 'عرض قائمة',
-  calendarView: 'عرض تقويم',
-},
+// العربية
+'common.domain': 'النطاق',
+'common.allDomains': 'جميع النطاقات',
+'vacations.balance': 'رصيد الإجازات',
+'vacations.annualBalance': 'الرصيد السنوي',
+'vacations.sickBalance': 'الرصيد المرضي',
+'vacations.emergencyBalance': 'الرصيد الطارئ',
+'vacations.usedDays': 'الأيام المستخدمة',
+'vacations.remainingDays': 'الأيام المتبقية',
+'vacations.manageBalance': 'إدارة الرصيد',
+'vacations.insufficientBalance': 'رصيد الإجازات غير كافٍ',
+'vacations.balanceUpdated': 'تم تحديث الرصيد بنجاح',
 
-// إضافة للمفاتيح الإنجليزية
-vacations: {
-  // ... existing
-  listView: 'List View',
-  calendarView: 'Calendar View',
-},
-```
-
-### التغييرات في Servers.tsx (ربط الدومين بالشبكة)
-
-```typescript
-// إضافة state جديد للدومين في الفورم
-const [formDomainId, setFormDomainId] = useState<string>('');
-
-// فلترة الشبكات في الفورم
-const formNetworks = useMemo(() => {
-  if (!formDomainId) return [];
-  return allNetworks.filter(n => n.domain_id === formDomainId);
-}, [allNetworks, formDomainId]);
-
-// في الـ form dialog، إضافة dropdown للدومين قبل الشبكة:
-<div className="space-y-2">
-  <Label>{t('common.domain')}</Label>
-  <Select
-    value={formDomainId}
-    onValueChange={(value) => {
-      setFormDomainId(value);
-      setFormData({ ...formData, network_id: '' }); // reset network
-    }}
-  >
-    <SelectTrigger>
-      <SelectValue placeholder="اختر الدومين أولاً" />
-    </SelectTrigger>
-    <SelectContent>
-      {domains.map((d) => (
-        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
-
-<div className="space-y-2">
-  <Label>{t('servers.network')}</Label>
-  <Select
-    value={formData.network_id}
-    onValueChange={(value) => setFormData({ ...formData, network_id: value })}
-    disabled={!formDomainId}
-  >
-    <SelectTrigger>
-      <SelectValue placeholder={formDomainId ? "اختر الشبكة" : "اختر الدومين أولاً"} />
-    </SelectTrigger>
-    <SelectContent>
-      {formNetworks.map((n) => (
-        <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
-```
-
-### التغييرات في KanbanBoard.tsx (Subtasks)
-
-```typescript
-// إضافة prop للمهام الفرعية
-interface KanbanBoardProps {
-  tasks: Task[];
-  profiles: Profile[];
-  onTaskClick?: (task: Task) => void;
-  onStatusChange?: (taskId: string, newStatus: string) => void;
-  onCloneTask?: (taskId: string) => void;
-  allTasks?: Task[]; // للوصول للمهام الفرعية
-}
-
-// فلترة المهام الرئيسية فقط
-const mainTasks = useMemo(() => {
-  return tasks.filter(t => !t.parent_task_id);
-}, [tasks]);
-
-// حساب تقدم المهام الفرعية
-const getSubtaskProgress = (taskId: string) => {
-  const subtasks = allTasks?.filter(t => t.parent_task_id === taskId) || [];
-  if (subtasks.length === 0) return null;
-  const completed = subtasks.filter(s => 
-    s.status === 'completed' || (s as any).task_status === 'done'
-  ).length;
-  return { 
-    total: subtasks.length, 
-    completed, 
-    percent: Math.round((completed / subtasks.length) * 100) 
-  };
-};
-
-// في الـ Card، إضافة عرض التقدم:
-{(() => {
-  const progress = getSubtaskProgress(task.id);
-  if (!progress) return null;
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <Progress value={progress.percent} className="h-1.5 flex-1" />
-      <span className="text-muted-foreground">
-        {progress.completed}/{progress.total}
-      </span>
-    </div>
-  );
-})()}
-```
-
-### التغييرات في Tasks.tsx (واجهة Subtasks)
-
-```typescript
-// إضافة state للمهام الفرعية
-const [subtaskTitle, setSubtaskTitle] = useState('');
-const [viewingTask, setViewingTask] = useState<Task | null>(null);
-const [isSubtaskDialogOpen, setIsSubtaskDialogOpen] = useState(false);
-
-// دالة إضافة مهمة فرعية
-const handleAddSubtask = async () => {
-  if (!viewingTask || !subtaskTitle.trim()) return;
-  
-  try {
-    const { error } = await supabase.from('tasks').insert({
-      title: subtaskTitle,
-      parent_task_id: viewingTask.id,
-      assigned_to: viewingTask.assigned_to,
-      server_id: viewingTask.server_id,
-      priority: 'medium',
-      status: 'pending',
-      created_by: profile?.id,
-    });
-    
-    if (error) throw error;
-    
-    toast({ title: t('common.success'), description: 'تم إضافة المهمة الفرعية' });
-    setSubtaskTitle('');
-    refetch();
-  } catch (error: any) {
-    toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
-  }
-};
-
-// الحصول على المهام الفرعية
-const getSubtasks = (taskId: string) => {
-  return tasks.filter(t => t.parent_task_id === taskId);
-};
+// الإنجليزية
+'common.domain': 'Domain',
+'common.allDomains': 'All Domains',
+'vacations.balance': 'Vacation Balance',
+'vacations.annualBalance': 'Annual Balance',
+'vacations.sickBalance': 'Sick Balance',
+'vacations.emergencyBalance': 'Emergency Balance',
+'vacations.usedDays': 'Used Days',
+'vacations.remainingDays': 'Remaining Days',
+'vacations.manageBalance': 'Manage Balance',
+'vacations.insufficientBalance': 'Insufficient vacation balance',
+'vacations.balanceUpdated': 'Balance updated successfully',
 ```
 
 ---
@@ -422,21 +370,21 @@ const getSubtasks = (taskId: string) => {
 
 | الميزة | النتيجة |
 |--------|---------|
-| إجازات الموظف | تعمل بدون أخطاء + موافقة تلقائية |
-| عناوين الصفحات | تظهر بالعربية بشكل صحيح |
-| الصلاحيات | Super Admin يظهر بشكل صحيح + يمكنه إنشاء super_admin |
-| Subtasks | نظام احترافي مع تقدم + Drag&Drop |
-| PDF | يدعم العربية RTL بشكل صحيح |
-| السيرفرات | ربط متسلسل: الدومين ← الشبكة ← السيرفر |
+| إجازات الموظف | تعمل بدون أخطاء + عرض الرصيد المتبقي |
+| رصيد الإجازات | الموظف يرى رصيده + Super Admin يديره |
+| ترجمة النطاق | تظهر "النطاق" بالعربية و "Domain" بالإنجليزية |
+| جدول السيرفرات | يعرض عمود النطاق + محتوى موسط |
+| أمان التصدير | الموظف لا يستطيع تصدير بيانات الآخرين |
 
 ---
 
 ## ترتيب التنفيذ
 
-1. **إصلاح Vacations.tsx** (الأهم - يحل مشكلة الموظف أنس)
-2. **إضافة الترجمات المفقودة**
-3. **إصلاح EmployeePermissions.tsx**
-4. **تحديث Servers.tsx للربط المتسلسل**
-5. **تطوير نظام Subtasks في Tasks.tsx و KanbanBoard.tsx**
-6. **تحسين pdfExport.ts**
+1. **إصلاح Vacations.tsx** - إصلاح الـ AbortError
+2. **إضافة الترجمات المفقودة** في `LanguageContext.tsx`
+3. **تحديث Servers.tsx** - إضافة عمود النطاق + توسيط
+4. **إنشاء Migration** لجدول `vacation_balances`
+5. **تحديث Vacations.tsx** - إضافة عرض الرصيد
+6. **تحديث EmployeePermissions.tsx** - إدارة الرصيد
+7. **تحديث Employees.tsx** - تقييد صلاحية التصدير
 
