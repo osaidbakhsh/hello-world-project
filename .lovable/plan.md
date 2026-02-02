@@ -1,564 +1,431 @@
 
-# IT Infrastructure Manager - Production-Grade Implementation Plan
+# UI Enhancements + Datacenter Fixes + Test Connection Implementation
 
-## Executive Summary
+## Overview
 
-This plan addresses critical security corrections, completes the domain-scoped architecture, and implements comprehensive scanning/inventory, file shares, datacenter management, and agent diagnostics features.
+This plan addresses the remaining UI enhancements, fixes the datacenter management issues, implements VM-Server linking, corrects missing translations, and makes test connection buttons functional with proper outcome display.
 
 ---
 
-## PART 1: MANDATORY CORRECTIONS
+## Issues Identified from User Screenshots
 
-### A) RLS / Authorization - Critical Fixes
+1. **"common.status" appearing as raw key** - Missing translation in NodeTable and VMTable
+2. **No edit/delete actions for Nodes in Physical tab** - Only add is available
+3. **Test buttons not working** - "اختبار الاتصال" buttons are not wired to call the edge function
+4. **VM not linked to Servers** - Need to create server record when adding VM
+5. **Hierarchy needs enhancement** - Show Domain → Datacenter → Cluster → Network → Server flow
+6. **Missing datacenter selection in cluster form**
 
-**Current Problem Identified:**
-Analysis of RLS policies shows 40+ policies using `is_admin()` for domain-scoped tables, which grants cross-domain access to global admins. This violates domain isolation.
+---
 
-**Tables Requiring RLS Policy Updates:**
+## Phase 1: Fix Missing Translations
 
-| Table | Current Issue | Required Fix |
-|-------|---------------|--------------|
-| `cluster_nodes` | Uses `is_admin()` for SELECT | Replace with `is_super_admin() OR can_access_domain(domain_id)` |
-| `clusters` | Uses `is_admin()` for SELECT | Replace with `is_super_admin() OR can_access_domain(domain_id)` |
-| `datacenters` | Uses `is_admin()` for SELECT | Replace with `is_super_admin() OR can_access_domain(domain_id)` |
-| `file_shares` | Uses `is_admin()` for SELECT/ALL | Replace with domain-scoped checks |
-| `fileshare_scans` | Uses `is_admin()` for SELECT/ALL | Replace with domain-scoped checks |
-| `scan_agents` | Uses `is_admin()` for SELECT/ALL | Replace with domain-scoped checks |
-| `connection_test_runs` | Uses `is_admin()` | Replace with domain-scoped checks |
-| `system_health_checks` | Uses `is_admin() OR is_super_admin()` | Restrict to `is_super_admin()` ONLY |
-| `ldap_configs` | Uses `is_domain_admin()` correctly | Keep as-is |
-| `ntp_configs` | Uses `is_domain_admin()` correctly | Keep as-is |
-| `mail_configs` | Uses `is_domain_admin()` correctly | Keep as-is |
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/contexts/LanguageContext.tsx` | Add missing translation keys |
 
-**New Correct RLS Pattern (Apply to ALL domain-scoped tables):**
+### New Translation Keys (Arabic)
 ```text
-SELECT policy:
-  USING (is_super_admin() OR can_access_domain(domain_id))
-
-INSERT/UPDATE/DELETE policy:
-  USING (is_super_admin() OR is_domain_admin(domain_id))
-  WITH CHECK (is_super_admin() OR is_domain_admin(domain_id))
+'common.status': 'الحالة',
+'datacenter.datacenter': 'مركز البيانات',
+'datacenter.datacenters': 'مراكز البيانات',
+'datacenter.addDatacenter': 'إضافة مركز بيانات',
+'datacenter.selectDatacenter': 'اختر مركز البيانات',
+'datacenter.location': 'الموقع',
+'datacenter.noDatacenters': 'لا توجد مراكز بيانات',
+'datacenter.editNode': 'تعديل النود',
+'datacenter.deleteNode': 'حذف النود',
+'datacenter.editVM': 'تعديل VM',
+'datacenter.deleteVM': 'حذف VM',
+'datacenter.linkToServer': 'ربط بسيرفر',
+'datacenter.createServer': 'إنشاء سيرفر جديد',
+'settings.testConnection': 'اختبار الاتصال',
+'settings.testSuccess': 'نجح الاختبار',
+'settings.testFailed': 'فشل الاختبار',
+'settings.testResult': 'نتيجة الاختبار',
+'settings.testDetails': 'تفاصيل الاختبار',
+'settings.latency': 'زمن الاستجابة',
+'settings.validationOnly': 'التحقق من الصيغة فقط',
 ```
 
-**SQL Migration Required:**
-```sql
--- Drop and recreate policies for all domain-scoped tables
--- Example for clusters:
-DROP POLICY IF EXISTS "Domain members can view clusters" ON clusters;
-DROP POLICY IF EXISTS "Admins full access to clusters" ON clusters;
-
-CREATE POLICY "clusters_select" ON clusters FOR SELECT
-  USING (is_super_admin() OR can_access_domain(domain_id));
-
-CREATE POLICY "clusters_insert" ON clusters FOR INSERT
-  WITH CHECK (is_super_admin() OR is_domain_admin(domain_id));
-
-CREATE POLICY "clusters_update" ON clusters FOR UPDATE
-  USING (is_super_admin() OR is_domain_admin(domain_id))
-  WITH CHECK (is_super_admin() OR is_domain_admin(domain_id));
-
-CREATE POLICY "clusters_delete" ON clusters FOR DELETE
-  USING (is_super_admin() OR is_domain_admin(domain_id));
-
--- Repeat for: datacenters, cluster_nodes, vms, file_shares, fileshare_scans, 
--- scan_agents, folder_stats, scan_snapshots, infra_snapshots
-```
-
-**System Health Checks - Super Admin Only:**
-```sql
-DROP POLICY IF EXISTS "Admins can manage health checks" ON system_health_checks;
-
-CREATE POLICY "system_health_checks_all" ON system_health_checks FOR ALL
-  USING (is_super_admin())
-  WITH CHECK (is_super_admin());
+### New Translation Keys (English)
+```text
+'common.status': 'Status',
+'datacenter.datacenter': 'Datacenter',
+'datacenter.datacenters': 'Datacenters',
+'datacenter.addDatacenter': 'Add Datacenter',
+'datacenter.selectDatacenter': 'Select Datacenter',
+'datacenter.location': 'Location',
+'datacenter.noDatacenters': 'No datacenters found',
+'datacenter.editNode': 'Edit Node',
+'datacenter.deleteNode': 'Delete Node',
+'datacenter.editVM': 'Edit VM',
+'datacenter.deleteVM': 'Delete VM',
+'datacenter.linkToServer': 'Link to Server',
+'datacenter.createServer': 'Create New Server',
+'settings.testConnection': 'Test Connection',
+'settings.testSuccess': 'Test Successful',
+'settings.testFailed': 'Test Failed',
+'settings.testResult': 'Test Result',
+'settings.testDetails': 'Test Details',
+'settings.latency': 'Latency',
+'settings.validationOnly': 'Validation only',
 ```
 
 ---
 
-### B) Edge Functions Security Enforcement
+## Phase 2: NodeTable Edit/Delete Actions
 
-**test-connection Edge Function - Required Changes:**
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/components/datacenter/NodeTable.tsx` | Add edit/delete buttons, edit dialog, confirmation |
+| `src/hooks/useDatacenter.ts` | Already has useUpdateNode and useDeleteNode hooks |
 
-Current code reads config without domain access validation. Required fixes:
+### Changes to NodeTable.tsx
 
-1. After fetching config, verify caller has domain access:
+1. **Add Actions column to table header**
+2. **Add Edit/Delete buttons in each row**
+3. **Add edit dialog with form fields**
+4. **Add delete confirmation dialog**
+5. **Wire up useUpdateNode and useDeleteNode mutations**
+
+### Table Row Enhancement
+```text
++-----+--------+------+-----+-----+-------+--------+--------+---------+
+| Name| Cluster| Role | CPU | RAM | Storage| Mgmt IP| Status | Actions |
++-----+--------+------+-----+-----+-------+--------+--------+---------+
+                                                              [Edit][Delete]
+```
+
+---
+
+## Phase 3: VMTable Edit/Delete Actions + Server Linking
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/components/datacenter/VMTable.tsx` | Add edit/delete, server linking dropdown |
+| `src/hooks/useDatacenter.ts` | Already has useUpdateVM and useDeleteVM |
+| `src/hooks/useSupabaseData.ts` | Use existing server mutations |
+
+### VM Form Enhancement
+
+Add to VM creation/edit dialog:
+1. **"Link to Server" dropdown** - Shows servers from same domain
+2. **"Create as Server" checkbox** - When checked, creates a new server record linked to this VM
+
+### Server Creation from VM
+
+When creating VM with "Create as Server" checked:
 ```typescript
-// After getting the config
-const { data: hasAccess } = await supabaseAdmin
-  .rpc('can_access_domain', { _domain_id: config.domain_id });
-
-if (!hasAccess) {
-  return new Response(
-    JSON.stringify({ error: 'Access denied to this domain' }),
-    { status: 403, headers: corsHeaders }
-  );
-}
-```
-
-2. For writing test results, verify domain_admin:
-```typescript
-const { data: isDomainAdmin } = await supabaseAdmin
-  .rpc('is_domain_admin', { _domain_id: domain_id });
-
-if (!isDomainAdmin && !isSuperAdmin) {
-  return new Response(
-    JSON.stringify({ error: 'Domain admin access required to run tests' }),
-    { status: 403, headers: corsHeaders }
-  );
-}
-```
-
-**storage-health-check Edge Function - Restrict to Super Admin:**
-
-Current code checks for `super_admin` OR `admin`. Change to super_admin only:
-```typescript
-// Line 44-50: Replace
-const { data: roleData } = await supabaseAdmin
-  .from('user_roles')
-  .select('role')
-  .eq('user_id', user.id)
-  .eq('role', 'super_admin')  // ONLY super_admin
-  .limit(1)
-  .single();
-```
-
----
-
-### C) Supabase Client Consolidation
-
-**Current State:**
-- `src/lib/supabase.ts` creates a duplicate client AND exports types
-- `src/types/supabase-models.ts` already exists with proper type definitions
-- 7 files still import from `@/lib/supabase`
-
-**Files Requiring Import Updates:**
-
-| File | Current Import | Required Change |
-|------|----------------|-----------------|
-| `src/pages/Licenses.tsx:5` | `import type { License } from '@/lib/supabase'` | `import type { License } from '@/types/supabase-models'` |
-| `src/pages/Servers.tsx:5` | `import type { Server } from '@/lib/supabase'` | `import type { Server } from '@/types/supabase-models'` |
-| `src/pages/Employees.tsx:5` | `import type { Profile, Task, Vacation, YearlyGoal } from '@/lib/supabase'` | `import type { ... } from '@/types/supabase-models'` |
-| `src/pages/EmployeePermissions.tsx:56` | `import { Profile } from '@/lib/supabase'` | `import type { Profile } from '@/types/supabase-models'` |
-| `src/hooks/useSupabaseData.ts:3` | `import type { ... } from '@/lib/supabase'` | `import type { ... } from '@/types/supabase-models'` |
-| `src/contexts/AuthContext.tsx:3` | `import type { Profile } from '@/lib/supabase'` | `import type { Profile } from '@/types/supabase-models'` |
-| `src/components/domain-summary/ExpiryAlertsCard.tsx:7` | `import type { License } from '@/lib/supabase'` | `import type { License } from '@/types/supabase-models'` |
-
-**After updates:** Delete or empty `src/lib/supabase.ts` (remove client export completely).
-
----
-
-### D) Validation Consistency (z.coerce.number())
-
-**Current validation file:** `src/lib/validations.ts` exists with good patterns
-
-**Required Enhancements:**
-
-```typescript
-// Add CIDR validation
-const cidrPattern = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
-export const cidrSchema = z.string().regex(cidrPattern, 'Invalid CIDR format (e.g., 192.168.1.0/24)');
-
-// Add MAC address validation
-const macPattern = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
-export const macAddressSchema = z.string().regex(macPattern, 'Invalid MAC address').optional().nullable();
-
-// Port with coerce for HTML inputs
-export const portCoerceSchema = z.coerce.number()
-  .int('Port must be an integer')
-  .min(1, 'Port must be at least 1')
-  .max(65535, 'Port must be at most 65535');
-
-// Numeric fields with coerce
-export const positiveIntCoerce = z.coerce.number().int().min(0);
-```
-
----
-
-## PART 2: SCANNING + INVENTORY + AGENT + FILE SHARES + DATACENTER
-
-### G) Networks + Scan Model
-
-**Current Table State:**
-- `networks`: EXISTS with `subnet`, `gateway`, `dns_servers`, `description`
-- `scan_jobs`: EXISTS with `ip_range`, `status`, `summary`
-- `scan_results`: EXISTS with `ip_address`, `hostname`, `os_type`, `device_type`, `open_ports`
-
-**Schema Enhancements Required:**
-
-```sql
--- networks: Add missing columns
-ALTER TABLE networks ADD COLUMN IF NOT EXISTS cidr text;
-ALTER TABLE networks ADD COLUMN IF NOT EXISTS vlan_id integer;
-
--- Add constraint for unique network name per domain
-ALTER TABLE networks ADD CONSTRAINT networks_domain_name_unique 
-  UNIQUE (domain_id, name);
-
--- scan_jobs: Rename to scan_runs for clarity (optional) or add missing columns
-ALTER TABLE scan_jobs ADD COLUMN IF NOT EXISTS started_by uuid REFERENCES profiles(id);
-ALTER TABLE scan_jobs ADD COLUMN IF NOT EXISTS progress jsonb DEFAULT '{"scanned": 0, "total": 0}'::jsonb;
-ALTER TABLE scan_jobs ADD COLUMN IF NOT EXISTS error_details jsonb;
-
--- scan_results: Add domain_id for direct access control
-ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS domain_id uuid REFERENCES domains(id);
-ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS mac_address_validated text;
-ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS rtt_ms integer;
-ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS is_alive boolean DEFAULT false;
-
--- Add unique constraint
-ALTER TABLE scan_results ADD CONSTRAINT scan_results_job_ip_unique 
-  UNIQUE (scan_job_id, ip_address);
-
--- RLS for scan_jobs
-ALTER TABLE scan_jobs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "scan_jobs_select" ON scan_jobs FOR SELECT
-  USING (is_super_admin() OR can_access_domain(domain_id));
-CREATE POLICY "scan_jobs_insert" ON scan_jobs FOR INSERT
-  WITH CHECK (is_super_admin() OR is_domain_admin(domain_id));
-CREATE POLICY "scan_jobs_update" ON scan_jobs FOR UPDATE
-  USING (is_super_admin() OR is_domain_admin(domain_id));
-CREATE POLICY "scan_jobs_delete" ON scan_jobs FOR DELETE
-  USING (is_super_admin() OR is_domain_admin(domain_id));
-```
-
-**UI Changes (NetworkScan.tsx):**
-1. Filter networks dropdown by selected domain
-2. Auto-fill IP range from network.subnet when network selected
-3. Add pagination controls to results table
-4. Remove simulated scan; show clear "Agent required" message
-
----
-
-### H) Servers Inventory Enhancement
-
-**Current Table State:**
-- `servers`: EXISTS with `ip_address`, `operating_system`, `environment`, `status`, `notes`
-- MISSING: `domain_id`, `source` columns for proper domain scoping and import tracking
-
-**Schema Enhancements:**
-
-```sql
--- servers: Add domain_id for direct domain scoping
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS domain_id uuid REFERENCES domains(id);
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual' 
-  CHECK (source IN ('manual', 'scan', 'import'));
-ALTER TABLE servers ADD COLUMN IF NOT EXISTS hostname text;
-
--- Add unique constraint for domain + IP
-ALTER TABLE servers ADD CONSTRAINT servers_domain_ip_unique 
-  UNIQUE (domain_id, ip_address);
-
--- Update existing servers to have domain_id from network
-UPDATE servers s SET domain_id = n.domain_id 
-FROM networks n WHERE s.network_id = n.id AND s.domain_id IS NULL;
-
--- RLS update for servers (add domain_id based policies)
-CREATE POLICY "servers_select_domain" ON servers FOR SELECT
-  USING (is_super_admin() OR can_access_domain(domain_id));
-```
-
----
-
-### I) Form Validation - Apply Consistently
-
-**Files Requiring Validation Integration:**
-
-| Component | Fields to Validate |
-|-----------|-------------------|
-| `ClusterForm.tsx` | IP fields (mgmt_ip) |
-| `NodeTable.tsx` | IP fields, numeric fields |
-| `VMTable.tsx` | IP fields, vcpu/memory with coerce |
-| `FileShareForm.tsx` | Path format, depth as number |
-| `NetworkScan.tsx` | IP range/CIDR validation |
-| `Settings.tsx` (LDAP/NTP/Mail) | Host, port, DN, email |
-
-**Implementation Pattern:**
-```typescript
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { serverFormSchema } from '@/lib/validations';
-
-const form = useForm({
-  resolver: zodResolver(serverFormSchema),
-  defaultValues: {...}
+// Create server first
+const server = await createServer({
+  name: formData.name,
+  ip_address: formData.ip_address,
+  operating_system: formData.os,
+  environment: formData.environment,
+  domain_id: domainId,
+  network_id: selectedNetworkId, // From cluster's datacenter context
+  source: 'import',
+  notes: 'Created from VM in Datacenter module',
 });
 
-// Show inline errors
-{form.formState.errors.ip_address && (
-  <p className="text-sm text-destructive mt-1">
-    {form.formState.errors.ip_address.message}
-  </p>
+// Then create VM with server_ref_id
+await createVM({
+  ...formData,
+  server_ref_id: server.id,
+});
+```
+
+---
+
+## Phase 4: Cluster Form - Add Datacenter Selection
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/components/datacenter/ClusterForm.tsx` | Add datacenter dropdown before cluster fields |
+
+### Form Flow
+
+Current: Domain → Cluster fields
+New: Domain → **Datacenter** → Cluster fields
+
+The datacenter dropdown filters by selected domain and is required before saving the cluster.
+
+---
+
+## Phase 5: TopologyView Enhancement - Show Full Hierarchy
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/components/datacenter/TopologyView.tsx` | Add datacenter level to hierarchy |
+
+### New Hierarchy Display
+```text
+📁 Domain
+  └─ 🏢 Datacenter 1
+      └─ 🖥️ Cluster 1 (Nutanix)
+          └─ ⚡ Node 1
+              └─ 💻 VM 1
+              └─ 💻 VM 2
+          └─ ⚡ Node 2
+      └─ 🖥️ Cluster 2 (VMware)
+  └─ 🏢 Datacenter 2
+      └─ ...
+```
+
+### Logic Change
+- Group clusters by datacenter_id
+- Show datacenters as expandable level between domain and clusters
+
+---
+
+## Phase 6: Settings Test Connection - Wire Up Buttons
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/pages/Settings.tsx` | Wire test buttons to edge function, show results |
+
+### Implementation for Mail Tab (Lines 550-555)
+
+Current:
+```jsx
+<Button variant="outline">
+  اختبار الاتصال
+</Button>
+```
+
+New:
+```jsx
+const [mailTestResult, setMailTestResult] = useState<TestResult | null>(null);
+const [isTestingMail, setIsTestingMail] = useState(false);
+
+const handleTestMail = async () => {
+  setIsTestingMail(true);
+  setMailTestResult(null);
+  
+  try {
+    // First, save the config to get an ID
+    const { data: config, error: saveError } = await supabase
+      .from('mail_configs')
+      .upsert({
+        domain_id: selectedDomainId,
+        name: 'Default Mail Config',
+        smtp_host: mailSettings.smtp_host,
+        smtp_port: parseInt(mailSettings.smtp_port),
+        use_tls: mailSettings.smtp_encryption === 'tls',
+        from_email: mailSettings.smtp_from_email,
+        from_name: mailSettings.smtp_from_name,
+        is_active: mailSettings.smtp_enabled,
+      })
+      .select()
+      .single();
+    
+    if (saveError) throw saveError;
+    
+    // Call edge function
+    const response = await supabase.functions.invoke('test-connection', {
+      body: {
+        domain_id: selectedDomainId,
+        module: 'mail',
+        config_id: config.id,
+      }
+    });
+    
+    setMailTestResult(response.data);
+  } catch (error) {
+    setMailTestResult({
+      success: false,
+      status: 'fail',
+      message: error.message,
+    });
+  } finally {
+    setIsTestingMail(false);
+  }
+};
+
+// Button
+<Button 
+  variant="outline" 
+  onClick={handleTestMail}
+  disabled={isTestingMail || !selectedDomainId}
+>
+  {isTestingMail ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : null}
+  {t('settings.testConnection')}
+</Button>
+
+// Result Display
+{mailTestResult && (
+  <div className={cn(
+    "p-4 rounded-lg border mt-4",
+    mailTestResult.success 
+      ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+      : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
+  )}>
+    <div className="flex items-center gap-2">
+      {mailTestResult.success ? (
+        <CheckCircle className="w-5 h-5 text-green-600" />
+      ) : (
+        <XCircle className="w-5 h-5 text-red-600" />
+      )}
+      <span className="font-medium">
+        {mailTestResult.success ? t('settings.testSuccess') : t('settings.testFailed')}
+      </span>
+      {mailTestResult.latency_ms && (
+        <Badge variant="outline">{mailTestResult.latency_ms}ms</Badge>
+      )}
+    </div>
+    <p className="text-sm mt-2">{mailTestResult.message}</p>
+    {mailTestResult.error_details && (
+      <pre className="text-xs mt-2 p-2 bg-muted rounded overflow-x-auto">
+        {JSON.stringify(mailTestResult.error_details, null, 2)}
+      </pre>
+    )}
+  </div>
 )}
 ```
 
----
+### Same Pattern for LDAP and NTP
+Apply identical pattern to LDAP test button (line 654-656) and NTP test button.
 
-### J) Scan Agent Reliability + Diagnostics
-
-**Current Table State:**
-- `scan_agents`: EXISTS with `domain_id`, `name`, `auth_token_hash`, `status`, `last_seen_at`
-- MISSING: `agent_events` table for diagnostics
-
-**New Table:**
-
-```sql
-CREATE TABLE IF NOT EXISTS agent_events (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_id uuid REFERENCES scan_agents(id) ON DELETE CASCADE NOT NULL,
-  domain_id uuid REFERENCES domains(id),
-  event_type text NOT NULL CHECK (event_type IN ('register', 'heartbeat', 'scan_start', 'scan_complete', 'error')),
-  payload jsonb,
-  created_at timestamptz DEFAULT now()
-);
-
-ALTER TABLE agent_events ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "agent_events_select" ON agent_events FOR SELECT
-  USING (is_super_admin() OR can_access_domain(domain_id));
-CREATE POLICY "agent_events_insert" ON agent_events FOR INSERT
-  WITH CHECK (is_super_admin() OR is_domain_admin(domain_id));
-```
-
-**New Edge Functions:**
-
-| Function | Purpose |
-|----------|---------|
-| `agent-register` | Register new agent, validate token, log event |
-| `agent-heartbeat` | Update last_seen_at, log heartbeat event |
-| `agent-poll-scans` | Return pending scan_jobs for agent's domain |
-| `agent-submit-results` | Submit scan results, update progress, log event |
-
-**UI Enhancements (ScanAgents.tsx):**
-1. Add "Last Error" column derived from latest error event
-2. Add expandable "Recent Events" panel showing last 50 events
-3. Surface RLS/permission errors in toast messages
+### Requirements for Test to Work
+1. **Domain Selection** - Settings page needs a domain selector since test-connection requires domain_id
+2. **Config Save First** - Must save/upsert config before testing to get config_id
+3. **Display Result** - Show success/fail with details and latency
 
 ---
 
-### K) File Shares - Verify Flow
+## Phase 7: NetworkScan Filtering + Agent Message
 
-**Current Table State:**
-- `file_shares`: EXISTS with `domain_id`, `share_type`, `path`, `scan_mode`, `agent_id`
-- MISSING: `verify_status`, `last_verified_at`, `server_id`
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/pages/NetworkScan.tsx` | Filter networks by domain, add agent required message |
 
-**Schema Enhancements:**
+### Changes
 
-```sql
-ALTER TABLE file_shares ADD COLUMN IF NOT EXISTS verify_status text 
-  DEFAULT 'not_tested' CHECK (verify_status IN ('not_tested', 'ok', 'fail'));
-ALTER TABLE file_shares ADD COLUMN IF NOT EXISTS last_verified_at timestamptz;
-ALTER TABLE file_shares ADD COLUMN IF NOT EXISTS server_id uuid REFERENCES servers(id);
-```
-
-**Verify Connection Flow:**
-
-1. User clicks "Verify" button on file share
-2. Call `test-connection` edge function with `module='fileshare'`
-3. Function validates path format, writes to `connection_test_runs`
-4. Update `file_shares.verify_status` and `last_verified_at`
-5. Show result toast with clear message
-
-**UI Copy Clarification:**
-- Add helper text: "Verification validates path format. Full access testing requires a scan agent in the same network."
-
----
-
-### L) Data Center / Clusters / Hosts / VMs
-
-**Current Table State:**
-- `datacenters`: EXISTS with `domain_id`, `name`, `location`, `notes`
-- `clusters`: EXISTS with `datacenter_id`, `cluster_type`, `rf_level`, `notes`
-- `cluster_nodes`: EXISTS with `cluster_id`, `mgmt_ip`, `serial_number`
-- `vms`: EXISTS with `cluster_id`, `domain_id`, `vcpu`, `ram_gb`, `server_ref_id`
-
-**All tables exist and are properly structured!**
-
-**Schema Enhancements:**
-
-```sql
--- Ensure cluster_type values are correct
-ALTER TABLE clusters DROP CONSTRAINT IF EXISTS clusters_cluster_type_check;
-ALTER TABLE clusters ADD CONSTRAINT clusters_cluster_type_check 
-  CHECK (cluster_type IN ('nutanix', 'hyperv_cluster', 'hyperv_standalone', 'dell_standalone', 'vmware', 'other'));
-
--- Ensure rf_level includes 'na'
-ALTER TABLE clusters DROP CONSTRAINT IF EXISTS clusters_rf_level_check;
-ALTER TABLE clusters ADD CONSTRAINT clusters_rf_level_check 
-  CHECK (rf_level IN ('RF1', 'RF2', 'RF3', 'N/A'));
-
--- Ensure unique datacenter name per domain
-ALTER TABLE datacenters ADD CONSTRAINT datacenters_domain_name_unique 
-  UNIQUE (domain_id, name);
-
--- Ensure unique cluster name per datacenter
-ALTER TABLE clusters ADD CONSTRAINT clusters_datacenter_name_unique 
-  UNIQUE (datacenter_id, name);
-```
-
-**UI/UX Fixes:**
-
-1. **Translation Fix:** Already fixed - `ClusterForm.tsx:179` uses inline `language === 'ar' ? 'ملاحظات' : 'Notes'`
-2. **RF Levels:** Already updated in `ClusterForm.tsx` with RF1/RF2/RF3/N/A options
-3. **Create Datacenter:** `DatacenterForm.tsx` exists and is wired to button
-4. **Delete Functionality:** Verify delete buttons are connected in `DatacenterOverview.tsx`, `NodeTable.tsx`, `VMTable.tsx`
-
----
-
-### M) Admin Verification Checklist Page
-
-**New Page: `/verification-checklist`**
-
-**Features:**
-- Super Admin only access
-- Automated tests for:
-  - RBAC verification (test queries as different roles)
-  - Domain scoping verification
-  - Test button functionality (last test results from `connection_test_runs`)
-  - CRUD functionality (create/read/update/delete test records)
-  - Validation blocking (test invalid IP submission)
-- Pass/fail status for each check
-- Export verification report as PDF
-
-**Implementation:**
-
+1. **Filter networks dropdown by selectedDomainId**
 ```typescript
-// src/pages/VerificationChecklist.tsx
-const verificationTests = [
-  {
-    name: 'RBAC - Super Admin Access',
-    test: async () => { /* query all domains */ },
-  },
-  {
-    name: 'RBAC - Domain Admin Scoping',
-    test: async () => { /* verify can only see assigned domains */ },
-  },
-  {
-    name: 'Test Buttons - Last Results',
-    test: async () => { /* check connection_test_runs has recent entries */ },
-  },
-  // ... more tests
-];
+const filteredNetworks = networks.filter(n => 
+  !selectedDomainId || n.domain_id === selectedDomainId
+);
+```
+
+2. **Auto-fill IP range from network subnet when network selected**
+```typescript
+useEffect(() => {
+  if (selectedNetworkId) {
+    const network = networks.find(n => n.id === selectedNetworkId);
+    if (network?.subnet) {
+      setIpRange(network.subnet);
+    }
+  }
+}, [selectedNetworkId, networks]);
+```
+
+3. **Add agent required message**
+Replace simulated scan with clear message:
+```jsx
+<Alert>
+  <AlertCircle className="h-4 w-4" />
+  <AlertDescription>
+    {language === 'ar' 
+      ? 'يتطلب الفحص وكيل (Agent) مثبت في الشبكة المحلية. الفحص المباشر من المتصفح غير مدعوم لأسباب أمنية.'
+      : 'Network scanning requires an agent installed on your local network. Direct browser scanning is not supported for security reasons.'
+    }
+  </AlertDescription>
+</Alert>
 ```
 
 ---
 
-## File Changes Summary
+## Phase 8: ScanAgents Diagnostics Panel
 
-### New Files to Create
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/pages/ScanAgents.tsx` | Add events panel, last error column |
+| `src/hooks/useScanAgents.ts` | Add useAgentEvents hook |
 
-| Path | Purpose |
-|------|---------|
-| `src/pages/VerificationChecklist.tsx` | Admin verification page |
-| `supabase/functions/agent-register/index.ts` | Agent registration endpoint |
-| `supabase/functions/agent-heartbeat/index.ts` | Agent heartbeat endpoint |
-| `supabase/functions/agent-poll-scans/index.ts` | Agent scan polling |
-| `supabase/functions/agent-submit-results/index.ts` | Agent result submission |
+### New Hook
+```typescript
+export function useAgentEvents(agentId: string) {
+  return useQuery({
+    queryKey: ['agent_events', agentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agent_events')
+        .select('*')
+        .eq('agent_id', agentId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!agentId,
+  });
+}
+```
+
+### UI Enhancement
+- Add "Last Error" column showing most recent error event
+- Add expandable row or dialog showing recent 50 events
+
+---
+
+## Technical Summary
+
+### Files to Create
+None - all changes are modifications to existing files.
 
 ### Files to Modify
 
-| Path | Changes |
+| File | Changes |
 |------|---------|
-| `src/lib/supabase.ts` | Delete file or remove client export |
-| `src/pages/Licenses.tsx` | Update import to `@/types/supabase-models` |
-| `src/pages/Servers.tsx` | Update import to `@/types/supabase-models` |
-| `src/pages/Employees.tsx` | Update import to `@/types/supabase-models` |
-| `src/pages/EmployeePermissions.tsx` | Update import to `@/types/supabase-models` |
-| `src/hooks/useSupabaseData.ts` | Update import to `@/types/supabase-models` |
-| `src/contexts/AuthContext.tsx` | Update import to `@/types/supabase-models` |
-| `src/components/domain-summary/ExpiryAlertsCard.tsx` | Update import |
-| `src/pages/NetworkScan.tsx` | Add domain filtering, pagination, validation |
-| `src/pages/ScanAgents.tsx` | Add diagnostics panel, error display |
-| `src/pages/FileShares.tsx` | Add verify button, status display |
-| `src/lib/validations.ts` | Add CIDR, MAC, coerce schemas |
-| `supabase/functions/test-connection/index.ts` | Add domain access verification |
-| `supabase/functions/storage-health-check/index.ts` | Restrict to super_admin only |
-| `src/App.tsx` | Add `/verification-checklist` route |
+| `src/contexts/LanguageContext.tsx` | Add ~20 new translation keys for both AR/EN |
+| `src/components/datacenter/NodeTable.tsx` | Add edit/delete actions with dialogs |
+| `src/components/datacenter/VMTable.tsx` | Add edit/delete actions + server linking |
+| `src/components/datacenter/ClusterForm.tsx` | Add datacenter selection dropdown |
+| `src/components/datacenter/TopologyView.tsx` | Add datacenter level to hierarchy |
+| `src/pages/Settings.tsx` | Wire test buttons to edge function with result display |
+| `src/pages/NetworkScan.tsx` | Filter networks by domain, add agent message |
+| `src/pages/ScanAgents.tsx` | Add diagnostics panel and events display |
+| `src/hooks/useScanAgents.ts` | Add useAgentEvents hook |
 
-### Database Migrations Required
-
-1. **Fix RLS policies** - Remove `is_admin()` usage from domain-scoped tables
-2. **System health checks** - Restrict to `is_super_admin()` only
-3. **Networks** - Add `cidr`, `vlan_id` columns
-4. **Servers** - Add `domain_id`, `source`, `hostname` columns
-5. **Scan jobs** - Add `started_by`, `progress`, `error_details` columns
-6. **Scan results** - Add `domain_id`, `rtt_ms`, `is_alive` columns
-7. **Agent events** - Create new table
-8. **File shares** - Add `verify_status`, `last_verified_at`, `server_id` columns
-9. **Constraints** - Add unique constraints for name/domain combinations
+### No Database Changes Required
+All schema and edge functions are already in place from previous implementation.
 
 ---
 
 ## Implementation Order
 
-### Phase 1: Security Corrections (Critical)
-1. Run RLS policy migration (fix `is_admin()` usage)
-2. Update edge functions with domain access checks
-3. Update storage-health-check to super_admin only
-
-### Phase 2: Client Consolidation
-1. Update all imports from `@/lib/supabase` to `@/types/supabase-models`
-2. Delete or empty `src/lib/supabase.ts`
-3. Verify build passes
-
-### Phase 3: Schema Enhancements
-1. Run migrations for networks, servers, scan tables
-2. Create agent_events table
-3. Add file_shares columns
-
-### Phase 4: Edge Functions
-1. Create agent-* edge functions
-2. Update test-connection with domain checks
-
-### Phase 5: UI Enhancements
-1. NetworkScan - domain filtering, pagination
-2. ScanAgents - diagnostics panel
-3. FileShares - verify flow
-4. Validation integration in all forms
-
-### Phase 6: Verification
-1. Create VerificationChecklist page
-2. Run all tests
-3. Document results
+1. **LanguageContext.tsx** - Add missing translations (fixes "common.status" issue)
+2. **NodeTable.tsx** - Add edit/delete actions
+3. **VMTable.tsx** - Add edit/delete + server linking
+4. **ClusterForm.tsx** - Add datacenter dropdown
+5. **TopologyView.tsx** - Show datacenter level
+6. **Settings.tsx** - Wire test buttons with result display
+7. **NetworkScan.tsx** - Domain filtering + agent message
+8. **ScanAgents.tsx** - Diagnostics panel
 
 ---
 
-## Verification Report Template
+## Verification Checklist
 
-```text
-IT Infrastructure Manager - Verification Report
-Date: [DATE]
-Verified by: [USER]
-
-SECURITY CHECKS:
-[✓] RLS policies use is_super_admin() for global access
-[✓] RLS policies use can_access_domain() for domain SELECT
-[✓] RLS policies use is_domain_admin() for domain CRUD
-[✓] Edge functions verify domain access server-side
-[✓] System health restricted to super_admin only
-[✓] Single Supabase client in use
-
-FUNCTIONALITY CHECKS:
-[✓] LDAP/NTP/Mail test buttons return visible results
-[✓] Test results persist to connection_test_runs
-[✓] Network scan filters by domain
-[✓] Server import from scan works
-[✓] File share verify flow works
-[✓] Datacenter → Cluster → Host → VM hierarchy works
-[✓] Delete operations work with confirmation
-
-VALIDATION CHECKS:
-[✓] Invalid IP blocked with error message
-[✓] Invalid port blocked with error message
-[✓] Required fields enforced
-[✓] Numeric fields reject letters
-
-KNOWN LIMITATIONS:
-- Network scanning requires external agent (cannot scan from browser)
-- LDAP/NTP/Mail connectivity tests are validation-only in hosted environment
-- Realtime subscription requires active connection
-
-NEXT RECOMMENDED IMPROVEMENTS:
-1. Implement agent binary distribution
-2. Add email notifications for test failures
-3. Add scheduled health checks
-```
+After implementation:
+- [ ] "common.status" shows as "الحالة" / "Status" in NodeTable and VMTable
+- [ ] Can edit/delete nodes from Physical tab
+- [ ] Can edit/delete VMs from Virtualization tab
+- [ ] VM form shows option to link to or create server
+- [ ] Cluster form requires datacenter selection
+- [ ] TopologyView shows Domain → Datacenter → Cluster → Node → VM
+- [ ] Mail test button calls edge function and shows result
+- [ ] LDAP test button calls edge function and shows result
+- [ ] NTP test button calls edge function and shows result
+- [ ] NetworkScan filters networks by selected domain
+- [ ] ScanAgents shows last error and recent events
