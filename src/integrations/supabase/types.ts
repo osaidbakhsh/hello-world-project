@@ -630,6 +630,8 @@ export type Database = {
           scan_mode: string
           schedule_cron: string | null
           share_type: string
+          smb_password_encrypted: string | null
+          smb_username: string | null
           updated_at: string | null
         }
         Insert: {
@@ -648,6 +650,8 @@ export type Database = {
           scan_mode: string
           schedule_cron?: string | null
           share_type: string
+          smb_password_encrypted?: string | null
+          smb_username?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -666,6 +670,8 @@ export type Database = {
           scan_mode?: string
           schedule_cron?: string | null
           share_type?: string
+          smb_password_encrypted?: string | null
+          smb_username?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1082,7 +1088,9 @@ export type Database = {
           is_active: boolean | null
           name: string
           smtp_host: string
+          smtp_password_encrypted: string | null
           smtp_port: number | null
+          smtp_username: string | null
           updated_at: string | null
           use_tls: boolean | null
         }
@@ -1096,7 +1104,9 @@ export type Database = {
           is_active?: boolean | null
           name: string
           smtp_host: string
+          smtp_password_encrypted?: string | null
           smtp_port?: number | null
+          smtp_username?: string | null
           updated_at?: string | null
           use_tls?: boolean | null
         }
@@ -1110,7 +1120,9 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           smtp_host?: string
+          smtp_password_encrypted?: string | null
           smtp_port?: number | null
+          smtp_username?: string | null
           updated_at?: string | null
           use_tls?: boolean | null
         }

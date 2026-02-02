@@ -53,11 +53,26 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingVM, setEditingVM] = useState<VM | null>(null);
   const [vmToDelete, setVmToDelete] = useState<VM | null>(null);
-
   const [formData, setFormData] = useState(defaultFormData);
 
   // Filter servers - get all servers since servers don't have direct domain_id
   const domainServers = servers || [];
+
+  // Auto-fill form when a server is selected (for new VMs only)
+  React.useEffect(() => {
+    if (formData.server_ref_id && !editingVM && formData.server_ref_id !== 'none') {
+      const server = domainServers.find(s => s.id === formData.server_ref_id);
+      if (server) {
+        setFormData(prev => ({
+          ...prev,
+          name: server.name || prev.name,
+          ip_address: server.ip_address || prev.ip_address,
+          os: server.operating_system || prev.os,
+          environment: (server.environment as VMEnvironment) || prev.environment,
+        }));
+      }
+    }
+  }, [formData.server_ref_id, domainServers, editingVM]);
 
   const filteredVMs = vms?.filter((vm) => {
     const matchesSearch = vm.name.toLowerCase().includes(search.toLowerCase()) ||

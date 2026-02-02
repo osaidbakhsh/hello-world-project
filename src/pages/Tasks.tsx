@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTasks, useServers, useProfiles } from '@/hooks/useSupabaseData';
+import { useTasks, useServers, useProfiles, useDomainMemberships, useNetworks } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ import {
   Trash2,
   Edit,
   Download,
+  Upload,
   FileSpreadsheet,
   FileText,
   Users,
@@ -49,6 +50,20 @@ const Tasks: React.FC = () => {
   const { data: tasks, isLoading, refetch } = useTasks();
   const { data: servers } = useServers();
   const { data: profiles } = useProfiles();
+  const { data: networks } = useNetworks();
+  const { data: allMemberships } = useDomainMemberships();
+  
+  // Filter servers based on assigned user's domain access
+  const getAccessibleServers = (assignedToId: string | null) => {
+    if (!assignedToId) return servers;
+    const userMemberships = allMemberships.filter(m => m.profile_id === assignedToId);
+    const accessibleDomainIds = userMemberships.map(m => m.domain_id);
+    return servers.filter(server => {
+      const network = networks.find(n => n.id === server.network_id);
+      if (!network) return true; // Show servers without network
+      return accessibleDomainIds.includes(network.domain_id);
+    });
+  };
   
   const [searchQuery, setSearchQuery] = useState('');
   const [frequencyFilter, setFrequencyFilter] = useState<string>('all');
@@ -58,6 +73,9 @@ const Tasks: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -186,6 +204,74 @@ const Tasks: React.FC = () => {
     });
 
     toast({ title: t('common.success'), description: 'تم تصدير المهام بنجاح' });
+  };
+
+  // Handle import file change
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setImportFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Match employees by name
+        const preview = jsonData.map((row: any) => {
+          const employeeName = row['اسم الموظف'] || row['Employee'] || row['employee_name'] || '';
+          const foundEmployee = profiles.find(p => 
+            p.full_name.toLowerCase().includes(employeeName.toLowerCase()) ||
+            employeeName.toLowerCase().includes(p.full_name.toLowerCase())
+          );
+          return {
+            ...row,
+            employee_name: employeeName,
+            title: row['المهمة'] || row['عنوان المهمة'] || row['Task'] || row['title'] || '',
+            description: row['الوصف'] || row['Description'] || row['description'] || '',
+            due_date: row['تاريخ الاستحقاق'] || row['Due Date'] || row['due_date'] || '',
+            frequency: row['التكرار'] || row['Frequency'] || row['frequency'] || 'once',
+            profile_id: foundEmployee?.id || null,
+          };
+        });
+        setImportPreview(preview);
+      } catch (error) {
+        toast({ title: t('common.error'), description: 'فشل في قراءة الملف', variant: 'destructive' });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // Import tasks
+  const handleImportSubmit = async () => {
+    const validTasks = importPreview.filter(row => row.profile_id && row.title);
+    
+    try {
+      for (const task of validTasks) {
+        await supabase.from('tasks').insert({
+          title: task.title,
+          description: task.description || null,
+          assigned_to: task.profile_id,
+          frequency: task.frequency || 'once',
+          due_date: task.due_date || null,
+          status: 'pending',
+          priority: 'medium',
+          created_by: profile?.id,
+        });
+      }
+      
+      toast({ title: t('common.success'), description: `تم استيراد ${validTasks.length} مهمة بنجاح` });
+      setShowImportDialog(false);
+      setImportFile(null);
+      setImportPreview([]);
+      refetch();
+    } catch (error: any) {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    }
   };
 
   const tasksByStatus = {
@@ -438,6 +524,14 @@ const Tasks: React.FC = () => {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Import Button */}
+          {isAdmin && (
+            <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+              <Upload className="w-4 h-4 me-2" />
+              {t('tasks.importTasks')}
+            </Button>
+          )}
+
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) resetForm();
@@ -512,7 +606,7 @@ const Tasks: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">بدون سيرفر</SelectItem>
-                      {servers.map((server) => (
+                      {getAccessibleServers(formData.assigned_to || profile?.id || null).map((server) => (
                         <SelectItem key={server.id} value={server.id}>{server.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -853,6 +947,72 @@ const Tasks: React.FC = () => {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* Import Tasks Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('tasks.importTasks')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t('tasks.importFile')} (Excel)</Label>
+              <Input type="file" accept=".xlsx,.xls" onChange={handleImportFileChange} />
+            </div>
+            
+            {importPreview.length > 0 && (
+              <div className="space-y-2">
+                <Label>{t('tasks.preview')}</Label>
+                <div className="max-h-60 overflow-auto border rounded-md">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="p-2 text-start">الموظف</th>
+                        <th className="p-2 text-start">المهمة</th>
+                        <th className="p-2 text-start">الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.map((row, i) => (
+                        <tr key={i} className="border-t">
+                          <td className="p-2">{row.employee_name}</td>
+                          <td className="p-2">{row.title}</td>
+                          <td className="p-2">
+                            {row.profile_id ? (
+                              <Badge className="bg-success/10 text-success border-success/20">جاهز</Badge>
+                            ) : (
+                              <Badge variant="destructive">الموظف غير موجود</Badge>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {importPreview.filter(r => r.profile_id).length} من {importPreview.length} مهام جاهزة للاستيراد
+                </p>
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => {
+                setShowImportDialog(false);
+                setImportFile(null);
+                setImportPreview([]);
+              }}>
+                {t('common.cancel')}
+              </Button>
+              <Button 
+                onClick={handleImportSubmit} 
+                disabled={importPreview.filter(r => r.profile_id).length === 0}
+              >
+                {t('common.import')} ({importPreview.filter(r => r.profile_id).length})
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

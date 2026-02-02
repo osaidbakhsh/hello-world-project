@@ -87,6 +87,22 @@ const NetworkScan: React.FC = () => {
   const [importEnvironment, setImportEnvironment] = useState('production');
   const [importOwner, setImportOwner] = useState('');
 
+  // Filter networks by selected domain
+  const filteredNetworks = useMemo(() => {
+    if (!selectedDomainId) return networks;
+    return networks.filter(n => n.domain_id === selectedDomainId);
+  }, [networks, selectedDomainId]);
+
+  // Auto-fill IP range when network is selected
+  React.useEffect(() => {
+    if (selectedNetworkId) {
+      const network = networks.find(n => n.id === selectedNetworkId);
+      if (network?.subnet) {
+        setIpRange(network.subnet);
+      }
+    }
+  }, [selectedNetworkId, networks]);
+
   // Get selected items
   const selectedResults = useMemo(() => 
     scanResults.filter(r => r.selected), 
@@ -128,10 +144,26 @@ const NetworkScan: React.FC = () => {
 
   // Start scan
   const handleStartScan = async () => {
-    if (!scanName || !ipRange) {
+    if (!scanName) {
       toast({
         title: t('common.error'),
-        description: 'Please fill in scan name and IP range',
+        description: t('scan.nameRequired'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Use IP range from form or from network
+    let scanIpRange = ipRange;
+    if (!scanIpRange && selectedNetworkId) {
+      const network = networks.find(n => n.id === selectedNetworkId);
+      scanIpRange = network?.subnet || '';
+    }
+
+    if (!scanIpRange) {
+      toast({
+        title: t('common.error'),
+        description: t('scan.ipRangeRequired'),
         variant: 'destructive',
       });
       return;
@@ -409,19 +441,24 @@ const NetworkScan: React.FC = () => {
                       <SelectValue placeholder="Select network" />
                     </SelectTrigger>
                     <SelectContent>
-                      {networks.map((n) => (
-                        <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
+                      {filteredNetworks.map((n) => (
+                        <SelectItem key={n.id} value={n.id}>
+                          {n.name} {n.subnet ? `(${n.subnet})` : ''}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('scan.ipRange')}</Label>
+                  <Label>{t('scan.ipRange')} {selectedNetworkId && <span className="text-muted-foreground text-xs">({t('scan.autoFilledFromNetwork')})</span>}</Label>
                   <Input
                     value={ipRange}
                     onChange={(e) => setIpRange(e.target.value)}
-                    placeholder="e.g., 192.168.1.0/24"
+                    placeholder={selectedNetworkId ? t('scan.optionalIfNetworkSelected') : 'e.g., 192.168.1.0/24'}
                   />
+                  {!selectedNetworkId && (
+                    <p className="text-xs text-muted-foreground">{t('scan.selectNetworkOrEnterIp')}</p>
+                  )}
                 </div>
               </div>
               
