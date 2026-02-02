@@ -1526,6 +1526,240 @@ export type Database = {
           },
         ]
       }
+      procurement_activity_logs: {
+        Row: {
+          action: string
+          actor_profile_id: string | null
+          created_at: string | null
+          details: Json | null
+          id: string
+          request_id: string
+        }
+        Insert: {
+          action: string
+          actor_profile_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          request_id: string
+        }
+        Update: {
+          action?: string
+          actor_profile_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_activity_logs_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_activity_logs_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_quotations: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          discount: number | null
+          file_path: string
+          id: string
+          original_filename: string
+          quotation_ref: string | null
+          quote_date: string | null
+          request_id: string
+          shipping: number | null
+          subtotal: number | null
+          tax: number | null
+          total: number | null
+          uploaded_by: string | null
+          valid_until: string | null
+          vendor_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          discount?: number | null
+          file_path: string
+          id?: string
+          original_filename: string
+          quotation_ref?: string | null
+          quote_date?: string | null
+          request_id: string
+          shipping?: number | null
+          subtotal?: number | null
+          tax?: number | null
+          total?: number | null
+          uploaded_by?: string | null
+          valid_until?: string | null
+          vendor_name: string
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          discount?: number | null
+          file_path?: string
+          id?: string
+          original_filename?: string
+          quotation_ref?: string | null
+          quote_date?: string | null
+          request_id?: string
+          shipping?: number | null
+          subtotal?: number | null
+          tax?: number | null
+          total?: number | null
+          uploaded_by?: string | null
+          valid_until?: string | null
+          vendor_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_quotations_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_quotations_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_request_items: {
+        Row: {
+          created_at: string | null
+          estimated_unit_price: number | null
+          id: string
+          item_name: string
+          quantity: number
+          request_id: string
+          specs: string | null
+          unit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          estimated_unit_price?: number | null
+          id?: string
+          item_name: string
+          quantity?: number
+          request_id: string
+          specs?: string | null
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          estimated_unit_price?: number | null
+          id?: string
+          item_name?: string
+          quantity?: number
+          request_id?: string
+          specs?: string | null
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_request_items_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          domain_id: string
+          id: string
+          needed_by: string | null
+          priority: string | null
+          rejection_reason: string | null
+          request_number: string
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          domain_id: string
+          id?: string
+          needed_by?: string | null
+          priority?: string | null
+          rejection_reason?: string | null
+          request_number: string
+          status?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          domain_id?: string
+          id?: string
+          needed_by?: string | null
+          priority?: string | null
+          rejection_reason?: string | null
+          request_number?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_requests_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_requests_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           certifications: string[] | null
@@ -2953,6 +3187,10 @@ export type Database = {
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
       can_edit_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_manage_domain: { Args: { _domain_id: string }; Returns: boolean }
+      generate_procurement_request_number: {
+        Args: { p_domain_id: string }
+        Returns: string
+      }
       get_my_profile_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }

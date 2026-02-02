@@ -33,6 +33,7 @@ import {
   Clock,
   FolderKanban,
   Bot,
+  ShoppingCart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -75,6 +76,7 @@ const allMenuItems: MenuItem[] = [
   { id: 'networkScan', path: '/network-scan', icon: Wifi, label: 'nav.networkScan', adminOnly: true },
   { id: 'webApps', path: '/web-apps', icon: Globe, label: 'nav.webApps' }, // Accessible to all (read-only for employees)
   { id: 'employeeReports', path: '/employee-reports', icon: FileSpreadsheet, label: 'nav.employeeReports', adminOnly: true },
+  { id: 'procurement', path: '/procurement', icon: ShoppingCart, label: 'nav.procurement' },
   { id: 'reports', path: '/reports', icon: FileBarChart, label: 'nav.reports' },
   { id: 'auditLog', path: '/audit-log', icon: History, label: 'nav.auditLog', adminOnly: true },
   { id: 'systemHealth', path: '/system-health', icon: Shield, label: 'nav.systemHealth', adminOnly: true },

@@ -36,6 +36,9 @@ import ScanAgents from "./pages/ScanAgents";
 import Datacenter from "./pages/Datacenter";
 import SystemHealth from "./pages/SystemHealth";
 import VerificationChecklist from "./pages/VerificationChecklist";
+import Procurement from "./pages/Procurement";
+import ProcurementCreate from "./pages/ProcurementCreate";
+import ProcurementDetail from "./pages/ProcurementDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,6 +90,9 @@ const App = () => (
                 <Route path="/datacenter" element={<Datacenter />} />
                 <Route path="/system-health" element={<SystemHealth />} />
                 <Route path="/verification-checklist" element={<VerificationChecklist />} />
+                <Route path="/procurement" element={<Procurement />} />
+                <Route path="/procurement/new" element={<ProcurementCreate />} />
+                <Route path="/procurement/:id" element={<ProcurementDetail />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               
