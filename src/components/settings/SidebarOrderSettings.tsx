@@ -36,6 +36,8 @@ const defaultMenuItems: MenuItem[] = [
   { id: 'employeeReports', labelKey: 'nav.employeeReports', enabled: true },
   { id: 'reports', labelKey: 'nav.reports', enabled: true },
   { id: 'auditLog', labelKey: 'nav.auditLog', enabled: true },
+  { id: 'procurement', labelKey: 'nav.procurement', enabled: true },
+  { id: 'systemHealth', labelKey: 'nav.systemHealth', enabled: true },
   { id: 'settings', labelKey: 'nav.settings', enabled: true },
 ];
 
