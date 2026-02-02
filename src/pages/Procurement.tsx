@@ -22,14 +22,14 @@ const Procurement: React.FC = () => {
   const navigate = useNavigate();
   const { data: domains } = useDomains();
   
-  const [selectedDomainId, setSelectedDomainId] = useState<string>('');
+  const [selectedDomainId, setSelectedDomainId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [requestToDelete, setRequestToDelete] = useState<string | null>(null);
 
   const { data: requests, isLoading } = useProcurementRequests(
-    selectedDomainId || undefined,
+    selectedDomainId === 'all' ? undefined : selectedDomainId,
     statusFilter
   );
   const deleteRequest = useDeleteProcurementRequest();
@@ -106,7 +106,7 @@ const Procurement: React.FC = () => {
                 <SelectValue placeholder={t('common.allDomains')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{t('common.allDomains')}</SelectItem>
+                <SelectItem value="all">{t('common.allDomains')}</SelectItem>
                 {domains?.map(d => (
                   <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                 ))}
