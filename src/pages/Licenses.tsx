@@ -69,6 +69,7 @@ const Licenses: React.FC = () => {
   const { t, dir, language } = useLanguage();
   const { toast } = useToast();
   
+  
   // Supabase data
   const { data: licenses, isLoading, refetch: refetchLicenses } = useLicenses();
   const { data: domains } = useDomains();
