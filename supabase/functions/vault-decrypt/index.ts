@@ -155,18 +155,47 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Extract IV - handle both string and Buffer object formats
+    let ivHex: string;
+    const storedIv = vaultItem.password_iv;
+    
+    if (typeof storedIv === 'string') {
+      ivHex = storedIv.trim();
+    } else if (storedIv && typeof storedIv === 'object' && 'data' in storedIv && Array.isArray(storedIv.data)) {
+      // Buffer object format: { type: 'Buffer', data: [...] }
+      ivHex = String.fromCharCode(...storedIv.data);
+    } else {
+      console.error('Unknown IV format:', typeof storedIv, storedIv);
+      return new Response(
+        JSON.stringify({ error: 'Invalid stored IV format.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Validate IV length (should be 24 hex chars = 12 bytes for GCM)
-    const ivHex = vaultItem.password_iv.trim();
     if (ivHex.length !== 24) {
       console.error('Invalid IV length:', ivHex.length, 'expected 24 hex chars (12 bytes)');
       return new Response(
         JSON.stringify({ 
           error: 'Invalid stored IV. This item was encrypted with an incompatible format. Please re-save the password.',
         }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Extract encrypted data - handle both string and Buffer object formats
+    let encryptedHex: string;
+    const storedEnc = vaultItem.password_encrypted;
+    
+    if (typeof storedEnc === 'string') {
+      encryptedHex = storedEnc.trim();
+    } else if (storedEnc && typeof storedEnc === 'object' && 'data' in storedEnc && Array.isArray(storedEnc.data)) {
+      encryptedHex = String.fromCharCode(...storedEnc.data);
+    } else {
+      console.error('Unknown encrypted format:', typeof storedEnc);
+      return new Response(
+        JSON.stringify({ error: 'Invalid stored encrypted data format.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -180,7 +209,7 @@ Deno.serve(async (req) => {
       ['decrypt']
     );
 
-    const encryptedBytes = hexToBytes(vaultItem.password_encrypted);
+    const encryptedBytes = hexToBytes(encryptedHex);
     const ivBytes = hexToBytes(ivHex);
 
     const decryptedData = await crypto.subtle.decrypt(
