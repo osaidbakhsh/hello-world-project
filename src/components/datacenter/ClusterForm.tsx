@@ -1,43 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useCreateCluster, useDatacenters } from '@/hooks/useDatacenter';
+import { useCreateCluster, useUpdateCluster, useDatacenters } from '@/hooks/useDatacenter';
+import { useDomains } from '@/hooks/useSupabaseData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { ClusterType, StorageType, RFLevel } from '@/types/datacenter';
+import type { Cluster, ClusterType, StorageType, RFLevel } from '@/types/datacenter';
 
 interface Props {
-  domainId: string;
+  domainId?: string;
+  editingCluster?: Cluster | null;
   onClose: () => void;
 }
 
-const ClusterForm: React.FC<Props> = ({ domainId, onClose }) => {
+const ClusterForm: React.FC<Props> = ({ domainId, editingCluster, onClose }) => {
   const { t, language } = useLanguage();
-  const { data: datacenters } = useDatacenters(domainId);
+  const { data: domains } = useDomains();
   const createCluster = useCreateCluster();
+  const updateCluster = useUpdateCluster();
+
+  const [selectedDomainId, setSelectedDomainId] = useState(editingCluster?.domain_id || domainId || '');
+  const { data: datacenters } = useDatacenters(selectedDomainId);
 
   const [formData, setFormData] = useState({
-    name: '',
-    datacenter_id: '',
-    cluster_type: 'vmware' as ClusterType,
-    vendor: '',
-    platform_version: '',
-    hypervisor_version: '',
-    storage_type: 'all-flash' as StorageType,
-    rf_level: 'RF2' as RFLevel,
-    notes: '',
+    name: editingCluster?.name || '',
+    datacenter_id: editingCluster?.datacenter_id || '',
+    cluster_type: (editingCluster?.cluster_type as ClusterType) || 'vmware',
+    vendor: editingCluster?.vendor || '',
+    platform_version: editingCluster?.platform_version || '',
+    hypervisor_version: editingCluster?.hypervisor_version || '',
+    storage_type: (editingCluster?.storage_type as StorageType) || 'all-flash',
+    rf_level: (editingCluster?.rf_level as RFLevel) || 'RF2',
+    notes: editingCluster?.notes || '',
   });
 
+  // Reset datacenter when domain changes
+  useEffect(() => {
+    if (!editingCluster && selectedDomainId !== domainId) {
+      setFormData(prev => ({ ...prev, datacenter_id: '' }));
+    }
+  }, [selectedDomainId, domainId, editingCluster]);
+
   const handleSubmit = async () => {
-    await createCluster.mutateAsync({
-      ...formData,
-      domain_id: domainId,
-      datacenter_id: formData.datacenter_id || null,
-      node_count: 0,
-    });
+    if (editingCluster) {
+      await updateCluster.mutateAsync({
+        id: editingCluster.id,
+        ...formData,
+        datacenter_id: formData.datacenter_id || null,
+      });
+    } else {
+      await createCluster.mutateAsync({
+        ...formData,
+        domain_id: selectedDomainId,
+        datacenter_id: formData.datacenter_id || null,
+        node_count: 0,
+      });
+    }
     onClose();
   };
 
@@ -54,14 +75,47 @@ const ClusterForm: React.FC<Props> = ({ domainId, onClose }) => {
     { value: 'hdd', label: 'HDD' },
   ];
 
+  const rfLevels: { value: RFLevel; label: string }[] = [
+    { value: 'RF1', label: 'RF1 (1 copy)' },
+    { value: 'RF2', label: 'RF2 (2 copies)' },
+    { value: 'RF3', label: 'RF3 (3 copies)' },
+    { value: 'N/A', label: language === 'ar' ? 'غير متاح' : 'N/A' },
+  ];
+
+  const isPending = createCluster.isPending || updateCluster.isPending;
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t('datacenter.addCluster')}</DialogTitle>
+          <DialogTitle>
+            {editingCluster 
+              ? (language === 'ar' ? 'تعديل الكلستر' : 'Edit Cluster')
+              : t('datacenter.addCluster')
+            }
+          </DialogTitle>
         </DialogHeader>
         
         <div className="grid grid-cols-2 gap-4 py-4">
+          {/* Domain Selector - FIRST FIELD */}
+          <div className="space-y-2 col-span-2">
+            <Label>{t('common.domain')} *</Label>
+            <Select 
+              value={selectedDomainId} 
+              onValueChange={setSelectedDomainId}
+              disabled={!!editingCluster}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t('common.selectDomain')} />
+              </SelectTrigger>
+              <SelectContent>
+                {domains?.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label>{t('common.name')} *</Label>
             <Input
@@ -92,15 +146,16 @@ const ClusterForm: React.FC<Props> = ({ domainId, onClose }) => {
 
           {datacenters && datacenters.length > 0 && (
             <div className="space-y-2">
-              <Label>Datacenter</Label>
+              <Label>{t('datacenter.datacenter')}</Label>
               <Select 
-                value={formData.datacenter_id} 
-                onValueChange={(v) => setFormData({ ...formData, datacenter_id: v })}
+                value={formData.datacenter_id || 'none'} 
+                onValueChange={(v) => setFormData({ ...formData, datacenter_id: v === 'none' ? '' : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t('common.select')} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">{language === 'ar' ? 'بدون' : 'None'}</SelectItem>
                   {datacenters.map((dc) => (
                     <SelectItem key={dc.id} value={dc.id}>
                       {dc.name} {dc.location && `(${dc.location})`}
@@ -167,10 +222,9 @@ const ClusterForm: React.FC<Props> = ({ domainId, onClose }) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="RF1">RF1 (1 copy)</SelectItem>
-                <SelectItem value="RF2">RF2 (2 copies)</SelectItem>
-                <SelectItem value="RF3">RF3 (3 copies)</SelectItem>
-                <SelectItem value="N/A">{language === 'ar' ? 'غير متاح' : 'N/A'}</SelectItem>
+                {rfLevels.map((level) => (
+                  <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -192,9 +246,9 @@ const ClusterForm: React.FC<Props> = ({ domainId, onClose }) => {
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={!formData.name || createCluster.isPending}
+            disabled={!formData.name || !selectedDomainId || isPending}
           >
-            {createCluster.isPending 
+            {isPending 
               ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...') 
               : t('common.save')}
           </Button>

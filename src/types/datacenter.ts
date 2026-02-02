@@ -1,6 +1,6 @@
 export type ClusterType = 'nutanix' | 'vmware' | 'hyperv' | 'other';
 export type StorageType = 'all-flash' | 'hybrid' | 'hdd';
-export type RFLevel = 'RF2' | 'RF3';
+export type RFLevel = 'RF1' | 'RF2' | 'RF3' | 'N/A';
 export type NodeRole = 'compute' | 'storage' | 'hybrid';
 export type NodeStatus = 'active' | 'maintenance' | 'decommissioned';
 export type VMEnvironment = 'production' | 'development' | 'testing' | 'staging' | 'dr';

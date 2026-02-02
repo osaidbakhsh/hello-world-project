@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Server, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import type { Cluster, ClusterType, StorageType, RFLevel } from '@/types/datacenter';
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
 
 const ClusterTable: React.FC<Props> = ({ domainId }) => {
   const { t, language } = useLanguage();
+  const { toast } = useToast();
   const { data: clusters, isLoading } = useClusters(domainId);
   const { data: datacenters } = useDatacenters(domainId);
   const { data: nodes } = useClusterNodes(domainId);
@@ -68,17 +70,33 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
     setEditingCluster(null);
   };
 
+  const getClusterStats = (clusterId: string) => {
+    const clusterNodes = nodes?.filter(n => n.cluster_id === clusterId) || [];
+    const clusterVMs = vms?.filter(v => v.cluster_id === clusterId) || [];
+    return { nodesCount: clusterNodes.length, vmsCount: clusterVMs.length };
+  };
+
+  const attemptDelete = (cluster: Cluster) => {
+    const stats = getClusterStats(cluster.id);
+    if (stats.nodesCount > 0 || stats.vmsCount > 0) {
+      toast({
+        title: t('datacenter.cannotDeleteCluster'),
+        description: language === 'ar' 
+          ? `هذا الكلستر مرتبط بـ ${stats.nodesCount} نود و ${stats.vmsCount} جهاز افتراضي`
+          : `This cluster has ${stats.nodesCount} nodes and ${stats.vmsCount} VMs linked`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    setClusterToDelete(cluster);
+    setDeleteDialogOpen(true);
+  };
+
   const handleDelete = async () => {
     if (!clusterToDelete) return;
     await deleteCluster.mutateAsync(clusterToDelete.id);
     setDeleteDialogOpen(false);
     setClusterToDelete(null);
-  };
-
-  const getClusterStats = (clusterId: string) => {
-    const clusterNodes = nodes?.filter(n => n.cluster_id === clusterId) || [];
-    const clusterVMs = vms?.filter(v => v.cluster_id === clusterId) || [];
-    return { nodesCount: clusterNodes.length, vmsCount: clusterVMs.length };
   };
 
   const clusterTypeLabels: Record<string, string> = {
@@ -99,6 +117,13 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
     { value: 'all-flash', label: 'All-Flash' },
     { value: 'hybrid', label: 'Hybrid' },
     { value: 'hdd', label: 'HDD' },
+  ];
+
+  const rfLevels: { value: RFLevel; label: string }[] = [
+    { value: 'RF1', label: 'RF1 (1 copy)' },
+    { value: 'RF2', label: 'RF2 (2 copies)' },
+    { value: 'RF3', label: 'RF3 (3 copies)' },
+    { value: 'N/A', label: language === 'ar' ? 'غير متاح' : 'N/A' },
   ];
 
   if (isLoading) {
@@ -133,6 +158,7 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
                   <TableHead>{t('datacenter.platformVersion')}</TableHead>
                   <TableHead>{t('datacenter.nodes')}</TableHead>
                   <TableHead>{t('datacenter.vms')}</TableHead>
+                  <TableHead>{t('datacenter.rfLevel')}</TableHead>
                   <TableHead>{t('datacenter.storageType')}</TableHead>
                   <TableHead>{language === 'ar' ? 'الإجراءات' : 'Actions'}</TableHead>
                 </TableRow>
@@ -151,7 +177,10 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
                       <TableCell>{stats.nodesCount}</TableCell>
                       <TableCell>{stats.vmsCount}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{cluster.storage_type || '-'}</Badge>
+                        <Badge variant="secondary">{cluster.rf_level || '-'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{cluster.storage_type || '-'}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -161,11 +190,8 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="text-destructive"
-                            onClick={() => {
-                              setClusterToDelete(cluster);
-                              setDeleteDialogOpen(true);
-                            }}
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => attemptDelete(cluster)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -216,14 +242,14 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
               <div className="space-y-2">
                 <Label>{t('datacenter.datacenter')}</Label>
                 <Select
-                  value={formData.datacenter_id}
-                  onValueChange={v => setFormData({ ...formData, datacenter_id: v })}
+                  value={formData.datacenter_id || 'none'}
+                  onValueChange={v => setFormData({ ...formData, datacenter_id: v === 'none' ? '' : v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t('common.select')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{language === 'ar' ? 'بدون' : 'None'}</SelectItem>
+                    <SelectItem value="none">{language === 'ar' ? 'بدون' : 'None'}</SelectItem>
                     {datacenters.map(dc => (
                       <SelectItem key={dc.id} value={dc.id}>
                         {dc.name} {dc.location && `(${dc.location})`}
@@ -285,10 +311,9 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="RF1">RF1</SelectItem>
-                  <SelectItem value="RF2">RF2</SelectItem>
-                  <SelectItem value="RF3">RF3</SelectItem>
-                  <SelectItem value="N/A">N/A</SelectItem>
+                  {rfLevels.map(level => (
+                    <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -307,7 +332,7 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleUpdate} disabled={!formData.name || updateCluster.isPending}>
-              {updateCluster.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {updateCluster.isPending ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : null}
               {t('common.save')}
             </Button>
           </DialogFooter>
@@ -321,8 +346,8 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
             <AlertDialogTitle>{language === 'ar' ? 'حذف الكلستر' : 'Delete Cluster'}</AlertDialogTitle>
             <AlertDialogDescription>
               {language === 'ar'
-                ? `هل أنت متأكد من حذف "${clusterToDelete?.name}"؟ سيتم حذف جميع النودات والأجهزة الافتراضية المرتبطة.`
-                : `Are you sure you want to delete "${clusterToDelete?.name}"? All associated nodes and VMs will also be deleted.`}
+                ? `هل أنت متأكد من حذف "${clusterToDelete?.name}"؟`
+                : `Are you sure you want to delete "${clusterToDelete?.name}"?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
