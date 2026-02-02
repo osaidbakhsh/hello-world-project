@@ -1,550 +1,397 @@
-# Full Remediation + Final Corrections — ✅ COMPLETED
+
+
+# Vault Privacy Hardened Implementation Plan v2 - Final
 
 ## Executive Summary
 
-**GO — All Critical Security Issues Resolved**
-
-All RLS vulnerabilities, audit log tampering risks, and storage isolation issues have been remediated. Only one manual configuration step remains (Leaked Password Protection).
+This plan implements a **zero-admin-visibility vault** where every credential is private to its creator by default. Sharing is explicit, auditable, and revocable. All admin bypass paths are removed.
 
 ---
 
-## Final Re-Validation Report
+## Pre-Implementation Data State
 
-### PASS/FAIL Table
-
-| # | Area | Test | Status |
-|---|------|------|--------|
-| 1 | servers RLS | SELECT/INSERT/UPDATE/DELETE with NULL protection | ✅ PASS |
-| 2 | licenses RLS | SELECT/UPDATE/DELETE with NULL domain_id protection | ✅ PASS |
-| 3 | website_applications | Domain-scoped SELECT + admin UPDATE/DELETE | ✅ PASS |
-| 4 | on_call_schedules | Domain-scoped + NULL global schedules | ✅ PASS |
-| 5 | on_call_assignments | Domain-scoped via schedule + own assignments | ✅ PASS |
-| 6 | audit_logs | BEFORE INSERT trigger forces user_id | ✅ PASS |
-| 7 | vault_audit_logs | BEFORE INSERT trigger forces user_id | ✅ PASS |
-| 8 | employee-reports storage | Admin-only access | ✅ PASS |
-| 9 | MIME type restrictions | PDF for quotations, PDF/Excel/CSV for reports | ✅ PASS |
-| 10 | Network Scan | No fallback subnets - requires explicit selection | ✅ PASS |
-| 11 | nav.systemHealth Arabic | Changed to "فحص صحة النظام" | ✅ PASS |
-| 12 | Quotation uploader name | Displays profiles.full_name | ✅ PASS |
-| 13 | Datacenter clusters | Edit/Delete with guardrails | ✅ PASS |
-| 14 | Procurement dashboard | KPIs, sample data, filters, export | ✅ PASS |
-| 15 | Sidebar ordering | Includes procurement, systemHealth, settings | ✅ PASS |
-| 16 | Linter critical issues | All RLS critical issues resolved | ✅ PASS |
-
-### Remaining Manual Action
-
-⚠️ **Leaked Password Protection** (WARN level - not blocking):
-- Location: Lovable Cloud → Backend Settings → Auth → Security
-- Action: Toggle "Leaked Password Protection" ON
+| Data | Current Count | Notes |
+|------|---------------|-------|
+| Vault items with usernames | 5 | Will be encrypted via migration function |
+| Vault items with notes | 0 | None to migrate |
+| Vault items with passwords | Multiple | Already encrypted (BYTEA), will be converted to TEXT hex |
 
 ---
 
-## Migrations Applied
+## Implementation Phases
 
-### Migration 1: Initial Security Fixes
-- Fixed servers/licenses SELECT/INSERT NULL protection
-- Fixed website_applications/on_call authenticated-only → domain-scoped
-- Fixed audit_logs/vault_audit_logs insert policies
-- Fixed employee-reports storage to admin-only
-- Set MIME type restrictions on storage buckets
-
-### Migration 2: Final Corrections
-- Added servers_update_v2/delete_v2 with NULL protection
-- Added licenses_update_v2/delete_v2 with NULL protection
-- Upgraded website_applications to domain-scoped with UPDATE/DELETE
-- Upgraded on_call_schedules/assignments to domain-scoped
-- Created validate_audit_log_insert() BEFORE INSERT trigger
-- Created validate_vault_audit_log_insert() BEFORE INSERT trigger
-
----
-
-## Code Changes Applied
-
-| File | Change |
-|------|--------|
-| src/contexts/LanguageContext.tsx | nav.systemHealth Arabic → "فحص صحة النظام" |
-| src/pages/NetworkScan.tsx | Removed fallback subnets |
-| src/pages/ProcurementDetail.tsx | Added uploader name on quotation cards |
-
----
-
-## Status: ✅ READY FOR PRODUCTION
-
----
-
-# Original Plan (Reference)
-
-## Section 1: Complete RLS Gaps (Servers + Licenses UPDATE/DELETE)
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (network_id IS NOT NULL AND can_access_network(network_id))
-  )
-);
-```
-
-### 1.2 Licenses - Add UPDATE and DELETE Policies
+### Phase 1: Database Migration
 
 **SQL to Apply:**
-```sql
--- Create UPDATE policy with NULL protection
-CREATE POLICY "licenses_update_v2" ON licenses FOR UPDATE
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin()
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-  )
-)
-WITH CHECK (
-  auth.uid() IS NOT NULL AND (
-    is_admin()
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-  )
-);
-
--- Create DELETE policy with NULL protection
-CREATE POLICY "licenses_delete_v2" ON licenses FOR DELETE
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin()
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-  )
-);
-```
-
----
-
-## Section 2: Tighten Sensitive Tables (Domain-Scoped Access)
-
-### 2.1 website_applications - Domain-Scoped Access
-
-The table has `domain_id` column (nullable). Enforce domain-scoped access:
-
-**SQL to Apply:**
-```sql
--- Drop current authenticated-only policy
-DROP POLICY IF EXISTS "website_applications_select_v2" ON website_applications;
-
--- Create domain-scoped policy
-CREATE POLICY "website_applications_select_v3" ON website_applications FOR SELECT
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-    OR (domain_id IS NULL AND is_active = true)  -- NULL domain_id treated as public if active
-  )
-);
-
--- Add UPDATE policy (domain-scoped)
-CREATE POLICY "website_applications_update_v2" ON website_applications FOR UPDATE
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (domain_id IS NOT NULL AND can_edit_domain(domain_id))
-  )
-)
-WITH CHECK (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (domain_id IS NOT NULL AND can_edit_domain(domain_id))
-  )
-);
-
--- Add DELETE policy (admin-only)
-CREATE POLICY "website_applications_delete_v2" ON website_applications FOR DELETE
-USING (
-  auth.uid() IS NOT NULL AND is_admin()
-);
-```
-
-### 2.2 on_call_schedules + on_call_assignments - Domain-Scoped
-
-Both tables have `domain_id`. Enforce domain scoping:
-
-**SQL to Apply:**
-```sql
--- Drop current authenticated-only policies
-DROP POLICY IF EXISTS "on_call_schedules_select_v2" ON on_call_schedules;
-DROP POLICY IF EXISTS "on_call_assignments_select_v2" ON on_call_assignments;
-
--- Create domain-scoped SELECT for on_call_schedules
-CREATE POLICY "on_call_schedules_select_v3" ON on_call_schedules FOR SELECT
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-    OR domain_id IS NULL  -- Global schedules visible to all authenticated
-  )
-);
-
--- Create domain-scoped SELECT for on_call_assignments (via schedule)
-CREATE POLICY "on_call_assignments_select_v3" ON on_call_assignments FOR SELECT
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin()
-    OR EXISTS (
-      SELECT 1 FROM on_call_schedules s 
-      WHERE s.id = on_call_assignments.schedule_id 
-      AND (s.domain_id IS NULL OR can_access_domain(s.domain_id))
-    )
-    OR profile_id = get_my_profile_id()  -- Users can always see their own assignments
-  )
-);
-```
-
----
-
-## Section 3: Audit Logs - Trigger-Based Validation
-
-### 3.1 audit_logs - BEFORE INSERT Trigger
-
-**SQL to Apply:**
-```sql
--- Create validation trigger function
-CREATE OR REPLACE FUNCTION validate_audit_log_insert()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  -- Force user_id to be the current user's profile ID
-  NEW.user_id := get_my_profile_id();
-  RETURN NEW;
-END;
-$$;
-
--- Create trigger
-DROP TRIGGER IF EXISTS audit_log_insert_validator ON audit_logs;
-CREATE TRIGGER audit_log_insert_validator
-BEFORE INSERT ON audit_logs
-FOR EACH ROW EXECUTE FUNCTION validate_audit_log_insert();
-```
-
-### 3.2 vault_audit_logs - BEFORE INSERT Trigger
-
-**SQL to Apply:**
-```sql
--- Create validation trigger function
-CREATE OR REPLACE FUNCTION validate_vault_audit_log_insert()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  -- Force user_id to be the current user's profile ID
-  NEW.user_id := get_my_profile_id();
-  RETURN NEW;
-END;
-$$;
-
--- Create trigger
-DROP TRIGGER IF EXISTS vault_audit_log_insert_validator ON vault_audit_logs;
-CREATE TRIGGER vault_audit_log_insert_validator
-BEFORE INSERT ON vault_audit_logs
-FOR EACH ROW EXECUTE FUNCTION validate_vault_audit_log_insert();
-```
-
----
-
-## Section 4: Employee-Reports Storage Access Model
-
-**Current State:** Admin-only access is implemented (employee_reports_admin_select/insert/delete)
-
-**Confirmation:** The current admin-only model is correct for the intended UX:
-- Employee Reports page is admin-only (`adminOnly: true` in sidebar)
-- Reports are uploaded BY admins FOR employees
-- Employees don't need direct storage access
-
-**No changes needed** - current model is correct. The UI already restricts the page to admins.
-
----
-
-## Section 5: Network Scan - Remove Auto-Discovery Fallback
-
-### 5.1 Modify discoverSubnets() to Not Auto-Populate
-
-**File:** `src/pages/NetworkScan.tsx`
-
-**Change the `discoverSubnets()` function to:**
-- Use ONLY networks table subnets
-- If no networks defined, show empty list (not fallback subnets)
-- Require user to add subnets manually
-
-**Code Change:**
-```typescript
-const discoverSubnets = async () => {
-  const { data: agents } = await supabase
-    .from('scan_agents')
-    .select('*')
-    .eq('status', 'online')
-    .eq('domain_id', selectedDomainId)
-    .limit(1);
-  
-  if (agents?.length) {
-    toast({
-      title: t('scan.discoverSubnets'),
-      description: language === 'ar' 
-        ? 'الوكيل سيقوم باكتشاف الشبكات الفرعية'
-        : 'Agent will discover available subnets',
-    });
-    // Future: Create discovery job for agent
-  }
-  
-  // Use ONLY networks table - no fallback to default subnets
-  const domainNetworks = filteredNetworks
-    ?.filter(n => n.subnet)
-    .map(n => n.subnet!) || [];
-  
-  setDiscoveredSubnets(domainNetworks);
-  
-  if (domainNetworks.length > 0) {
-    toast({
-      title: t('scan.savedNetworks') || (language === 'ar' ? 'الشبكات المحفوظة' : 'Saved Networks'),
-      description: language === 'ar'
-        ? `تم العثور على ${domainNetworks.length} شبكة`
-        : `Found ${domainNetworks.length} networks from saved data`,
-    });
-  } else {
-    // No fallback - inform user to add subnets manually
-    toast({
-      title: language === 'ar' ? 'لا توجد شبكات محفوظة' : 'No Saved Networks',
-      description: language === 'ar'
-        ? 'أضف شبكات من صفحة الشبكات أو أدخلها يدوياً'
-        : 'Add networks from the Networks page or enter them manually',
-      variant: 'default',
-    });
-  }
-};
-```
-
----
-
-## Section 6: Translation Correction
-
-### 6.1 Change nav.systemHealth Arabic Translation
-
-**File:** `src/contexts/LanguageContext.tsx`
-
-**Current (line 99):**
-```javascript
-'nav.systemHealth': 'صحة النظام',
-```
-
-**Change to:**
-```javascript
-'nav.systemHealth': 'فحص صحة النظام',
-```
-
----
-
-## Section 7: SMTP Test Email - Air-Gapped Limitations
-
-### 7.1 Documentation of Limitations
-
-**Current Implementation:** The `send-test-email` edge function attempts real SMTP connections.
-
-**Air-Gapped Limitation:** 
-- Edge functions run in Deno Deploy (cloud runtime)
-- They cannot reach internal SMTP servers in air-gapped networks
-- The test will fail with connection timeout/unreachable errors
-
-**Recommended Actions:**
-1. Keep `test-connection` edge function as validation-only
-2. Add UI warning label explaining this limitation
-3. Future: When agent support is added, route SMTP tests through the agent
-
-**UI Enhancement (optional):**
-Add a note in the Mail Settings UI:
-```
-"Note: Real send tests require the SMTP server to be reachable from the cloud.
-For internal/air-gapped SMTP servers, the test may fail even with correct settings."
-```
-
----
-
-## Section 8: Quotation Uploader Name Display
-
-### 8.1 Add Uploader Name to Quotation Cards
-
-**File:** `src/pages/ProcurementDetail.tsx`
-
-The hook already fetches `profiles(full_name)` for quotations. Add display in the quotation card.
-
-**Location:** Around line 397-400, after vendor name display
-
-**Add:**
-```jsx
-{q.profiles?.full_name && (
-  <div className="text-sm text-muted-foreground">
-    {t('procurement.uploadedBy')}: {q.profiles.full_name}
-  </div>
-)}
-```
-
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| New Migration SQL | All RLS policy updates + triggers |
-| `src/contexts/LanguageContext.tsx` | Change nav.systemHealth Arabic translation |
-| `src/pages/NetworkScan.tsx` | Remove fallback subnet discovery |
-| `src/pages/ProcurementDetail.tsx` | Add uploader name display |
-
----
-
-## Complete SQL Migration
 
 ```sql
 -- ============================================
--- FINAL CORRECTIONS MIGRATION
--- Addresses remaining RLS gaps and triggers
+-- VAULT PRIVACY HARDENED MIGRATION
+-- Phase 1: Create secrets table, migrate data, add RLS
+-- DOES NOT DROP COLUMNS - Migration verification required first
 -- ============================================
 
--- 1.1: Servers UPDATE/DELETE policies
-DROP POLICY IF EXISTS "Users can update servers in their networks" ON servers;
-
-CREATE POLICY "servers_update_v2" ON servers FOR UPDATE
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (network_id IS NOT NULL AND can_access_network(network_id))
-  )
-)
-WITH CHECK (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (network_id IS NOT NULL AND can_access_network(network_id))
-  )
+-- 1. Create vault_item_secrets table with TEXT columns for hex storage
+CREATE TABLE IF NOT EXISTS vault_item_secrets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vault_item_id UUID NOT NULL REFERENCES vault_items(id) ON DELETE CASCADE,
+  password_encrypted TEXT,
+  password_iv TEXT,
+  username_encrypted TEXT,
+  username_iv TEXT,
+  notes_encrypted TEXT,
+  notes_iv TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(vault_item_id)
 );
 
-CREATE POLICY "servers_delete_v2" ON servers FOR DELETE
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (network_id IS NOT NULL AND can_access_network(network_id))
-  )
-);
+ALTER TABLE vault_item_secrets ENABLE ROW LEVEL SECURITY;
 
--- 1.2: Licenses UPDATE/DELETE policies
-CREATE POLICY "licenses_update_v2" ON licenses FOR UPDATE
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin()
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-  )
-)
-WITH CHECK (
-  auth.uid() IS NOT NULL AND (
-    is_admin()
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-  )
-);
+CREATE TRIGGER vault_item_secrets_updated_at
+BEFORE UPDATE ON vault_item_secrets
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE POLICY "licenses_delete_v2" ON licenses FOR DELETE
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin()
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-  )
-);
+CREATE INDEX IF NOT EXISTS idx_vault_item_secrets_item ON vault_item_secrets(vault_item_id);
 
--- 2.1: website_applications domain-scoped
-DROP POLICY IF EXISTS "website_applications_select_v2" ON website_applications;
+-- 2. Migrate existing password data (BYTEA -> hex TEXT)
+INSERT INTO vault_item_secrets (vault_item_id, password_encrypted, password_iv)
+SELECT 
+  id,
+  encode(password_encrypted, 'hex') as password_encrypted,
+  encode(password_iv, 'hex') as password_iv
+FROM vault_items
+WHERE password_encrypted IS NOT NULL
+ON CONFLICT (vault_item_id) DO UPDATE SET
+  password_encrypted = EXCLUDED.password_encrypted,
+  password_iv = EXCLUDED.password_iv;
 
-CREATE POLICY "website_applications_select_v3" ON website_applications FOR SELECT
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-    OR (domain_id IS NULL AND is_active = true)
-  )
-);
+-- 3. Add permission columns to vault_permissions
+ALTER TABLE vault_permissions 
+ADD COLUMN IF NOT EXISTS permission_level TEXT 
+  CHECK (permission_level IN ('view_metadata', 'view_secret')) 
+  DEFAULT 'view_metadata';
 
-CREATE POLICY "website_applications_update_v2" ON website_applications FOR UPDATE
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (domain_id IS NOT NULL AND can_edit_domain(domain_id))
-  )
-)
-WITH CHECK (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (domain_id IS NOT NULL AND can_edit_domain(domain_id))
-  )
-);
+ALTER TABLE vault_permissions 
+ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ DEFAULT NULL;
 
-CREATE POLICY "website_applications_delete_v2" ON website_applications FOR DELETE
-USING (auth.uid() IS NOT NULL AND is_admin());
+CREATE INDEX IF NOT EXISTS idx_vault_permissions_active 
+ON vault_permissions (vault_item_id, profile_id) 
+WHERE revoked_at IS NULL;
 
--- 2.2: on_call_schedules domain-scoped
-DROP POLICY IF EXISTS "on_call_schedules_select_v2" ON on_call_schedules;
+UPDATE vault_permissions
+SET permission_level = CASE 
+  WHEN can_reveal = true THEN 'view_secret'
+  ELSE 'view_metadata'
+END
+WHERE permission_level IS NULL OR permission_level = 'view_metadata';
 
-CREATE POLICY "on_call_schedules_select_v3" ON on_call_schedules FOR SELECT
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
-    OR domain_id IS NULL
-  )
-);
-
--- 2.3: on_call_assignments domain-scoped via schedule
-DROP POLICY IF EXISTS "on_call_assignments_select_v2" ON on_call_assignments;
-
-CREATE POLICY "on_call_assignments_select_v3" ON on_call_assignments FOR SELECT
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin()
-    OR profile_id = get_my_profile_id()
-    OR EXISTS (
-      SELECT 1 FROM on_call_schedules s 
-      WHERE s.id = on_call_assignments.schedule_id 
-      AND (s.domain_id IS NULL OR can_access_domain(s.domain_id))
-    )
-  )
-);
-
--- 3.1: audit_logs trigger
-CREATE OR REPLACE FUNCTION validate_audit_log_insert()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
+-- 4. Ownership enforcement triggers
+CREATE OR REPLACE FUNCTION force_vault_item_owner()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  NEW.user_id := get_my_profile_id();
+  NEW.owner_id := get_my_profile_id();
+  NEW.created_by := get_my_profile_id();
   RETURN NEW;
 END;
 $$;
 
-DROP TRIGGER IF EXISTS audit_log_insert_validator ON audit_logs;
-CREATE TRIGGER audit_log_insert_validator
-BEFORE INSERT ON audit_logs
-FOR EACH ROW EXECUTE FUNCTION validate_audit_log_insert();
+DROP TRIGGER IF EXISTS vault_item_set_owner ON vault_items;
+CREATE TRIGGER vault_item_set_owner
+BEFORE INSERT ON vault_items
+FOR EACH ROW EXECUTE FUNCTION force_vault_item_owner();
 
--- 3.2: vault_audit_logs trigger
-CREATE OR REPLACE FUNCTION validate_vault_audit_log_insert()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
+CREATE OR REPLACE FUNCTION prevent_vault_owner_change()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  NEW.user_id := get_my_profile_id();
+  IF NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
+    RAISE EXCEPTION 'Cannot change vault item owner';
+  END IF;
   RETURN NEW;
 END;
 $$;
 
-DROP TRIGGER IF EXISTS vault_audit_log_insert_validator ON vault_audit_logs;
-CREATE TRIGGER vault_audit_log_insert_validator
-BEFORE INSERT ON vault_audit_logs
-FOR EACH ROW EXECUTE FUNCTION validate_vault_audit_log_insert();
+DROP TRIGGER IF EXISTS vault_item_prevent_owner_change ON vault_items;
+CREATE TRIGGER vault_item_prevent_owner_change
+BEFORE UPDATE ON vault_items
+FOR EACH ROW EXECUTE FUNCTION prevent_vault_owner_change();
+
+-- 5. RLS for vault_item_secrets (Owner OR view_secret only)
+CREATE POLICY "vault_secrets_select_owner" ON vault_item_secrets FOR SELECT
+USING (auth.uid() IS NOT NULL AND EXISTS (
+  SELECT 1 FROM vault_items vi WHERE vi.id = vault_item_secrets.vault_item_id 
+  AND vi.owner_id = get_my_profile_id()
+));
+
+CREATE POLICY "vault_secrets_select_shared" ON vault_item_secrets FOR SELECT
+USING (auth.uid() IS NOT NULL AND EXISTS (
+  SELECT 1 FROM vault_permissions vp
+  WHERE vp.vault_item_id = vault_item_secrets.vault_item_id
+  AND vp.profile_id = get_my_profile_id()
+  AND vp.permission_level = 'view_secret'
+  AND vp.revoked_at IS NULL
+));
+
+CREATE POLICY "vault_secrets_insert_owner" ON vault_item_secrets FOR INSERT
+WITH CHECK (auth.uid() IS NOT NULL AND EXISTS (
+  SELECT 1 FROM vault_items vi WHERE vi.id = vault_item_secrets.vault_item_id 
+  AND vi.owner_id = get_my_profile_id()
+));
+
+CREATE POLICY "vault_secrets_update_owner" ON vault_item_secrets FOR UPDATE
+USING (auth.uid() IS NOT NULL AND EXISTS (
+  SELECT 1 FROM vault_items vi WHERE vi.id = vault_item_secrets.vault_item_id 
+  AND vi.owner_id = get_my_profile_id()
+))
+WITH CHECK (auth.uid() IS NOT NULL AND EXISTS (
+  SELECT 1 FROM vault_items vi WHERE vi.id = vault_item_secrets.vault_item_id 
+  AND vi.owner_id = get_my_profile_id()
+));
+
+CREATE POLICY "vault_secrets_delete_owner" ON vault_item_secrets FOR DELETE
+USING (auth.uid() IS NOT NULL AND EXISTS (
+  SELECT 1 FROM vault_items vi WHERE vi.id = vault_item_secrets.vault_item_id 
+  AND vi.owner_id = get_my_profile_id()
+));
+
+-- 6. REPLACE vault_items RLS (Remove admin policies)
+DROP POLICY IF EXISTS "Admins can do all on vault_items" ON vault_items;
+DROP POLICY IF EXISTS "Owners can manage their vault items" ON vault_items;
+DROP POLICY IF EXISTS "Users with view permission can see vault items" ON vault_items;
+
+CREATE POLICY "vault_items_select_owner" ON vault_items FOR SELECT
+USING (auth.uid() IS NOT NULL AND owner_id = get_my_profile_id());
+
+CREATE POLICY "vault_items_select_shared" ON vault_items FOR SELECT
+USING (auth.uid() IS NOT NULL AND EXISTS (
+  SELECT 1 FROM vault_permissions vp
+  WHERE vp.vault_item_id = vault_items.id
+  AND vp.profile_id = get_my_profile_id()
+  AND vp.revoked_at IS NULL
+));
+
+CREATE POLICY "vault_items_insert_owner" ON vault_items FOR INSERT
+WITH CHECK (auth.uid() IS NOT NULL AND (owner_id IS NULL OR owner_id = get_my_profile_id()));
+
+CREATE POLICY "vault_items_update_owner" ON vault_items FOR UPDATE
+USING (auth.uid() IS NOT NULL AND owner_id = get_my_profile_id())
+WITH CHECK (auth.uid() IS NOT NULL AND owner_id = get_my_profile_id());
+
+CREATE POLICY "vault_items_delete_owner" ON vault_items FOR DELETE
+USING (auth.uid() IS NOT NULL AND owner_id = get_my_profile_id());
+
+-- 7. REPLACE vault_permissions RLS (Owner-only control)
+DROP POLICY IF EXISTS "Admins can manage vault permissions" ON vault_permissions;
+DROP POLICY IF EXISTS "Owners can manage permissions for their items" ON vault_permissions;
+DROP POLICY IF EXISTS "Users can view their permissions" ON vault_permissions;
+
+CREATE POLICY "vault_permissions_owner_select" ON vault_permissions FOR SELECT
+USING (auth.uid() IS NOT NULL AND owns_vault_item(vault_item_id));
+
+CREATE POLICY "vault_permissions_grantee_select" ON vault_permissions FOR SELECT
+USING (auth.uid() IS NOT NULL AND profile_id = get_my_profile_id() AND revoked_at IS NULL);
+
+CREATE POLICY "vault_permissions_owner_insert" ON vault_permissions FOR INSERT
+WITH CHECK (auth.uid() IS NOT NULL AND owns_vault_item(vault_item_id));
+
+CREATE POLICY "vault_permissions_owner_update" ON vault_permissions FOR UPDATE
+USING (auth.uid() IS NOT NULL AND owns_vault_item(vault_item_id))
+WITH CHECK (auth.uid() IS NOT NULL AND owns_vault_item(vault_item_id));
+
+CREATE POLICY "vault_permissions_owner_delete" ON vault_permissions FOR DELETE
+USING (auth.uid() IS NOT NULL AND owns_vault_item(vault_item_id));
+
+-- 8. REPLACE vault_audit_logs RLS (Owner-only, NO admin)
+DROP POLICY IF EXISTS "Admins can view vault audit logs" ON vault_audit_logs;
+
+CREATE POLICY "vault_audit_logs_owner_only" ON vault_audit_logs FOR SELECT
+USING (auth.uid() IS NOT NULL AND (
+  vault_item_id IN (SELECT id FROM vault_items WHERE owner_id = get_my_profile_id())
+  OR user_id = get_my_profile_id()
+));
 ```
+
+---
+
+### Phase 2: Edge Functions
+
+#### 2.1 vault-encrypt (Multi-Field Encryption)
+
+**File:** `supabase/functions/vault-encrypt/index.ts`
+
+Key changes:
+- Accept `password`, `username`, `notes` fields
+- Encrypt each field with separate IV using AES-256-GCM
+- Return all encrypted values as hex TEXT strings
+
+#### 2.2 vault-decrypt (Strict Hex Parsing, No Admin Override)
+
+**File:** `supabase/functions/vault-decrypt/index.ts`
+
+Key changes:
+- **Remove admin override completely** (delete `isAdmin` check)
+- Query `vault_item_secrets` instead of `vault_items`
+- Use strict hex-to-bytes parsing (not base64)
+- Support `field` parameter (password/username/notes)
+- Return 403 on no-permission without leaking existence details
+
+#### 2.3 vault-migrate-secrets (One-Time Migration)
+
+**New File:** `supabase/functions/vault-migrate-secrets/index.ts`
+
+Purpose: Encrypt existing plaintext `username`/`notes` from `vault_items` to `vault_item_secrets`
+
+---
+
+### Phase 3: Frontend Updates
+
+#### 3.1 useVaultData.ts Hook Updates
+
+- Add `useVaultSharedWithMe()` query
+- Add `useMyShares()` query
+- Update `createItem` to insert into both tables
+- Update `updateItem` to handle secrets table
+- Add `shareItem` and `revokeShare` mutations
+- Update `revealPassword` to support field parameter
+
+#### 3.2 Vault.tsx Page Updates
+
+- Add view mode tabs: "My Vault" / "Shared by Me" / "Shared with Me"
+- Remove all `isAdmin` checks for canEditItem/canRevealItem
+- Owner-only determines edit/share/delete capabilities
+
+#### 3.3 New VaultShareDialog Component
+
+- Employee dropdown (profiles in same domain)
+- Permission level selector (view_metadata / view_secret)
+- Current shares list with revoke buttons
+- Audit logging on share/revoke
+
+#### 3.4 VaultItemCard Updates
+
+- Add Share button (owner-only)
+- Update reveal logic to check permission_level
+
+#### 3.5 Translations
+
+Arabic and English keys for:
+- `vault.myVault`, `vault.sharedByMe`, `vault.sharedWithMe`
+- `vault.share`, `vault.shareWith`, `vault.selectEmployee`
+- `vault.permissionLevel`, `vault.viewMetadataOnly`, `vault.viewSecret`
+- `vault.revokeAccess`, `vault.noShares`, `vault.currentShares`
+- `vault.shareCreated`, `vault.shareRevoked`, `vault.cannotShareWithSelf`
+
+---
+
+## Guardrails Compliance
+
+| Guardrail | Implementation |
+|-----------|----------------|
+| 1. DO NOT drop columns until migration verified | Migration SQL does NOT include DROP COLUMN. Separate Phase 3 SQL will be provided after verification |
+| 2. vault-decrypt uses strict hex parsing | `hexToBytes()` function validates hex format, no base64 anywhere |
+| 3. Return 403 without leaking existence | Single "No permission" response for all denial cases |
+
+---
+
+## Migration Verification Query (Run After Phase 2)
+
+```sql
+SELECT 
+  'Password migration' as check_type,
+  (SELECT COUNT(*) FROM vault_items WHERE password_encrypted IS NOT NULL) as source_count,
+  (SELECT COUNT(*) FROM vault_item_secrets WHERE password_encrypted IS NOT NULL) as migrated_count,
+  CASE WHEN (SELECT COUNT(*) FROM vault_items WHERE password_encrypted IS NOT NULL) = 
+       (SELECT COUNT(*) FROM vault_item_secrets WHERE password_encrypted IS NOT NULL) 
+  THEN 'PASS' ELSE 'FAIL' END as status
+UNION ALL
+SELECT 
+  'Username migration' as check_type,
+  (SELECT COUNT(*) FROM vault_items WHERE username IS NOT NULL) as source_count,
+  (SELECT COUNT(*) FROM vault_item_secrets WHERE username_encrypted IS NOT NULL) as migrated_count,
+  CASE WHEN (SELECT COUNT(*) FROM vault_items WHERE username IS NOT NULL) = 
+       (SELECT COUNT(*) FROM vault_item_secrets WHERE username_encrypted IS NOT NULL) 
+  THEN 'PASS' ELSE 'FAIL' END as status
+UNION ALL
+SELECT 
+  'Notes migration' as check_type,
+  (SELECT COUNT(*) FROM vault_items WHERE notes IS NOT NULL) as source_count,
+  (SELECT COUNT(*) FROM vault_item_secrets WHERE notes_encrypted IS NOT NULL) as migrated_count,
+  CASE WHEN (SELECT COUNT(*) FROM vault_items WHERE notes IS NOT NULL) = 
+       (SELECT COUNT(*) FROM vault_item_secrets WHERE notes_encrypted IS NOT NULL) 
+  THEN 'PASS' ELSE 'FAIL' END as status;
+```
+
+---
+
+## Phase 3 SQL (ONLY after verification passes)
+
+```sql
+-- DROP sensitive columns from vault_items (metadata-only table)
+-- RUN ONLY AFTER vault-migrate-secrets completes AND verification query passes
+ALTER TABLE vault_items DROP COLUMN IF EXISTS password_encrypted;
+ALTER TABLE vault_items DROP COLUMN IF EXISTS password_iv;
+ALTER TABLE vault_items DROP COLUMN IF EXISTS username;
+ALTER TABLE vault_items DROP COLUMN IF EXISTS notes;
+```
+
+---
+
+## RLS Policy Matrix (Final State)
+
+### vault_items
+
+| Operation | Policy | Access |
+|-----------|--------|--------|
+| SELECT | vault_items_select_owner | owner_id = current_user |
+| SELECT | vault_items_select_shared | Has active vault_permission |
+| INSERT | vault_items_insert_owner | owner_id IS NULL OR = current_user |
+| UPDATE | vault_items_update_owner | owner_id = current_user |
+| DELETE | vault_items_delete_owner | owner_id = current_user |
+
+### vault_item_secrets
+
+| Operation | Policy | Access |
+|-----------|--------|--------|
+| SELECT | vault_secrets_select_owner | Item owner |
+| SELECT | vault_secrets_select_shared | permission_level = 'view_secret' |
+| INSERT | vault_secrets_insert_owner | Item owner |
+| UPDATE | vault_secrets_update_owner | Item owner (WITH CHECK prevents vault_item_id change) |
+| DELETE | vault_secrets_delete_owner | Item owner |
+
+### vault_permissions
+
+| Operation | Policy | Access |
+|-----------|--------|--------|
+| SELECT | vault_permissions_owner_select | Item owner |
+| SELECT | vault_permissions_grantee_select | Grantee (active only) |
+| INSERT | vault_permissions_owner_insert | Item owner |
+| UPDATE | vault_permissions_owner_update | Item owner |
+| DELETE | vault_permissions_owner_delete | Item owner |
+
+### vault_audit_logs
+
+| Operation | Policy | Access |
+|-----------|--------|--------|
+| SELECT | vault_audit_logs_owner_only | Item owner OR own actions |
+| INSERT | (existing) | Forces user_id to current user |
+
+---
+
+## Files to Modify/Create
+
+| File | Action | Changes |
+|------|--------|---------|
+| `supabase/migrations/XXX_vault_privacy.sql` | CREATE | Full schema + RLS migration |
+| `supabase/functions/vault-encrypt/index.ts` | MODIFY | Multi-field encryption |
+| `supabase/functions/vault-decrypt/index.ts` | MODIFY | Remove admin, query secrets table, strict hex |
+| `supabase/functions/vault-migrate-secrets/index.ts` | CREATE | One-time username/notes encryption |
+| `src/hooks/useVaultData.ts` | MODIFY | Two-table architecture, share mutations |
+| `src/pages/Vault.tsx` | MODIFY | View mode tabs, remove isAdmin |
+| `src/components/vault/VaultItemCard.tsx` | MODIFY | Add share button, owner-only logic |
+| `src/components/vault/VaultShareDialog.tsx` | CREATE | Share dialog component |
+| `src/contexts/LanguageContext.tsx` | MODIFY | Add sharing translations |
 
 ---
 
@@ -552,41 +399,33 @@ FOR EACH ROW EXECUTE FUNCTION validate_vault_audit_log_insert();
 
 | # | Scenario | Steps | Expected | Status |
 |---|----------|-------|----------|--------|
-| 1 | Employee cannot see NULL network_id servers | Login as employee, query servers | No NULL network rows visible | PENDING |
-| 2 | Employee cannot UPDATE servers outside network | Attempt update | RLS blocks | PENDING |
-| 3 | Employee cannot DELETE servers | Attempt delete | RLS blocks | PENDING |
-| 4 | Licenses NULL domain_id admin-only | Login as employee, query | No NULL domain rows | PENDING |
-| 5 | website_applications domain-scoped | Employee queries | Only domain-assigned apps visible | PENDING |
-| 6 | on_call_schedules domain-scoped | Employee queries | Only domain schedules visible | PENDING |
-| 7 | on_call_assignments user can see own | Employee queries | Own assignments visible | PENDING |
-| 8 | Audit log insert forced to current user | Insert with fake user_id | Trigger overrides to actual user | PENDING |
-| 9 | Network scan no fallback subnets | Advanced mode with no networks | Empty list, manual add only | PENDING |
-| 10 | nav.systemHealth shows correct Arabic | Switch to Arabic | Shows "فحص صحة النظام" | PENDING |
-| 11 | Quotation shows uploader name | View quotation detail | Shows profile name | PENDING |
+| 1 | Password migration count | Run verification query | source = migrated | PENDING |
+| 2 | Username migration count | Run vault-migrate-secrets, verify | 5 migrated | PENDING |
+| 3 | Create item end-to-end | Create with password/username/notes | All encrypted in secrets table | PENDING |
+| 4 | Update item end-to-end | Update username | New encrypted value saved | PENDING |
+| 5 | Reveal password (owner) | Owner calls vault-decrypt field=password | Password returned | PENDING |
+| 6 | Reveal username (owner) | Owner calls vault-decrypt field=username | Username returned | PENDING |
+| 7 | view_metadata blocked from secrets | User B (view_metadata) queries vault_item_secrets | Empty result (RLS blocks) | PENDING |
+| 8 | view_metadata can see metadata | User B queries vault_items | Sees title, type, url only | PENDING |
+| 9 | view_secret can decrypt | User B calls vault-decrypt | Values returned | PENDING |
+| 10 | super_admin cannot list others | super_admin queries vault_items | Only own items | PENDING |
+| 11 | super_admin cannot decrypt others | super_admin calls vault-decrypt on A's item | 403 Forbidden | PENDING |
+| 12 | Audit logs owner-only | super_admin queries vault_audit_logs | Only own actions | PENDING |
+| 13 | Column types are TEXT | Check vault_item_secrets columns | All TEXT, not BYTEA | PENDING |
+| 14 | Cannot change owner_id | Attempt UPDATE on owner_id | Trigger throws exception | PENDING |
 
 ---
 
-## Manual Steps Required
+## Implementation Order
 
-1. **Enable Leaked Password Protection:**
-   - Lovable Cloud Backend Settings → Auth → Security
-   - Toggle "Leaked Password Protection" ON
+1. Apply Phase 1 database migration
+2. Deploy vault-encrypt (multi-field)
+3. Deploy vault-decrypt (no admin, strict hex, query secrets)
+4. Deploy vault-migrate-secrets
+5. Run vault-migrate-secrets to encrypt existing usernames
+6. Run verification query
+7. Update frontend (hooks, Vault.tsx, VaultShareDialog, translations)
+8. Manual UI test: create/reveal password+username+notes
+9. After all tests pass: Apply Phase 3 SQL to drop old columns
+10. Generate final PASS/FAIL report
 
-2. **Add SMTP limitation note to UI** (optional enhancement):
-   - Add info tooltip in Mail Settings explaining cloud runtime limitations
-
----
-
-## Technical Notes
-
-### Air-Gapped SMTP Limitation
-The `send-test-email` edge function runs in Deno Deploy cloud runtime. It cannot reach internal SMTP servers in air-gapped environments. For production use in such environments:
-- Use the validation-only approach (test-connection) 
-- Future: Route SMTP tests through on-premise agents
-
-### Employee-Reports Storage Model
-Current admin-only model is correct:
-- Bucket is private
-- Only admins can upload/download
-- Employees view reports through the admin-controlled UI
-- No cross-domain access possible (admin sees all, but uploads are domain-tagged in DB)
