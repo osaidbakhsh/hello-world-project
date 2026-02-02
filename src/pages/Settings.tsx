@@ -216,8 +216,28 @@ const Settings: React.FC = () => {
     setIsTestingMail(true);
     setMailTestResult(null);
     try {
+      // First save/upsert the config to get a config_id
+      const { data: config, error: saveError } = await supabase
+        .from('mail_configs')
+        .upsert({
+          domain_id: selectedDomainId,
+          name: 'Default Mail Config',
+          smtp_host: mailSettings.smtp_host || 'smtp.example.com',
+          smtp_port: parseInt(mailSettings.smtp_port) || 587,
+          use_tls: mailSettings.smtp_encryption === 'tls',
+          from_email: mailSettings.smtp_from_email,
+          from_name: mailSettings.smtp_from_name,
+          smtp_username: mailSettings.smtp_user,
+          is_active: mailSettings.smtp_enabled,
+        }, { onConflict: 'domain_id' })
+        .select()
+        .single();
+      
+      if (saveError) throw saveError;
+      
+      // Now test with config_id
       const response = await supabase.functions.invoke('test-connection', {
-        body: { domain_id: selectedDomainId, module: 'mail' }
+        body: { domain_id: selectedDomainId, module: 'mail', config_id: config.id }
       });
       setMailTestResult(response.data || { success: false, status: 'fail', message: 'No response' });
     } catch (error: any) {
@@ -235,8 +255,26 @@ const Settings: React.FC = () => {
     setIsTestingLdap(true);
     setLdapTestResult(null);
     try {
+      // Save config first
+      const { data: config, error: saveError } = await supabase
+        .from('ldap_configs')
+        .upsert({
+          domain_id: selectedDomainId,
+          name: 'Default LDAP Config',
+          host: ldapSettings.ldap_host || 'ldap.example.com',
+          port: parseInt(ldapSettings.ldap_port) || 389,
+          base_dn: ldapSettings.ldap_base_dn,
+          bind_dn: ldapSettings.ldap_bind_dn,
+          use_tls: ldapSettings.ldap_use_ssl,
+          is_active: ldapSettings.ldap_enabled,
+        }, { onConflict: 'domain_id' })
+        .select()
+        .single();
+      
+      if (saveError) throw saveError;
+      
       const response = await supabase.functions.invoke('test-connection', {
-        body: { domain_id: selectedDomainId, module: 'ldap' }
+        body: { domain_id: selectedDomainId, module: 'ldap', config_id: config.id }
       });
       setLdapTestResult(response.data || { success: false, status: 'fail', message: 'No response' });
     } catch (error: any) {
@@ -254,8 +292,23 @@ const Settings: React.FC = () => {
     setIsTestingNtp(true);
     setNtpTestResult(null);
     try {
+      // Save config first
+      const { data: config, error: saveError } = await supabase
+        .from('ntp_configs')
+        .upsert({
+          domain_id: selectedDomainId,
+          name: 'Default NTP Config',
+          servers: [ntpSettings.ntp_server_primary, ntpSettings.ntp_server_secondary].filter(Boolean),
+          sync_interval_seconds: parseInt(ntpSettings.ntp_sync_interval) || 3600,
+          is_active: ntpSettings.ntp_enabled,
+        }, { onConflict: 'domain_id' })
+        .select()
+        .single();
+      
+      if (saveError) throw saveError;
+      
       const response = await supabase.functions.invoke('test-connection', {
-        body: { domain_id: selectedDomainId, module: 'ntp' }
+        body: { domain_id: selectedDomainId, module: 'ntp', config_id: config.id }
       });
       setNtpTestResult(response.data || { success: false, status: 'fail', message: 'No response' });
     } catch (error: any) {

@@ -117,11 +117,20 @@ const EmployeeReports: React.FC = () => {
     }
 
     try {
+      // Upload file to storage
+      const filePath = `${formData.profile_id}/${Date.now()}_${selectedFile.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('employee-reports')
+        .upload(filePath, selectedFile);
+      
+      if (uploadError) throw uploadError;
+
       const reportData = {
         profile_id: formData.profile_id,
         report_date: formData.report_date,
         report_type: formData.report_type,
         file_name: selectedFile.name,
+        file_url: filePath, // Store path for download
         notes: formData.notes || null,
         uploaded_by: profile?.id,
       };
@@ -134,6 +143,35 @@ const EmployeeReports: React.FC = () => {
       resetForm();
       setIsDialogOpen(false);
       refetch();
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDownload = async (report: any) => {
+    if (!report.file_url) {
+      toast({ title: t('common.error'), description: t('employeeReports.noFile'), variant: 'destructive' });
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase.storage
+        .from('employee-reports')
+        .download(report.file_url);
+      
+      if (error) throw error;
+      
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = report.file_name || 'report.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (error: any) {
       toast({
         title: t('common.error'),
@@ -383,14 +421,25 @@ const EmployeeReports: React.FC = () => {
                     </TableCell>
                     {isAdmin && (
                       <TableCell>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-destructive h-8 w-8"
-                          onClick={() => handleDelete(report.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => handleDownload(report)}
+                            disabled={!report.file_url}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-destructive h-8 w-8"
+                            onClick={() => handleDelete(report.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>

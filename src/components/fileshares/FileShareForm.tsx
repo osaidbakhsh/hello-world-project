@@ -26,7 +26,7 @@ const FileShareForm: React.FC<FileShareFormProps> = ({ editId, onSuccess, onCanc
   const { data: existingShare, isLoading: isLoadingShare } = useFileShare(editId || '');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState<FileShareFormData>({
+  const [formData, setFormData] = useState<FileShareFormData & { smb_username?: string; smb_password?: string }>({
     domain_id: '',
     name: '',
     share_type: 'SMB',
@@ -39,6 +39,8 @@ const FileShareForm: React.FC<FileShareFormProps> = ({ editId, onSuccess, onCanc
     schedule_cron: null,
     maintenance_window_id: null,
     is_enabled: true,
+    smb_username: '',
+    smb_password: '',
   });
   const [excludePatternsText, setExcludePatternsText] = useState('');
 
@@ -160,6 +162,30 @@ const FileShareForm: React.FC<FileShareFormProps> = ({ editId, onSuccess, onCanc
             </SelectContent>
           </Select>
         </div>
+
+        {/* SMB Credentials - only for SMB type */}
+        {formData.share_type === 'SMB' && (
+          <>
+            <div className="space-y-2">
+              <Label>{t('fileShares.username')}</Label>
+              <Input
+                value={formData.smb_username || ''}
+                onChange={(e) => setFormData(p => ({ ...p, smb_username: e.target.value }))}
+                placeholder="DOMAIN\\username"
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('fileShares.password')}</Label>
+              <Input
+                type="password"
+                value={formData.smb_password || ''}
+                onChange={(e) => setFormData(p => ({ ...p, smb_password: e.target.value }))}
+                placeholder="••••••••"
+              />
+            </div>
+          </>
+        )}
 
         {/* Path */}
         <div className="space-y-2">
