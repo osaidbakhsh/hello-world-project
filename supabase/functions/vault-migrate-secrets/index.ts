@@ -14,7 +14,6 @@ function isValidAes256HexKey(hex: string): boolean {
   return /^[0-9a-fA-F]{64}$/.test(hex);
 }
 
-// Hex string to Uint8Array
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
@@ -23,12 +22,10 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
-// Uint8Array to hex string
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Encrypt a single field
 async function encryptField(
   value: string | null | undefined,
   cryptoKey: CryptoKey
@@ -69,8 +66,7 @@ Deno.serve(async (req) => {
     if (!isValidAes256HexKey(encryptionKey)) {
       return new Response(
         JSON.stringify({
-          error:
-            'Invalid VAULT_ENCRYPTION_KEY. It must be exactly 64 hex characters (32 bytes) for AES-256-GCM.',
+          error: 'Invalid VAULT_ENCRYPTION_KEY.',
         }),
         {
           status: 500,
@@ -79,7 +75,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify auth
+    // Verify auth - this function requires admin authorization
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -90,7 +86,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from token
+    // Get user from token and verify admin status
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
@@ -101,30 +97,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { password, username, notes } = await req.json();
+    // Check if user is super_admin (only super_admin can run migration)
+    const { data: userRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'super_admin')
+      .single();
 
-    // At least one field should be provided
-    if (!password && !username && !notes) {
-      return new Response(JSON.stringify({ error: 'At least one field is required' }), {
-        status: 400,
+    if (!userRole) {
+      return new Response(JSON.stringify({ error: 'Only super_admin can run migration' }), {
+        status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Import the encryption key
     const keyBytes = hexToBytes(encryptionKey);
-    if (keyBytes.byteLength !== 32) {
-      return new Response(
-        JSON.stringify({
-          error:
-            'Invalid VAULT_ENCRYPTION_KEY length after parsing. Expected 32 bytes (64 hex characters).',
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-    }
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
       keyBytes.buffer as ArrayBuffer,
@@ -133,23 +122,92 @@ Deno.serve(async (req) => {
       ['encrypt']
     );
 
-    // Encrypt all provided fields in parallel
-    const [passwordResult, usernameResult, notesResult] = await Promise.all([
-      encryptField(password, cryptoKey),
-      encryptField(username, cryptoKey),
-      encryptField(notes, cryptoKey),
-    ]);
+    // Get all vault_items with plaintext username or notes
+    // Use service role to bypass RLS for migration
+    const { data: items, error: itemsError } = await supabase
+      .from('vault_items')
+      .select('id, username, notes')
+      .or('username.neq.null,notes.neq.null');
 
-    // IMPORTANT: Never log the password or encryption key
-    console.log('Fields encrypted successfully for user:', user.id);
+    if (itemsError) {
+      return new Response(JSON.stringify({ error: 'Failed to fetch items', details: itemsError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    let migrated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const item of items || []) {
+      try {
+        // Check if already migrated
+        const { data: existing } = await supabase
+          .from('vault_item_secrets')
+          .select('username_encrypted, notes_encrypted')
+          .eq('vault_item_id', item.id)
+          .single();
+
+        // Skip if already has encrypted username/notes
+        if (existing?.username_encrypted && item.username) {
+          skipped++;
+          continue;
+        }
+        if (existing?.notes_encrypted && item.notes) {
+          skipped++;
+          continue;
+        }
+
+        // Encrypt username if exists
+        const usernameResult = item.username
+          ? await encryptField(item.username, cryptoKey)
+          : { encrypted: null, iv: null };
+
+        // Encrypt notes if exists
+        const notesResult = item.notes
+          ? await encryptField(item.notes, cryptoKey)
+          : { encrypted: null, iv: null };
+
+        // Upsert into vault_item_secrets
+        const updateData: Record<string, string | null> = {};
+        if (usernameResult.encrypted) {
+          updateData.username_encrypted = usernameResult.encrypted;
+          updateData.username_iv = usernameResult.iv;
+        }
+        if (notesResult.encrypted) {
+          updateData.notes_encrypted = notesResult.encrypted;
+          updateData.notes_iv = notesResult.iv;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          const { error: upsertError } = await supabase
+            .from('vault_item_secrets')
+            .upsert({
+              vault_item_id: item.id,
+              ...updateData,
+            }, { onConflict: 'vault_item_id' });
+
+          if (upsertError) {
+            errors.push(`Item ${item.id}: ${upsertError.message}`);
+          } else {
+            migrated++;
+          }
+        }
+      } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+        errors.push(`Item ${item.id}: ${errorMsg}`);
+      }
+    }
+
+    console.log(`Migration complete: ${migrated} migrated, ${skipped} skipped, ${errors.length} errors`);
 
     return new Response(JSON.stringify({
-      password_encrypted: passwordResult.encrypted,
-      password_iv: passwordResult.iv,
-      username_encrypted: usernameResult.encrypted,
-      username_iv: usernameResult.iv,
-      notes_encrypted: notesResult.encrypted,
-      notes_iv: notesResult.iv,
+      success: true,
+      total: items?.length || 0,
+      migrated,
+      skipped,
+      errors: errors.length > 0 ? errors : undefined,
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -157,8 +215,8 @@ Deno.serve(async (req) => {
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Encryption error:', message);
-    return new Response(JSON.stringify({ error: 'Encryption failed', message }), {
+    console.error('Migration error:', message);
+    return new Response(JSON.stringify({ error: 'Migration failed', message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
