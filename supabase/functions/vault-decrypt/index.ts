@@ -14,6 +14,53 @@ function isValidAes256HexKey(hex: string): boolean {
   return /^[0-9a-fA-F]{64}$/.test(hex);
 }
 
+function stripByteaPrefix(s: string): string {
+  // Postgres bytea text format from PostgREST often comes as "\\x..."
+  const trimmed = s.trim();
+  return trimmed.startsWith('\\x') ? trimmed.slice(2) : trimmed;
+}
+
+function isHexString(s: string): boolean {
+  return s.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(s);
+}
+
+function bytesToAsciiString(bytes: Uint8Array): string {
+  return new TextDecoder().decode(bytes);
+}
+
+/**
+ * vault_items.password_encrypted / password_iv are sometimes stored as bytea.
+ * In that case they arrive as:
+ *  - a string like "\\x363162..." (hex encoding of ASCII characters)
+ *  - or an object like { type: 'Buffer', data: [...] } (ASCII bytes)
+ * We normalize both to the actual hex string produced by vault-encrypt.
+ */
+function normalizeStoredHex(value: unknown): string | null {
+  if (typeof value === 'string') {
+    // Case A: already a normal hex string (e.g. "61bb...")
+    const trimmed = value.trim();
+    if (isHexString(trimmed) && (trimmed.length === 24 || trimmed.length >= 2)) return trimmed;
+
+    // Case B: Postgres bytea string representation "\\x..." where the hex decodes to ASCII hex
+    const byteaHex = stripByteaPrefix(trimmed);
+    if (isHexString(byteaHex)) {
+      const ascii = bytesToAsciiString(hexToBytes(byteaHex));
+      const asciiTrimmed = ascii.trim();
+      if (isHexString(asciiTrimmed)) return asciiTrimmed;
+    }
+    return null;
+  }
+
+  // Buffer object format: { type: 'Buffer', data: [...] }
+  if (value && typeof value === 'object' && 'data' in value && Array.isArray((value as any).data)) {
+    const ascii = bytesToAsciiString(new Uint8Array((value as any).data));
+    const asciiTrimmed = ascii.trim();
+    return isHexString(asciiTrimmed) ? asciiTrimmed : null;
+  }
+
+  return null;
+}
+
 // Hex string to Uint8Array
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
@@ -155,48 +202,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Extract IV - handle both string and Buffer object formats
-    let ivHex: string;
-    const storedIv = vaultItem.password_iv;
-    
-    if (typeof storedIv === 'string') {
-      ivHex = storedIv.trim();
-    } else if (storedIv && typeof storedIv === 'object' && 'data' in storedIv && Array.isArray(storedIv.data)) {
-      // Buffer object format: { type: 'Buffer', data: [...] }
-      ivHex = String.fromCharCode(...storedIv.data);
-    } else {
-      console.error('Unknown IV format:', typeof storedIv, storedIv);
-      return new Response(
-        JSON.stringify({ error: 'Invalid stored IV format.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+    const ivHex = normalizeStoredHex(vaultItem.password_iv);
+    if (!ivHex) {
+      console.error('Invalid stored IV format:', vaultItem.password_iv);
+      return new Response(JSON.stringify({ error: 'Invalid stored IV format.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Validate IV length (should be 24 hex chars = 12 bytes for GCM)
     if (ivHex.length !== 24) {
       console.error('Invalid IV length:', ivHex.length, 'expected 24 hex chars (12 bytes)');
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid stored IV. This item was encrypted with an incompatible format. Please re-save the password.',
+        JSON.stringify({
+          error:
+            'Invalid stored IV. This item was encrypted with an incompatible format. Please re-save the password.',
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    // Extract encrypted data - handle both string and Buffer object formats
-    let encryptedHex: string;
-    const storedEnc = vaultItem.password_encrypted;
-    
-    if (typeof storedEnc === 'string') {
-      encryptedHex = storedEnc.trim();
-    } else if (storedEnc && typeof storedEnc === 'object' && 'data' in storedEnc && Array.isArray(storedEnc.data)) {
-      encryptedHex = String.fromCharCode(...storedEnc.data);
-    } else {
-      console.error('Unknown encrypted format:', typeof storedEnc);
-      return new Response(
-        JSON.stringify({ error: 'Invalid stored encrypted data format.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+    const encryptedHex = normalizeStoredHex(vaultItem.password_encrypted);
+    if (!encryptedHex) {
+      console.error('Invalid stored encrypted format:', vaultItem.password_encrypted);
+      return new Response(JSON.stringify({ error: 'Invalid stored encrypted data format.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Decrypt the password
