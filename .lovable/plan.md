@@ -1,80 +1,82 @@
-# Full Remediation + UI Fix Pack Implementation Plan
 
-## ✅ IMPLEMENTATION STATUS: COMPLETE
+# Final Corrections Implementation Plan
 
-### Security Fixes Applied (Migration Executed):
-- ✅ A1: servers RLS - NULL network_id no longer exposed to non-admins
-- ✅ A2: licenses RLS - NULL domain_id no longer visible to non-admins  
-- ✅ A3: website_applications - now requires auth.uid()
-- ✅ A4: on_call_schedules + on_call_assignments - now requires auth.uid()
-- ✅ B1: audit_logs insert restricted to own user_id
-- ✅ B2: vault_audit_logs insert restricted to own user_id
-- ✅ C1: employee-reports storage - admin-only access
-- ✅ C2: MIME type restrictions applied
+## Delta Summary (Changes from Previous Migration)
 
-### Manual Step Required:
-- ⚠️ Enable "Leaked Password Protection" in Lovable Cloud Backend Settings → Auth → Security
+This plan addresses the remaining gaps and corrections from the approved remediation:
 
----
-
-## Executive Summary
-This plan addresses 5 critical RLS security vulnerabilities, 2 warnings, storage isolation issues, datacenter UI fixes, network scan enhancements, procurement improvements, and sidebar reorganization identified in the audit.
+| Area | Previous State | Correction Needed |
+|------|----------------|-------------------|
+| servers RLS | SELECT/INSERT fixed | Add UPDATE/DELETE policies with NULL protection |
+| licenses RLS | SELECT fixed | Add UPDATE/DELETE policies with NULL protection |
+| website_applications | Authenticated-only | Make domain-scoped (has domain_id column) |
+| on_call_* | Authenticated-only | Make domain-scoped (has domain_id column) |
+| audit_logs | Policy-only restriction | Add BEFORE INSERT trigger to force user_id |
+| vault_audit_logs | Policy-only restriction | Add BEFORE INSERT trigger to force user_id |
+| employee-reports storage | Admin-only | Confirm correct model (matches intended UX) |
+| nav.systemHealth translation | "صحة النظام" | Change to "فحص صحة النظام" |
+| Network Scan | Uses fallback subnets | Remove auto-discovery fallback; require explicit selection |
+| SMTP Test Email | Attempts real send | Document air-gapped limitations |
 
 ---
 
-## SECTION A: SECURITY REMEDIATION (Critical Fixes)
+## Section 1: Complete RLS Gaps (Servers + Licenses UPDATE/DELETE)
 
-### A1) Servers Table RLS Fix - NULL network_id Exposure
+### 1.1 Servers - Add UPDATE and DELETE Policies
 
-**Current Policy (Vulnerable):**
+**Current State:** UPDATE policy still uses `can_access_network(network_id)` without NULL check
+
+**SQL to Apply:**
 ```sql
--- Policy "Users can view servers in their networks"
-USING: (is_admin() OR can_access_network(network_id) OR (network_id IS NULL))
-```
+-- Drop existing vulnerable UPDATE policy
+DROP POLICY IF EXISTS "Users can update servers in their networks" ON servers;
 
-**Issue:** Any authenticated user can see all servers where `network_id IS NULL`.
-
-**Solution (Option 2 - Admin-only for NULL):**
-```sql
--- Drop existing policies
-DROP POLICY IF EXISTS "Users can view servers in their networks" ON servers;
-DROP POLICY IF EXISTS "Users can add servers to their networks" ON servers;
-
--- Recreate with proper restrictions
-CREATE POLICY "servers_select" ON servers FOR SELECT
+-- Create hardened UPDATE policy
+CREATE POLICY "servers_update_v2" ON servers FOR UPDATE
 USING (
   auth.uid() IS NOT NULL AND (
     is_admin() 
     OR (network_id IS NOT NULL AND can_access_network(network_id))
   )
-);
-
-CREATE POLICY "servers_insert" ON servers FOR INSERT
+)
 WITH CHECK (
   auth.uid() IS NOT NULL AND (
     is_admin() 
     OR (network_id IS NOT NULL AND can_access_network(network_id))
   )
 );
+
+-- Create DELETE policy (currently missing)
+CREATE POLICY "servers_delete_v2" ON servers FOR DELETE
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (network_id IS NOT NULL AND can_access_network(network_id))
+  )
+);
 ```
 
----
+### 1.2 Licenses - Add UPDATE and DELETE Policies
 
-### A2) Licenses Table RLS Fix - NULL domain_id Exposure
-
-**Current Policy (Vulnerable):**
+**SQL to Apply:**
 ```sql
--- Policy "Users can view licenses in their domains"
-USING: (is_admin() OR can_access_domain(domain_id) OR (domain_id IS NULL))
-```
+-- Create UPDATE policy with NULL protection
+CREATE POLICY "licenses_update_v2" ON licenses FOR UPDATE
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin()
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+  )
+)
+WITH CHECK (
+  auth.uid() IS NOT NULL AND (
+    is_admin()
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+  )
+);
 
-**Issue:** Any user can see licenses with NULL `domain_id`.
-
-**Solution:**
-```sql
-DROP POLICY IF EXISTS "Users can view licenses in their domains" ON licenses;
-
-CREATE POLICY "licenses_select" ON licenses FOR SELECT
+-- Create DELETE policy with NULL protection
+CREATE POLICY "licenses_delete_v2" ON licenses FOR DELETE
 USING (
   auth.uid() IS NOT NULL AND (
     is_admin()
@@ -85,90 +87,93 @@ USING (
 
 ---
 
-### A3) website_applications RLS Fix - Publicly Readable
+## Section 2: Tighten Sensitive Tables (Domain-Scoped Access)
 
-**Current Policy (Vulnerable):**
+### 2.1 website_applications - Domain-Scoped Access
+
+The table has `domain_id` column (nullable). Enforce domain-scoped access:
+
+**SQL to Apply:**
 ```sql
--- Policy "Users can view active website applications"
-USING: ((is_active = true) OR is_admin())
-```
+-- Drop current authenticated-only policy
+DROP POLICY IF EXISTS "website_applications_select_v2" ON website_applications;
 
-**Issue:** No `auth.uid()` check - unauthenticated users can read active apps.
-
-**Solution:**
-```sql
-DROP POLICY IF EXISTS "Users can view active website applications" ON website_applications;
-
-CREATE POLICY "website_applications_select" ON website_applications FOR SELECT
+-- Create domain-scoped policy
+CREATE POLICY "website_applications_select_v3" ON website_applications FOR SELECT
 USING (
   auth.uid() IS NOT NULL AND (
-    is_admin() OR is_active = true
+    is_admin() 
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+    OR (domain_id IS NULL AND is_active = true)  -- NULL domain_id treated as public if active
+  )
+);
+
+-- Add UPDATE policy (domain-scoped)
+CREATE POLICY "website_applications_update_v2" ON website_applications FOR UPDATE
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (domain_id IS NOT NULL AND can_edit_domain(domain_id))
+  )
+)
+WITH CHECK (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (domain_id IS NOT NULL AND can_edit_domain(domain_id))
+  )
+);
+
+-- Add DELETE policy (admin-only)
+CREATE POLICY "website_applications_delete_v2" ON website_applications FOR DELETE
+USING (
+  auth.uid() IS NOT NULL AND is_admin()
+);
+```
+
+### 2.2 on_call_schedules + on_call_assignments - Domain-Scoped
+
+Both tables have `domain_id`. Enforce domain scoping:
+
+**SQL to Apply:**
+```sql
+-- Drop current authenticated-only policies
+DROP POLICY IF EXISTS "on_call_schedules_select_v2" ON on_call_schedules;
+DROP POLICY IF EXISTS "on_call_assignments_select_v2" ON on_call_assignments;
+
+-- Create domain-scoped SELECT for on_call_schedules
+CREATE POLICY "on_call_schedules_select_v3" ON on_call_schedules FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+    OR domain_id IS NULL  -- Global schedules visible to all authenticated
+  )
+);
+
+-- Create domain-scoped SELECT for on_call_assignments (via schedule)
+CREATE POLICY "on_call_assignments_select_v3" ON on_call_assignments FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin()
+    OR EXISTS (
+      SELECT 1 FROM on_call_schedules s 
+      WHERE s.id = on_call_assignments.schedule_id 
+      AND (s.domain_id IS NULL OR can_access_domain(s.domain_id))
+    )
+    OR profile_id = get_my_profile_id()  -- Users can always see their own assignments
   )
 );
 ```
 
 ---
 
-### A4) on_call_schedules + on_call_assignments RLS Fix - USING(true)
+## Section 3: Audit Logs - Trigger-Based Validation
 
-**Current Policy (Vulnerable):**
+### 3.1 audit_logs - BEFORE INSERT Trigger
+
+**SQL to Apply:**
 ```sql
--- Policy "Users can view on call schedules"
-USING: true
--- Policy "Users can view on_call_assignments"
-USING: true
-```
-
-**Issue:** Unauthenticated access allowed.
-
-**Solution:**
-```sql
-DROP POLICY IF EXISTS "Users can view on call schedules" ON on_call_schedules;
-DROP POLICY IF EXISTS "Users can view on_call_assignments" ON on_call_assignments;
-
-CREATE POLICY "on_call_schedules_select" ON on_call_schedules FOR SELECT
-USING (auth.uid() IS NOT NULL);
-
-CREATE POLICY "on_call_assignments_select" ON on_call_assignments FOR SELECT
-USING (auth.uid() IS NOT NULL);
-```
-
----
-
-### A5) Leaked Password Protection
-
-**Current State:** DISABLED (confirmed by linter)
-
-**Required Action:** Manual configuration in Supabase Dashboard
-
-**Steps for Project Owner:**
-1. Open Lovable Cloud → Backend Settings
-2. Navigate to Auth → Security
-3. Enable "Leaked Password Protection"
-4. Save changes
-
-**Note:** This cannot be set programmatically via migrations.
-
----
-
-## SECTION B: WARNINGS - Audit Log Insert Restrictions
-
-### B1) audit_logs Insert Restriction
-
-**Current Policy:**
-```sql
--- Policy "Authenticated users can insert audit logs"
-WITH CHECK: (auth.uid() IS NOT NULL)
-```
-
-**Issue:** Any authenticated user can insert arbitrary audit logs.
-
-**Solution - Controlled Insert via Trigger:**
-```sql
--- Replace permissive insert with actor validation
-DROP POLICY IF EXISTS "Authenticated users can insert audit logs" ON audit_logs;
-
--- Create function to validate audit log inserts
+-- Create validation trigger function
 CREATE OR REPLACE FUNCTION validate_audit_log_insert()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -176,38 +181,24 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- Ensure user_id matches current user
-  IF NEW.user_id IS NOT NULL AND NEW.user_id != get_my_profile_id() THEN
-    RAISE EXCEPTION 'Cannot insert audit log for another user';
-  END IF;
-  
-  -- Set user_id to current user if not provided
-  IF NEW.user_id IS NULL THEN
-    NEW.user_id := get_my_profile_id();
-  END IF;
-  
+  -- Force user_id to be the current user's profile ID
+  NEW.user_id := get_my_profile_id();
   RETURN NEW;
 END;
 $$;
 
+-- Create trigger
+DROP TRIGGER IF EXISTS audit_log_insert_validator ON audit_logs;
 CREATE TRIGGER audit_log_insert_validator
 BEFORE INSERT ON audit_logs
 FOR EACH ROW EXECUTE FUNCTION validate_audit_log_insert();
-
--- New restricted policy
-CREATE POLICY "audit_logs_insert" ON audit_logs FOR INSERT
-WITH CHECK (
-  auth.uid() IS NOT NULL
-  AND (user_id IS NULL OR user_id = get_my_profile_id())
-);
 ```
 
-### B2) vault_audit_logs Insert Restriction
+### 3.2 vault_audit_logs - BEFORE INSERT Trigger
 
-Same approach as audit_logs:
+**SQL to Apply:**
 ```sql
-DROP POLICY IF EXISTS "Authenticated users can insert vault audit logs" ON vault_audit_logs;
-
+-- Create validation trigger function
 CREATE OR REPLACE FUNCTION validate_vault_audit_log_insert()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -215,143 +206,48 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NEW.user_id IS NOT NULL AND NEW.user_id != get_my_profile_id() THEN
-    RAISE EXCEPTION 'Cannot insert vault audit log for another user';
-  END IF;
-  IF NEW.user_id IS NULL THEN
-    NEW.user_id := get_my_profile_id();
-  END IF;
+  -- Force user_id to be the current user's profile ID
+  NEW.user_id := get_my_profile_id();
   RETURN NEW;
 END;
 $$;
 
+-- Create trigger
+DROP TRIGGER IF EXISTS vault_audit_log_insert_validator ON vault_audit_logs;
 CREATE TRIGGER vault_audit_log_insert_validator
 BEFORE INSERT ON vault_audit_logs
 FOR EACH ROW EXECUTE FUNCTION validate_vault_audit_log_insert();
-
-CREATE POLICY "vault_audit_logs_insert" ON vault_audit_logs FOR INSERT
-WITH CHECK (
-  auth.uid() IS NOT NULL
-  AND (user_id IS NULL OR user_id = get_my_profile_id())
-);
 ```
 
 ---
 
-## SECTION C: STORAGE ISOLATION
+## Section 4: Employee-Reports Storage Access Model
 
-### C1) employee-reports Domain-Scoped Access
+**Current State:** Admin-only access is implemented (employee_reports_admin_select/insert/delete)
 
-**Current Issue:** Any authenticated user can read/delete any employee report.
+**Confirmation:** The current admin-only model is correct for the intended UX:
+- Employee Reports page is admin-only (`adminOnly: true` in sidebar)
+- Reports are uploaded BY admins FOR employees
+- Employees don't need direct storage access
 
-**Solution - Storage Policy Enhancement:**
-```sql
--- Drop overly permissive policies
-DROP POLICY IF EXISTS "Authenticated users can read employee reports" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can delete employee reports" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can upload employee reports" ON storage.objects;
-DROP POLICY IF EXISTS "employee_reports_delete" ON storage.objects;
-DROP POLICY IF EXISTS "employee_reports_insert" ON storage.objects;
-DROP POLICY IF EXISTS "employee_reports_select" ON storage.objects;
-
--- Admin-only access for employee reports
-CREATE POLICY "employee_reports_select_v2" ON storage.objects FOR SELECT
-USING (bucket_id = 'employee-reports' AND is_admin());
-
-CREATE POLICY "employee_reports_insert_v2" ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'employee-reports' AND is_admin());
-
-CREATE POLICY "employee_reports_delete_v2" ON storage.objects FOR DELETE
-USING (bucket_id = 'employee-reports' AND is_admin());
-```
-
-### C2) MIME Type Restrictions
-
-**procurement-quotations bucket:**
-```sql
-UPDATE storage.buckets 
-SET allowed_mime_types = ARRAY['application/pdf']
-WHERE id = 'procurement-quotations';
-```
-
-**employee-reports bucket:**
-```sql
-UPDATE storage.buckets 
-SET allowed_mime_types = ARRAY[
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
-  'text/csv'
-]
-WHERE id = 'employee-reports';
-```
+**No changes needed** - current model is correct. The UI already restricts the page to admins.
 
 ---
 
-## SECTION D: DATACENTER UI FIXES
+## Section 5: Network Scan - Remove Auto-Discovery Fallback
 
-### D1) Cluster Management - Already Implemented ✅
+### 5.1 Modify discoverSubnets() to Not Auto-Populate
 
-Based on file review:
-- `ClusterTable.tsx` already has Edit/Delete with guardrails (lines 79-100)
-- `ClusterForm.tsx` already has domain selector as first field (lines 100-117)
-- `DatacenterOverview.tsx` has edit/delete on cluster cards (lines 236-250)
-- Guardrails check `nodes?.filter()` and `vms?.filter()` for linked items
+**File:** `src/pages/NetworkScan.tsx`
 
-**No additional changes needed for cluster management.**
+**Change the `discoverSubnets()` function to:**
+- Use ONLY networks table subnets
+- If no networks defined, show empty list (not fallback subnets)
+- Require user to add subnets manually
 
-### D2) Completeness Section Translations
-
-**Current State:** Translations exist in Arabic (lines 93-98 of LanguageContext.tsx)
-
-**Issue:** English translations may be missing. Need to verify English section.
-
-**Files to Check/Modify:**
-| File | Change |
-|------|--------|
-| `src/contexts/LanguageContext.tsx` | Verify English translations exist |
-
-**English translations to add if missing:**
-```javascript
-// In English section
-'datacenter.nodesWithSerial': 'Nodes with Serial Number',
-'datacenter.vmsLinked': 'Linked VMs',
-'datacenter.completenessDesc': 'Infrastructure data completeness',
-'datacenter.completenessScore': 'Completeness',
-'datacenter.clustersTab': 'Clusters',
-'datacenter.cannotDeleteCluster': 'Cannot Delete Cluster',
-```
-
-### D3) Required Translations Verification
-
-**Arabic (confirmed in LanguageContext.tsx lines 93-99):**
-- ✅ `datacenter.clustersTab`: 'الكلسترات'
-- ✅ `datacenter.nodesWithSerial`: 'النودات مع الرقم التسلسلي'
-- ✅ `datacenter.vmsLinked`: 'الأجهزة الافتراضية المرتبطة'
-- ✅ `datacenter.completenessDesc`: 'مستوى اكتمال بيانات البنية التحتية'
-- ✅ `nav.systemHealth`: 'صحة النظام' (line 99)
-
-**Action:** Verify English section has matching keys.
-
----
-
-## SECTION E: NETWORK SCAN - Advanced Mode Without Agent
-
-### Current State Analysis:
-From `NetworkScan.tsx`:
-- Scan mode selector exists (standard/advanced) - lines 90-93
-- `discoverSubnets()` function exists but simulates discovery - lines 183-213
-- CSV export implemented - lines 376-396
-- Domain scoping via `selectedDomainId` - lines 143-166
-
-### Required Enhancements:
-
-**E1) Use Networks Table for Subnet Discovery**
-
-**Modify `NetworkScan.tsx` around line 183:**
+**Code Change:**
 ```typescript
 const discoverSubnets = async () => {
-  // Check for online agents in the selected domain
   const { data: agents } = await supabase
     .from('scan_agents')
     .select('*')
@@ -360,170 +256,137 @@ const discoverSubnets = async () => {
     .limit(1);
   
   if (agents?.length) {
-    // Agent-based discovery - future implementation
     toast({
       title: t('scan.discoverSubnets'),
       description: language === 'ar' 
         ? 'الوكيل سيقوم باكتشاف الشبكات الفرعية'
         : 'Agent will discover available subnets',
     });
-    // Create discovery job - placeholder for agent implementation
+    // Future: Create discovery job for agent
+  }
+  
+  // Use ONLY networks table - no fallback to default subnets
+  const domainNetworks = filteredNetworks
+    ?.filter(n => n.subnet)
+    .map(n => n.subnet!) || [];
+  
+  setDiscoveredSubnets(domainNetworks);
+  
+  if (domainNetworks.length > 0) {
+    toast({
+      title: t('scan.savedNetworks') || (language === 'ar' ? 'الشبكات المحفوظة' : 'Saved Networks'),
+      description: language === 'ar'
+        ? `تم العثور على ${domainNetworks.length} شبكة`
+        : `Found ${domainNetworks.length} networks from saved data`,
+    });
   } else {
-    // Use networks table as source
-    const domainNetworks = filteredNetworks
-      ?.filter(n => n.subnet)
-      .map(n => n.subnet!) || [];
-    
-    if (domainNetworks.length > 0) {
-      setDiscoveredSubnets(domainNetworks);
-      toast({
-        title: language === 'ar' ? 'الشبكات المحفوظة' : 'Saved Networks',
-        description: language === 'ar'
-          ? `تم العثور على ${domainNetworks.length} شبكة`
-          : `Found ${domainNetworks.length} networks`,
-      });
-    } else {
-      // Fallback to common private subnets
-      setDiscoveredSubnets(['192.168.1.0/24', '192.168.0.0/24', '10.0.0.0/24']);
-      toast({
-        title: t('scan.noAgent'),
-        description: language === 'ar'
-          ? 'سيتم عرض الشبكات الافتراضية الخاصة'
-          : 'Showing default private subnets',
-        variant: 'default',
-      });
-    }
+    // No fallback - inform user to add subnets manually
+    toast({
+      title: language === 'ar' ? 'لا توجد شبكات محفوظة' : 'No Saved Networks',
+      description: language === 'ar'
+        ? 'أضف شبكات من صفحة الشبكات أو أدخلها يدوياً'
+        : 'Add networks from the Networks page or enter them manually',
+      variant: 'default',
+    });
   }
 };
 ```
 
-**E2) Add Manual Subnet Input**
+---
 
-**Add new state:**
-```typescript
-const [manualSubnet, setManualSubnet] = useState('');
+## Section 6: Translation Correction
+
+### 6.1 Change nav.systemHealth Arabic Translation
+
+**File:** `src/contexts/LanguageContext.tsx`
+
+**Current (line 99):**
+```javascript
+'nav.systemHealth': 'صحة النظام',
 ```
 
-**Add UI section for manual subnet entry:**
+**Change to:**
+```javascript
+'nav.systemHealth': 'فحص صحة النظام',
+```
+
+---
+
+## Section 7: SMTP Test Email - Air-Gapped Limitations
+
+### 7.1 Documentation of Limitations
+
+**Current Implementation:** The `send-test-email` edge function attempts real SMTP connections.
+
+**Air-Gapped Limitation:** 
+- Edge functions run in Deno Deploy (cloud runtime)
+- They cannot reach internal SMTP servers in air-gapped networks
+- The test will fail with connection timeout/unreachable errors
+
+**Recommended Actions:**
+1. Keep `test-connection` edge function as validation-only
+2. Add UI warning label explaining this limitation
+3. Future: When agent support is added, route SMTP tests through the agent
+
+**UI Enhancement (optional):**
+Add a note in the Mail Settings UI:
+```
+"Note: Real send tests require the SMTP server to be reachable from the cloud.
+For internal/air-gapped SMTP servers, the test may fail even with correct settings."
+```
+
+---
+
+## Section 8: Quotation Uploader Name Display
+
+### 8.1 Add Uploader Name to Quotation Cards
+
+**File:** `src/pages/ProcurementDetail.tsx`
+
+The hook already fetches `profiles(full_name)` for quotations. Add display in the quotation card.
+
+**Location:** Around line 397-400, after vendor name display
+
+**Add:**
 ```jsx
-{scanMode === 'advanced' && (
-  <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-    {/* Existing content */}
-    
-    {/* Manual subnet add */}
-    <div className="flex gap-2">
-      <div className="flex-1">
-        <Label>{language === 'ar' ? 'إضافة شبكة يدوياً' : 'Add Subnet Manually'}</Label>
-        <Input
-          placeholder="e.g., 192.168.50.0/24"
-          value={manualSubnet}
-          onChange={e => setManualSubnet(e.target.value)}
-        />
-      </div>
-      <Button
-        className="mt-6"
-        onClick={() => {
-          if (manualSubnet && !discoveredSubnets.includes(manualSubnet)) {
-            setDiscoveredSubnets([...discoveredSubnets, manualSubnet]);
-            setManualSubnet('');
-          }
-        }}
-      >
-        {language === 'ar' ? 'إضافة' : 'Add'}
-      </Button>
-    </div>
+{q.profiles?.full_name && (
+  <div className="text-sm text-muted-foreground">
+    {t('procurement.uploadedBy')}: {q.profiles.full_name}
   </div>
 )}
 ```
 
-**E3) Guardrails for Large Scans**
-
-Already implemented at line 247-252:
-```typescript
-if (totalHosts > 1000) {
-  setShowLargeRangeWarning(true);
-  return;
-}
-```
-
-**E4) Agent Future Integration Points**
-
-The code is already structured to support agent-based discovery:
-- Agent check at line 185-190
-- Scan job creation at line 267-280 includes `agent_id` field
-- `scan_agents` table exists with `domain_id` for domain scoping
-
 ---
 
-## SECTION F: PROCUREMENT ENHANCEMENTS
-
-### Current State (Already Implemented):
-- ✅ KPI Dashboard cards - lines 232-263
-- ✅ Sample Data Generator (super_admin only) - lines 75-139
-- ✅ Employee filter - lines 46-54, 281-293
-- ✅ Excel export - lines 141-160
-- ✅ "Created By" column in table - lines 340, 354
-
-### Remaining Enhancement: Uploader Name in Quotations
-
-**File:** `src/pages/ProcurementDetail.tsx`
-
-**Current:** Quotation display likely exists but needs verification
-
-**Enhancement needed:** Ensure `profiles(full_name)` is joined in query and displayed
-
----
-
-## SECTION G: SIDEBAR ORGANIZATION
-
-### Current State (Already Implemented):
-From `Sidebar.tsx` lines 58-84:
-- ✅ `procurement` at line 79
-- ✅ `systemHealth` at line 82
-- ✅ `settings` at line 83
-
-From `SidebarOrderSettings.tsx` lines 16-42:
-- ✅ All three items included in `defaultMenuItems`
-
-**Translation Check:**
-- ✅ `nav.systemHealth`: 'صحة النظام' (line 99 in LanguageContext)
-- ✅ `nav.procurement`: 'المشتريات' (line 51)
-
-**No additional changes needed for sidebar.**
-
----
-
-## SECTION H: FILES TO MODIFY
+## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `supabase/migrations/XXXXX_security_fixes.sql` | All RLS policy fixes (A1-A4, B1-B2, C1-C2) |
-| `src/contexts/LanguageContext.tsx` | Verify English translations for datacenter keys |
-| `src/pages/NetworkScan.tsx` | Use networks table for subnet discovery, add manual subnet input |
-| `src/pages/ProcurementDetail.tsx` | Verify uploader name display |
+| New Migration SQL | All RLS policy updates + triggers |
+| `src/contexts/LanguageContext.tsx` | Change nav.systemHealth Arabic translation |
+| `src/pages/NetworkScan.tsx` | Remove fallback subnet discovery |
+| `src/pages/ProcurementDetail.tsx` | Add uploader name display |
 
 ---
 
-## SECTION I: DATABASE MIGRATION SQL
+## Complete SQL Migration
 
 ```sql
 -- ============================================
--- SECURITY REMEDIATION MIGRATION
+-- FINAL CORRECTIONS MIGRATION
+-- Addresses remaining RLS gaps and triggers
 -- ============================================
 
--- A1: Fix servers RLS
-DROP POLICY IF EXISTS "Users can view servers in their networks" ON servers;
-DROP POLICY IF EXISTS "Users can add servers to their networks" ON servers;
+-- 1.1: Servers UPDATE/DELETE policies
+DROP POLICY IF EXISTS "Users can update servers in their networks" ON servers;
 
-CREATE POLICY "servers_select_v2" ON servers FOR SELECT
+CREATE POLICY "servers_update_v2" ON servers FOR UPDATE
 USING (
   auth.uid() IS NOT NULL AND (
     is_admin() 
     OR (network_id IS NOT NULL AND can_access_network(network_id))
   )
-);
-
-CREATE POLICY "servers_insert_v2" ON servers FOR INSERT
+)
 WITH CHECK (
   auth.uid() IS NOT NULL AND (
     is_admin() 
@@ -531,10 +394,30 @@ WITH CHECK (
   )
 );
 
--- A2: Fix licenses RLS
-DROP POLICY IF EXISTS "Users can view licenses in their domains" ON licenses;
+CREATE POLICY "servers_delete_v2" ON servers FOR DELETE
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (network_id IS NOT NULL AND can_access_network(network_id))
+  )
+);
 
-CREATE POLICY "licenses_select_v2" ON licenses FOR SELECT
+-- 1.2: Licenses UPDATE/DELETE policies
+CREATE POLICY "licenses_update_v2" ON licenses FOR UPDATE
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin()
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+  )
+)
+WITH CHECK (
+  auth.uid() IS NOT NULL AND (
+    is_admin()
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+  )
+);
+
+CREATE POLICY "licenses_delete_v2" ON licenses FOR DELETE
 USING (
   auth.uid() IS NOT NULL AND (
     is_admin()
@@ -542,124 +425,141 @@ USING (
   )
 );
 
--- A3: Fix website_applications RLS
-DROP POLICY IF EXISTS "Users can view active website applications" ON website_applications;
+-- 2.1: website_applications domain-scoped
+DROP POLICY IF EXISTS "website_applications_select_v2" ON website_applications;
 
-CREATE POLICY "website_applications_select_v2" ON website_applications FOR SELECT
+CREATE POLICY "website_applications_select_v3" ON website_applications FOR SELECT
 USING (
   auth.uid() IS NOT NULL AND (
-    is_admin() OR is_active = true
+    is_admin() 
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+    OR (domain_id IS NULL AND is_active = true)
   )
 );
 
--- A4: Fix on_call RLS
-DROP POLICY IF EXISTS "Users can view on call schedules" ON on_call_schedules;
-DROP POLICY IF EXISTS "Users can view on_call_assignments" ON on_call_assignments;
-
-CREATE POLICY "on_call_schedules_select_v2" ON on_call_schedules FOR SELECT
-USING (auth.uid() IS NOT NULL);
-
-CREATE POLICY "on_call_assignments_select_v2" ON on_call_assignments FOR SELECT
-USING (auth.uid() IS NOT NULL);
-
--- B1: Fix audit_logs insert
-DROP POLICY IF EXISTS "Authenticated users can insert audit logs" ON audit_logs;
-
-CREATE POLICY "audit_logs_insert_v2" ON audit_logs FOR INSERT
+CREATE POLICY "website_applications_update_v2" ON website_applications FOR UPDATE
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (domain_id IS NOT NULL AND can_edit_domain(domain_id))
+  )
+)
 WITH CHECK (
-  auth.uid() IS NOT NULL
-  AND (user_id IS NULL OR user_id = get_my_profile_id())
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (domain_id IS NOT NULL AND can_edit_domain(domain_id))
+  )
 );
 
--- B2: Fix vault_audit_logs insert  
-DROP POLICY IF EXISTS "Authenticated users can insert vault audit logs" ON vault_audit_logs;
+CREATE POLICY "website_applications_delete_v2" ON website_applications FOR DELETE
+USING (auth.uid() IS NOT NULL AND is_admin());
 
-CREATE POLICY "vault_audit_logs_insert_v2" ON vault_audit_logs FOR INSERT
-WITH CHECK (
-  auth.uid() IS NOT NULL
-  AND (user_id IS NULL OR user_id = get_my_profile_id())
+-- 2.2: on_call_schedules domain-scoped
+DROP POLICY IF EXISTS "on_call_schedules_select_v2" ON on_call_schedules;
+
+CREATE POLICY "on_call_schedules_select_v3" ON on_call_schedules FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin() 
+    OR (domain_id IS NOT NULL AND can_access_domain(domain_id))
+    OR domain_id IS NULL
+  )
 );
 
--- C1: Fix employee-reports storage policies
-DROP POLICY IF EXISTS "Authenticated users can read employee reports" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can delete employee reports" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can upload employee reports" ON storage.objects;
-DROP POLICY IF EXISTS "employee_reports_delete" ON storage.objects;
-DROP POLICY IF EXISTS "employee_reports_insert" ON storage.objects;
-DROP POLICY IF EXISTS "employee_reports_select" ON storage.objects;
+-- 2.3: on_call_assignments domain-scoped via schedule
+DROP POLICY IF EXISTS "on_call_assignments_select_v2" ON on_call_assignments;
 
-CREATE POLICY "employee_reports_admin_select" ON storage.objects FOR SELECT
-USING (bucket_id = 'employee-reports' AND is_admin());
+CREATE POLICY "on_call_assignments_select_v3" ON on_call_assignments FOR SELECT
+USING (
+  auth.uid() IS NOT NULL AND (
+    is_admin()
+    OR profile_id = get_my_profile_id()
+    OR EXISTS (
+      SELECT 1 FROM on_call_schedules s 
+      WHERE s.id = on_call_assignments.schedule_id 
+      AND (s.domain_id IS NULL OR can_access_domain(s.domain_id))
+    )
+  )
+);
 
-CREATE POLICY "employee_reports_admin_insert" ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'employee-reports' AND is_admin());
+-- 3.1: audit_logs trigger
+CREATE OR REPLACE FUNCTION validate_audit_log_insert()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.user_id := get_my_profile_id();
+  RETURN NEW;
+END;
+$$;
 
-CREATE POLICY "employee_reports_admin_delete" ON storage.objects FOR DELETE
-USING (bucket_id = 'employee-reports' AND is_admin());
+DROP TRIGGER IF EXISTS audit_log_insert_validator ON audit_logs;
+CREATE TRIGGER audit_log_insert_validator
+BEFORE INSERT ON audit_logs
+FOR EACH ROW EXECUTE FUNCTION validate_audit_log_insert();
 
--- C2: MIME type restrictions
-UPDATE storage.buckets 
-SET allowed_mime_types = ARRAY['application/pdf']
-WHERE id = 'procurement-quotations';
+-- 3.2: vault_audit_logs trigger
+CREATE OR REPLACE FUNCTION validate_vault_audit_log_insert()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.user_id := get_my_profile_id();
+  RETURN NEW;
+END;
+$$;
 
-UPDATE storage.buckets 
-SET allowed_mime_types = ARRAY[
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
-  'text/csv'
-]
-WHERE id = 'employee-reports';
+DROP TRIGGER IF EXISTS vault_audit_log_insert_validator ON vault_audit_logs;
+CREATE TRIGGER vault_audit_log_insert_validator
+BEFORE INSERT ON vault_audit_logs
+FOR EACH ROW EXECUTE FUNCTION validate_vault_audit_log_insert();
 ```
 
 ---
 
-## SECTION J: TEST REPORT TEMPLATE
+## Test Report Template
 
 | # | Scenario | Steps | Expected | Status |
 |---|----------|-------|----------|--------|
-| 1 | Unauthenticated cannot read website_applications | Logout, query website_applications | Empty/Error | PENDING |
-| 2 | Unauthenticated cannot read on_call_schedules | Logout, query on_call_schedules | Empty/Error | PENDING |
-| 3 | Employee cannot see servers with NULL network_id | Login as employee, query servers | No NULL network_id rows | PENDING |
-| 4 | Licenses with NULL domain_id are admin-only | Login as employee, query licenses | No NULL domain_id rows | PENDING |
-| 5 | Audit logs cannot be inserted for other users | Try inserting log with different user_id | Error thrown | PENDING |
-| 6 | employee-reports cross-domain blocked | Non-admin try to read reports | Access denied | PENDING |
-| 7 | super_admin can edit/delete clusters | Edit/Delete cluster | Success | PENDING |
-| 8 | Delete blocked if cluster has nodes/VMs | Delete cluster with nodes | Toast with counts shown | PENDING |
-| 9 | Completeness shows translated labels | View datacenter in Arabic | Arabic labels displayed | PENDING |
-| 10 | Network scan advanced lists saved networks | Enable advanced mode | Networks table subnets shown | PENDING |
-| 11 | CSV export works | Export scan results | CSV file downloads | PENDING |
-| 12 | Procurement dashboard shows KPIs | View /procurement | 5 KPI cards visible | PENDING |
-| 13 | Sample data works (super_admin) | Click sample data button | Request created | PENDING |
-| 14 | Employee filter works | Select employee filter | List filtered | PENDING |
-| 15 | Excel export respects filters | Apply filter, export | Filtered data exported | PENDING |
-| 16 | Sidebar shows translated system health | Check Arabic sidebar | "صحة النظام" displayed | PENDING |
-| 17 | Sidebar reorder includes procurement/systemHealth | Open sidebar settings | Both items visible | PENDING |
-| 18 | Cross-domain procurement blocked | Try access other domain request | RLS blocks | PENDING |
+| 1 | Employee cannot see NULL network_id servers | Login as employee, query servers | No NULL network rows visible | PENDING |
+| 2 | Employee cannot UPDATE servers outside network | Attempt update | RLS blocks | PENDING |
+| 3 | Employee cannot DELETE servers | Attempt delete | RLS blocks | PENDING |
+| 4 | Licenses NULL domain_id admin-only | Login as employee, query | No NULL domain rows | PENDING |
+| 5 | website_applications domain-scoped | Employee queries | Only domain-assigned apps visible | PENDING |
+| 6 | on_call_schedules domain-scoped | Employee queries | Only domain schedules visible | PENDING |
+| 7 | on_call_assignments user can see own | Employee queries | Own assignments visible | PENDING |
+| 8 | Audit log insert forced to current user | Insert with fake user_id | Trigger overrides to actual user | PENDING |
+| 9 | Network scan no fallback subnets | Advanced mode with no networks | Empty list, manual add only | PENDING |
+| 10 | nav.systemHealth shows correct Arabic | Switch to Arabic | Shows "فحص صحة النظام" | PENDING |
+| 11 | Quotation shows uploader name | View quotation detail | Shows profile name | PENDING |
 
 ---
 
-## SECTION K: MANUAL STEPS REQUIRED
+## Manual Steps Required
 
 1. **Enable Leaked Password Protection:**
-   - Navigate to Lovable Cloud Backend Settings
-   - Go to Auth → Security
+   - Lovable Cloud Backend Settings → Auth → Security
    - Toggle "Leaked Password Protection" ON
-   - Save
 
-2. **Verify after deployment:**
-   - Run security linter again to confirm no warnings
-   - Test all scenarios in test report
+2. **Add SMTP limitation note to UI** (optional enhancement):
+   - Add info tooltip in Mail Settings explaining cloud runtime limitations
 
 ---
 
-## Limitations & Notes
+## Technical Notes
 
-1. **Air-Gapped Network Scan:** Without an agent, actual network discovery is not possible from browser. The implementation uses saved networks from the database as the source of subnets.
+### Air-Gapped SMTP Limitation
+The `send-test-email` edge function runs in Deno Deploy cloud runtime. It cannot reach internal SMTP servers in air-gapped environments. For production use in such environments:
+- Use the validation-only approach (test-connection) 
+- Future: Route SMTP tests through on-premise agents
 
-2. **Agent Future Path:** The code structure supports adding agent-based discovery later. The agent would:
-   - Query local interfaces and routes
-   - Check ARP cache
-   - Report discovered subnets back to the application
-
-3. **SMTP Test Email:** Already implemented in `send-test-email` edge function. In air-gapped environments, SMTP servers must be internal and reachable from the Supabase edge function runtime.
+### Employee-Reports Storage Model
+Current admin-only model is correct:
+- Bucket is private
+- Only admins can upload/download
+- Employees view reports through the admin-controlled UI
+- No cross-domain access possible (admin sees all, but uploads are domain-tagged in DB)
