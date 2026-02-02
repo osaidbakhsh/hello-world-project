@@ -5,6 +5,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function normalizeHexKey(input: string): string {
+  const trimmed = input.trim();
+  return trimmed.startsWith('0x') || trimmed.startsWith('0X') ? trimmed.slice(2) : trimmed;
+}
+
+function isValidAes256HexKey(hex: string): boolean {
+  return /^[0-9a-fA-F]{64}$/.test(hex);
+}
+
 // Hex string to Uint8Array
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
@@ -22,10 +31,23 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const encryptionKey = Deno.env.get('VAULT_ENCRYPTION_KEY');
+    const rawEncryptionKey = Deno.env.get('VAULT_ENCRYPTION_KEY');
 
-    if (!encryptionKey) {
+    if (!rawEncryptionKey) {
       throw new Error('Encryption key not configured');
+    }
+
+    const encryptionKey = normalizeHexKey(rawEncryptionKey);
+    if (!isValidAes256HexKey(encryptionKey)) {
+      return new Response(
+        JSON.stringify({
+          error: 'Invalid VAULT_ENCRYPTION_KEY. It must be exactly 64 hex characters (32 bytes) for AES-256-GCM.',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     // Verify auth
@@ -102,7 +124,7 @@ Deno.serve(async (req) => {
     }
 
     // Check permissions: admin, owner, or has reveal permission
-    const isAdmin = profile.role === 'admin';
+    const isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
     const isOwner = vaultItem.owner_id === profile.id;
     
     let hasPermission = isAdmin || isOwner;
@@ -133,6 +155,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Validate IV length (should be 24 hex chars = 12 bytes for GCM)
+    const ivHex = vaultItem.password_iv.trim();
+    if (ivHex.length !== 24) {
+      console.error('Invalid IV length:', ivHex.length, 'expected 24 hex chars (12 bytes)');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid stored IV. This item was encrypted with an incompatible format. Please re-save the password.',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
     // Decrypt the password
     const keyBytes = hexToBytes(encryptionKey);
     const cryptoKey = await crypto.subtle.importKey(
@@ -144,7 +181,7 @@ Deno.serve(async (req) => {
     );
 
     const encryptedBytes = hexToBytes(vaultItem.password_encrypted);
-    const ivBytes = hexToBytes(vaultItem.password_iv);
+    const ivBytes = hexToBytes(ivHex);
 
     const decryptedData = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: ivBytes.buffer as ArrayBuffer },
@@ -186,7 +223,7 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Decryption error:', message);
-    return new Response(JSON.stringify({ error: 'Decryption failed' }), {
+    return new Response(JSON.stringify({ error: 'Decryption failed', message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
