@@ -388,6 +388,11 @@ const ProcurementDetail: React.FC = () => {
                         <div>
                           <CardTitle className="text-lg">{q.vendor_name}</CardTitle>
                           {q.quotation_ref && <CardDescription>{q.quotation_ref}</CardDescription>}
+                          {(q as any).profiles?.full_name && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {t('procurement.uploadedBy')}: {(q as any).profiles.full_name}
+                            </div>
+                          )}
                         </div>
                         {q.total === lowestQuotation && (
                           <Badge className="bg-green-100 text-green-800">{t('procurement.lowestPrice')}</Badge>

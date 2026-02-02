@@ -96,7 +96,7 @@ const translations: Record<Language, Record<string, string>> = {
     'datacenter.completenessDesc': 'مستوى اكتمال بيانات البنية التحتية',
     'datacenter.cannotDeleteCluster': 'لا يمكن حذف الكلستر',
     'datacenter.clusterHasLinkedItems': 'هذا الكلستر مرتبط بنودات أو أجهزة افتراضية',
-    'nav.systemHealth': 'صحة النظام',
+    'nav.systemHealth': 'فحص صحة النظام',
     'scan.advancedDiscovery': 'اكتشاف متقدم',
     'scan.standard': 'قياسي',
     'scan.maxHosts': 'الحد الأقصى للأجهزة',

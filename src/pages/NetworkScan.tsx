@@ -215,13 +215,13 @@ const NetworkScan: React.FC = () => {
           : `Found ${domainNetworks.length} networks from saved data`,
       });
     } else {
-      // Fallback to common private subnets if no networks defined
-      setDiscoveredSubnets(['192.168.1.0/24', '192.168.0.0/24', '10.0.0.0/24']);
+      // No fallback - require user to add subnets manually
+      setDiscoveredSubnets([]);
       toast({
-        title: t('scan.noAgent'),
+        title: language === 'ar' ? 'لا توجد شبكات محفوظة' : 'No Saved Networks',
         description: language === 'ar'
-          ? 'سيتم عرض الشبكات الافتراضية الخاصة'
-          : 'Showing default private subnets',
+          ? 'أضف شبكات من صفحة الشبكات أو أدخلها يدوياً'
+          : 'Add networks from the Networks page or enter them manually',
         variant: 'default',
       });
     }
