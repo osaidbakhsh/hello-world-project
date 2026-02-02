@@ -91,6 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { theme, setTheme } = useTheme();
   const location = useLocation();
   const [orderedMenuItems, setOrderedMenuItems] = useState<MenuItem[]>(allMenuItems);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   // Load saved sidebar order from database
   const loadSidebarOrder = useCallback(async () => {
@@ -127,7 +128,19 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
   useEffect(() => {
     loadSidebarOrder();
-  }, [loadSidebarOrder]);
+  }, [loadSidebarOrder, reloadTrigger]);
+
+  // Listen for sidebar order updates via storage event or custom event
+  useEffect(() => {
+    const handleSidebarUpdate = () => {
+      setReloadTrigger(prev => prev + 1);
+    };
+    
+    window.addEventListener('sidebar-order-updated', handleSidebarUpdate);
+    return () => {
+      window.removeEventListener('sidebar-order-updated', handleSidebarUpdate);
+    };
+  }, []);
 
   // Filter menu items based on role
   // Employee Permissions page - Super Admin only

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -31,11 +32,12 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Edit, Trash2, KeyRound, AlertTriangle, CheckCircle, Clock, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, KeyRound, AlertTriangle, CheckCircle, Clock, Loader2, BarChart3, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DataTableHeader, licenseSortOptions, applySortToData } from '@/components/DataTableHeader';
+import LicenseCostDashboard from '@/components/licenses/LicenseCostDashboard';
 
 interface LicenseFormData {
   name: string;
@@ -64,7 +66,7 @@ const initialFormData: LicenseFormData = {
 };
 
 const Licenses: React.FC = () => {
-  const { t, dir } = useLanguage();
+  const { t, dir, language } = useLanguage();
   const { toast } = useToast();
   
   // Supabase data
@@ -81,6 +83,7 @@ const Licenses: React.FC = () => {
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sortValue, setSortValue] = useState<string>('expiry_date-asc');
+  const [activeTab, setActiveTab] = useState<string>('list');
   
   const [formData, setFormData] = useState<LicenseFormData>(initialFormData);
 
@@ -361,6 +364,24 @@ const Licenses: React.FC = () => {
         </Dialog>
       </div>
 
+      {/* View Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+          <TabsTrigger value="list" className="gap-2">
+            <List className="w-4 h-4" />
+            {language === 'ar' ? 'القائمة' : 'List'}
+          </TabsTrigger>
+          <TabsTrigger value="dashboard" className="gap-2">
+            <BarChart3 className="w-4 h-4" />
+            {language === 'ar' ? 'تحليل التكلفة' : 'Cost Analysis'}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard" className="mt-6">
+          <LicenseCostDashboard licenses={licenses} domains={domains} />
+        </TabsContent>
+
+        <TabsContent value="list" className="mt-6 space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="card-hover">
@@ -566,6 +587,8 @@ const Licenses: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

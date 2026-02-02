@@ -484,6 +484,10 @@ const EmployeePermissions: React.FC = () => {
     if (!selectedProfile) return;
     
     setIsSaving(true);
+    
+    // Store success state to show proper toast after dialog closes
+    let saveSuccessful = false;
+    
     try {
       // Delete existing memberships for this profile
       const { error: deleteError } = await supabase
@@ -510,16 +514,23 @@ const EmployeePermissions: React.FC = () => {
         if (insertError) throw insertError;
       }
 
+      saveSuccessful = true;
+      
+      // Close dialog first to prevent state conflicts
+      setIsPermissionsOpen(false);
+      
+      // Then show success toast and refresh data
+      toast({ title: language === 'ar' ? 'تم بنجاح' : 'Success', description: language === 'ar' ? 'تم حفظ الصلاحيات بنجاح' : 'Permissions saved successfully' });
+      
+      // Refresh data after dialog is closed
       await refetchMemberships();
       // Invalidate visible employees cache so vault share dialog reflects changes
       queryClient.invalidateQueries({ queryKey: ['visible-employees'] });
-      toast({ title: 'تم بنجاح', description: 'تم حفظ الصلاحيات بنجاح' });
-      setIsPermissionsOpen(false);
     } catch (error) {
       console.error('Error saving permissions:', error);
       toast({ 
-        title: 'خطأ', 
-        description: 'فشل في حفظ الصلاحيات',
+        title: language === 'ar' ? 'خطأ' : 'Error', 
+        description: language === 'ar' ? 'فشل في حفظ الصلاحيات' : 'Failed to save permissions',
         variant: 'destructive' 
       });
     } finally {

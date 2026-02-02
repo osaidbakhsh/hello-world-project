@@ -95,6 +95,9 @@ const SidebarOrderSettings: React.FC = () => {
     setIsSaving(false);
     
     if (success) {
+      // Dispatch event to notify Sidebar to reload the order
+      window.dispatchEvent(new CustomEvent('sidebar-order-updated'));
+      
       toast({ 
         title: t('common.success'), 
         description: language === 'ar' ? 'تم حفظ ترتيب القائمة' : 'Menu order saved' 
