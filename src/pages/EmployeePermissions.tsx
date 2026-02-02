@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfiles, useDomains, useDomainMemberships } from '@/hooks/useSupabaseData';
 import { useVacationBalance, useUpdateVacationBalance } from '@/hooks/useVacationBalance';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -76,6 +77,7 @@ const EmployeePermissions: React.FC = () => {
   const { t, dir, language } = useLanguage();
   const { isSuperAdmin, isAdmin, user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: profiles, isLoading: profilesLoading, refetch: refetchProfiles } = useProfiles();
   const { data: domains, isLoading: domainsLoading } = useDomains();
   const { data: memberships, refetch: refetchMemberships } = useDomainMemberships();
@@ -509,6 +511,8 @@ const EmployeePermissions: React.FC = () => {
       }
 
       await refetchMemberships();
+      // Invalidate visible employees cache so vault share dialog reflects changes
+      queryClient.invalidateQueries({ queryKey: ['visible-employees'] });
       toast({ title: 'تم بنجاح', description: 'تم حفظ الصلاحيات بنجاح' });
       setIsPermissionsOpen(false);
     } catch (error) {
