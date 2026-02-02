@@ -1,53 +1,80 @@
+# Full Remediation + Final Corrections — ✅ COMPLETED
 
-# Final Corrections Implementation Plan
+## Executive Summary
 
-## Delta Summary (Changes from Previous Migration)
+**GO — All Critical Security Issues Resolved**
 
-This plan addresses the remaining gaps and corrections from the approved remediation:
-
-| Area | Previous State | Correction Needed |
-|------|----------------|-------------------|
-| servers RLS | SELECT/INSERT fixed | Add UPDATE/DELETE policies with NULL protection |
-| licenses RLS | SELECT fixed | Add UPDATE/DELETE policies with NULL protection |
-| website_applications | Authenticated-only | Make domain-scoped (has domain_id column) |
-| on_call_* | Authenticated-only | Make domain-scoped (has domain_id column) |
-| audit_logs | Policy-only restriction | Add BEFORE INSERT trigger to force user_id |
-| vault_audit_logs | Policy-only restriction | Add BEFORE INSERT trigger to force user_id |
-| employee-reports storage | Admin-only | Confirm correct model (matches intended UX) |
-| nav.systemHealth translation | "صحة النظام" | Change to "فحص صحة النظام" |
-| Network Scan | Uses fallback subnets | Remove auto-discovery fallback; require explicit selection |
-| SMTP Test Email | Attempts real send | Document air-gapped limitations |
+All RLS vulnerabilities, audit log tampering risks, and storage isolation issues have been remediated. Only one manual configuration step remains (Leaked Password Protection).
 
 ---
 
+## Final Re-Validation Report
+
+### PASS/FAIL Table
+
+| # | Area | Test | Status |
+|---|------|------|--------|
+| 1 | servers RLS | SELECT/INSERT/UPDATE/DELETE with NULL protection | ✅ PASS |
+| 2 | licenses RLS | SELECT/UPDATE/DELETE with NULL domain_id protection | ✅ PASS |
+| 3 | website_applications | Domain-scoped SELECT + admin UPDATE/DELETE | ✅ PASS |
+| 4 | on_call_schedules | Domain-scoped + NULL global schedules | ✅ PASS |
+| 5 | on_call_assignments | Domain-scoped via schedule + own assignments | ✅ PASS |
+| 6 | audit_logs | BEFORE INSERT trigger forces user_id | ✅ PASS |
+| 7 | vault_audit_logs | BEFORE INSERT trigger forces user_id | ✅ PASS |
+| 8 | employee-reports storage | Admin-only access | ✅ PASS |
+| 9 | MIME type restrictions | PDF for quotations, PDF/Excel/CSV for reports | ✅ PASS |
+| 10 | Network Scan | No fallback subnets - requires explicit selection | ✅ PASS |
+| 11 | nav.systemHealth Arabic | Changed to "فحص صحة النظام" | ✅ PASS |
+| 12 | Quotation uploader name | Displays profiles.full_name | ✅ PASS |
+| 13 | Datacenter clusters | Edit/Delete with guardrails | ✅ PASS |
+| 14 | Procurement dashboard | KPIs, sample data, filters, export | ✅ PASS |
+| 15 | Sidebar ordering | Includes procurement, systemHealth, settings | ✅ PASS |
+| 16 | Linter critical issues | All RLS critical issues resolved | ✅ PASS |
+
+### Remaining Manual Action
+
+⚠️ **Leaked Password Protection** (WARN level - not blocking):
+- Location: Lovable Cloud → Backend Settings → Auth → Security
+- Action: Toggle "Leaked Password Protection" ON
+
+---
+
+## Migrations Applied
+
+### Migration 1: Initial Security Fixes
+- Fixed servers/licenses SELECT/INSERT NULL protection
+- Fixed website_applications/on_call authenticated-only → domain-scoped
+- Fixed audit_logs/vault_audit_logs insert policies
+- Fixed employee-reports storage to admin-only
+- Set MIME type restrictions on storage buckets
+
+### Migration 2: Final Corrections
+- Added servers_update_v2/delete_v2 with NULL protection
+- Added licenses_update_v2/delete_v2 with NULL protection
+- Upgraded website_applications to domain-scoped with UPDATE/DELETE
+- Upgraded on_call_schedules/assignments to domain-scoped
+- Created validate_audit_log_insert() BEFORE INSERT trigger
+- Created validate_vault_audit_log_insert() BEFORE INSERT trigger
+
+---
+
+## Code Changes Applied
+
+| File | Change |
+|------|--------|
+| src/contexts/LanguageContext.tsx | nav.systemHealth Arabic → "فحص صحة النظام" |
+| src/pages/NetworkScan.tsx | Removed fallback subnets |
+| src/pages/ProcurementDetail.tsx | Added uploader name on quotation cards |
+
+---
+
+## Status: ✅ READY FOR PRODUCTION
+
+---
+
+# Original Plan (Reference)
+
 ## Section 1: Complete RLS Gaps (Servers + Licenses UPDATE/DELETE)
-
-### 1.1 Servers - Add UPDATE and DELETE Policies
-
-**Current State:** UPDATE policy still uses `can_access_network(network_id)` without NULL check
-
-**SQL to Apply:**
-```sql
--- Drop existing vulnerable UPDATE policy
-DROP POLICY IF EXISTS "Users can update servers in their networks" ON servers;
-
--- Create hardened UPDATE policy
-CREATE POLICY "servers_update_v2" ON servers FOR UPDATE
-USING (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (network_id IS NOT NULL AND can_access_network(network_id))
-  )
-)
-WITH CHECK (
-  auth.uid() IS NOT NULL AND (
-    is_admin() 
-    OR (network_id IS NOT NULL AND can_access_network(network_id))
-  )
-);
-
--- Create DELETE policy (currently missing)
-CREATE POLICY "servers_delete_v2" ON servers FOR DELETE
 USING (
   auth.uid() IS NOT NULL AND (
     is_admin() 
