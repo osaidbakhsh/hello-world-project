@@ -1,323 +1,490 @@
 
-# UI Enhancements + Datacenter Fixes + Test Connection Implementation
+# Comprehensive Enhancement Plan
 
 ## Overview
 
-This plan addresses the remaining UI enhancements, fixes the datacenter management issues, implements VM-Server linking, corrects missing translations, and makes test connection buttons functional with proper outcome display.
+This plan addresses 7 major feature requests based on user feedback and screenshots:
+
+1. **VM Form Auto-fill from Server Selection** - When selecting a server in VM form, auto-populate name, IP, OS, etc.
+2. **File Share Domain Credentials** - Add username/password fields for SMB share authentication
+3. **Mail Settings Enhancement** - Fix test connection (config_id issue), add username/password fields for SMTP auth
+4. **NTP Test Fix** - Fix "config_id is required" error by saving config before testing
+5. **Employee Reports Download** - Add download functionality for uploaded reports
+6. **Tasks Enhancement** - Filter servers by user domain access, add Import button for Excel bulk import
+7. **Network Scan Enhancement** - Auto-fill IP/subnet from selected network, make IP range optional
 
 ---
 
-## Issues Identified from User Screenshots
+## Phase 1: VM Form Auto-fill from Server Selection
 
-1. **"common.status" appearing as raw key** - Missing translation in NodeTable and VMTable
-2. **No edit/delete actions for Nodes in Physical tab** - Only add is available
-3. **Test buttons not working** - "اختبار الاتصال" buttons are not wired to call the edge function
-4. **VM not linked to Servers** - Need to create server record when adding VM
-5. **Hierarchy needs enhancement** - Show Domain → Datacenter → Cluster → Network → Server flow
-6. **Missing datacenter selection in cluster form**
+### Current Behavior
+The VM form has a "Link to Server" dropdown that stores `server_ref_id`, but doesn't auto-fill any data when a server is selected.
 
----
-
-## Phase 1: Fix Missing Translations
+### New Behavior
+When user selects a server from dropdown, auto-populate:
+- Name
+- IP Address
+- OS
+- Environment
 
 ### Files to Modify
 | File | Change |
 |------|--------|
-| `src/contexts/LanguageContext.tsx` | Add missing translation keys |
+| `src/components/datacenter/VMTable.tsx` | Add useEffect to auto-fill form when server_ref_id changes |
 
-### New Translation Keys (Arabic)
-```text
-'common.status': 'الحالة',
-'datacenter.datacenter': 'مركز البيانات',
-'datacenter.datacenters': 'مراكز البيانات',
-'datacenter.addDatacenter': 'إضافة مركز بيانات',
-'datacenter.selectDatacenter': 'اختر مركز البيانات',
-'datacenter.location': 'الموقع',
-'datacenter.noDatacenters': 'لا توجد مراكز بيانات',
-'datacenter.editNode': 'تعديل النود',
-'datacenter.deleteNode': 'حذف النود',
-'datacenter.editVM': 'تعديل VM',
-'datacenter.deleteVM': 'حذف VM',
-'datacenter.linkToServer': 'ربط بسيرفر',
-'datacenter.createServer': 'إنشاء سيرفر جديد',
-'settings.testConnection': 'اختبار الاتصال',
-'settings.testSuccess': 'نجح الاختبار',
-'settings.testFailed': 'فشل الاختبار',
-'settings.testResult': 'نتيجة الاختبار',
-'settings.testDetails': 'تفاصيل الاختبار',
-'settings.latency': 'زمن الاستجابة',
-'settings.validationOnly': 'التحقق من الصيغة فقط',
-```
+### Implementation
 
-### New Translation Keys (English)
-```text
-'common.status': 'Status',
-'datacenter.datacenter': 'Datacenter',
-'datacenter.datacenters': 'Datacenters',
-'datacenter.addDatacenter': 'Add Datacenter',
-'datacenter.selectDatacenter': 'Select Datacenter',
-'datacenter.location': 'Location',
-'datacenter.noDatacenters': 'No datacenters found',
-'datacenter.editNode': 'Edit Node',
-'datacenter.deleteNode': 'Delete Node',
-'datacenter.editVM': 'Edit VM',
-'datacenter.deleteVM': 'Delete VM',
-'datacenter.linkToServer': 'Link to Server',
-'datacenter.createServer': 'Create New Server',
-'settings.testConnection': 'Test Connection',
-'settings.testSuccess': 'Test Successful',
-'settings.testFailed': 'Test Failed',
-'settings.testResult': 'Test Result',
-'settings.testDetails': 'Test Details',
-'settings.latency': 'Latency',
-'settings.validationOnly': 'Validation only',
-```
-
----
-
-## Phase 2: NodeTable Edit/Delete Actions
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/components/datacenter/NodeTable.tsx` | Add edit/delete buttons, edit dialog, confirmation |
-| `src/hooks/useDatacenter.ts` | Already has useUpdateNode and useDeleteNode hooks |
-
-### Changes to NodeTable.tsx
-
-1. **Add Actions column to table header**
-2. **Add Edit/Delete buttons in each row**
-3. **Add edit dialog with form fields**
-4. **Add delete confirmation dialog**
-5. **Wire up useUpdateNode and useDeleteNode mutations**
-
-### Table Row Enhancement
-```text
-+-----+--------+------+-----+-----+-------+--------+--------+---------+
-| Name| Cluster| Role | CPU | RAM | Storage| Mgmt IP| Status | Actions |
-+-----+--------+------+-----+-----+-------+--------+--------+---------+
-                                                              [Edit][Delete]
-```
-
----
-
-## Phase 3: VMTable Edit/Delete Actions + Server Linking
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/components/datacenter/VMTable.tsx` | Add edit/delete, server linking dropdown |
-| `src/hooks/useDatacenter.ts` | Already has useUpdateVM and useDeleteVM |
-| `src/hooks/useSupabaseData.ts` | Use existing server mutations |
-
-### VM Form Enhancement
-
-Add to VM creation/edit dialog:
-1. **"Link to Server" dropdown** - Shows servers from same domain
-2. **"Create as Server" checkbox** - When checked, creates a new server record linked to this VM
-
-### Server Creation from VM
-
-When creating VM with "Create as Server" checked:
 ```typescript
-// Create server first
-const server = await createServer({
-  name: formData.name,
-  ip_address: formData.ip_address,
-  operating_system: formData.os,
-  environment: formData.environment,
-  domain_id: domainId,
-  network_id: selectedNetworkId, // From cluster's datacenter context
-  source: 'import',
-  notes: 'Created from VM in Datacenter module',
-});
-
-// Then create VM with server_ref_id
-await createVM({
-  ...formData,
-  server_ref_id: server.id,
-});
+// Add effect to auto-fill form when server is selected
+useEffect(() => {
+  if (formData.server_ref_id) {
+    const server = domainServers.find(s => s.id === formData.server_ref_id);
+    if (server && !editingVM) {
+      setFormData(prev => ({
+        ...prev,
+        name: server.name || prev.name,
+        ip_address: server.ip_address || prev.ip_address,
+        os: server.operating_system || prev.os,
+        environment: (server.environment as VMEnvironment) || prev.environment,
+      }));
+    }
+  }
+}, [formData.server_ref_id, domainServers, editingVM]);
 ```
 
 ---
 
-## Phase 4: Cluster Form - Add Datacenter Selection
+## Phase 2: File Share Domain Credentials
+
+### Current Schema
+`file_shares` table has `credential_vault_id` referencing the vault, but no direct credential fields.
+
+### Enhancement
+Add SMB credential fields to the form for domain authentication:
+- Username (domain\user format)
+- Password (stored in vault or local)
 
 ### Files to Modify
 | File | Change |
 |------|--------|
-| `src/components/datacenter/ClusterForm.tsx` | Add datacenter dropdown before cluster fields |
+| `src/components/fileshares/FileShareForm.tsx` | Add username/password fields for SMB type |
 
-### Form Flow
+### Database Migration Required
+Add columns to `file_shares` table:
+- `smb_username`: text (nullable)
+- `smb_password_encrypted`: text (nullable, encrypted)
 
-Current: Domain → Cluster fields
-New: Domain → **Datacenter** → Cluster fields
-
-The datacenter dropdown filters by selected domain and is required before saving the cluster.
-
----
-
-## Phase 5: TopologyView Enhancement - Show Full Hierarchy
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/components/datacenter/TopologyView.tsx` | Add datacenter level to hierarchy |
-
-### New Hierarchy Display
-```text
-📁 Domain
-  └─ 🏢 Datacenter 1
-      └─ 🖥️ Cluster 1 (Nutanix)
-          └─ ⚡ Node 1
-              └─ 💻 VM 1
-              └─ 💻 VM 2
-          └─ ⚡ Node 2
-      └─ 🖥️ Cluster 2 (VMware)
-  └─ 🏢 Datacenter 2
-      └─ ...
-```
-
-### Logic Change
-- Group clusters by datacenter_id
-- Show datacenters as expandable level between domain and clusters
-
----
-
-## Phase 6: Settings Test Connection - Wire Up Buttons
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/pages/Settings.tsx` | Wire test buttons to edge function, show results |
-
-### Implementation for Mail Tab (Lines 550-555)
-
-Current:
+### Form Enhancement
 ```jsx
-<Button variant="outline">
-  اختبار الاتصال
-</Button>
+{formData.share_type === 'SMB' && (
+  <>
+    <div className="space-y-2">
+      <Label>{t('fileShares.username')}</Label>
+      <Input
+        value={formData.smb_username}
+        onChange={(e) => setFormData(p => ({ ...p, smb_username: e.target.value }))}
+        placeholder="DOMAIN\\username"
+      />
+    </div>
+    <div className="space-y-2">
+      <Label>{t('fileShares.password')}</Label>
+      <Input
+        type="password"
+        value={formData.smb_password}
+        onChange={(e) => setFormData(p => ({ ...p, smb_password: e.target.value }))}
+        placeholder="••••••••"
+      />
+    </div>
+  </>
+)}
 ```
 
-New:
-```jsx
-const [mailTestResult, setMailTestResult] = useState<TestResult | null>(null);
-const [isTestingMail, setIsTestingMail] = useState(false);
+---
 
+## Phase 3: Mail Settings Enhancement
+
+### Issues Identified
+1. Test button shows "config_id is required for Mail test" - need to save config first
+2. Missing username/password fields for SMTP authentication (required for Gmail, Outlook, etc.)
+3. UI description mentions "Exchange Server 2019" but should support any SMTP
+
+### Database Schema Check
+Current `mail_configs` table is missing:
+- `smtp_username`: text
+- `smtp_password`: text (encrypted)
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/pages/Settings.tsx` | Fix test flow, add SMTP auth fields, improve Gmail support |
+
+### Database Migration
+```sql
+ALTER TABLE mail_configs 
+  ADD COLUMN smtp_username text,
+  ADD COLUMN smtp_password_encrypted text;
+```
+
+### Implementation Flow
+1. **Before testing**: Upsert config to `mail_configs` table to get config_id
+2. **Test button**: Pass config_id to edge function
+3. **UI Update**: Add username/password fields, update descriptions
+
+### Form Enhancement
+```jsx
+<div className="space-y-2">
+  <Label>{t('settings.smtpUsername')}</Label>
+  <Input
+    value={mailSettings.smtp_user}
+    onChange={(e) => setMailSettings({ ...mailSettings, smtp_user: e.target.value })}
+    placeholder="user@gmail.com"
+  />
+</div>
+<div className="space-y-2">
+  <Label>{t('settings.smtpPassword')}</Label>
+  <Input
+    type="password"
+    value={mailSettings.smtp_password}
+    onChange={(e) => setMailSettings({ ...mailSettings, smtp_password: e.target.value })}
+    placeholder="••••••••"
+  />
+  <p className="text-xs text-muted-foreground">
+    {t('settings.gmailAppPasswordHint')}
+  </p>
+</div>
+```
+
+### Test Button Fix
+```typescript
 const handleTestMail = async () => {
+  if (!selectedDomainId) {
+    toast({ title: t('common.error'), description: t('settings.selectDomainFirst'), variant: 'destructive' });
+    return;
+  }
+  
   setIsTestingMail(true);
   setMailTestResult(null);
   
   try {
-    // First, save the config to get an ID
+    // First save/upsert the config to get a config_id
     const { data: config, error: saveError } = await supabase
       .from('mail_configs')
       .upsert({
         domain_id: selectedDomainId,
         name: 'Default Mail Config',
         smtp_host: mailSettings.smtp_host,
-        smtp_port: parseInt(mailSettings.smtp_port),
+        smtp_port: parseInt(mailSettings.smtp_port) || 587,
         use_tls: mailSettings.smtp_encryption === 'tls',
         from_email: mailSettings.smtp_from_email,
         from_name: mailSettings.smtp_from_name,
+        smtp_username: mailSettings.smtp_user,
         is_active: mailSettings.smtp_enabled,
-      })
+      }, { onConflict: 'domain_id' })
       .select()
       .single();
     
     if (saveError) throw saveError;
     
-    // Call edge function
+    // Now test with config_id
     const response = await supabase.functions.invoke('test-connection', {
-      body: {
-        domain_id: selectedDomainId,
-        module: 'mail',
-        config_id: config.id,
-      }
+      body: { domain_id: selectedDomainId, module: 'mail', config_id: config.id }
     });
     
-    setMailTestResult(response.data);
-  } catch (error) {
-    setMailTestResult({
-      success: false,
-      status: 'fail',
-      message: error.message,
-    });
+    setMailTestResult(response.data || { success: false, status: 'fail', message: 'No response' });
+  } catch (error: any) {
+    setMailTestResult({ success: false, status: 'fail', message: error.message });
   } finally {
     setIsTestingMail(false);
   }
 };
-
-// Button
-<Button 
-  variant="outline" 
-  onClick={handleTestMail}
-  disabled={isTestingMail || !selectedDomainId}
->
-  {isTestingMail ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : null}
-  {t('settings.testConnection')}
-</Button>
-
-// Result Display
-{mailTestResult && (
-  <div className={cn(
-    "p-4 rounded-lg border mt-4",
-    mailTestResult.success 
-      ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
-      : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
-  )}>
-    <div className="flex items-center gap-2">
-      {mailTestResult.success ? (
-        <CheckCircle className="w-5 h-5 text-green-600" />
-      ) : (
-        <XCircle className="w-5 h-5 text-red-600" />
-      )}
-      <span className="font-medium">
-        {mailTestResult.success ? t('settings.testSuccess') : t('settings.testFailed')}
-      </span>
-      {mailTestResult.latency_ms && (
-        <Badge variant="outline">{mailTestResult.latency_ms}ms</Badge>
-      )}
-    </div>
-    <p className="text-sm mt-2">{mailTestResult.message}</p>
-    {mailTestResult.error_details && (
-      <pre className="text-xs mt-2 p-2 bg-muted rounded overflow-x-auto">
-        {JSON.stringify(mailTestResult.error_details, null, 2)}
-      </pre>
-    )}
-  </div>
-)}
 ```
-
-### Same Pattern for LDAP and NTP
-Apply identical pattern to LDAP test button (line 654-656) and NTP test button.
-
-### Requirements for Test to Work
-1. **Domain Selection** - Settings page needs a domain selector since test-connection requires domain_id
-2. **Config Save First** - Must save/upsert config before testing to get config_id
-3. **Display Result** - Show success/fail with details and latency
 
 ---
 
-## Phase 7: NetworkScan Filtering + Agent Message
+## Phase 4: NTP Test Fix
+
+### Issue
+Same as mail - test button doesn't save config first, so config_id is missing.
 
 ### Files to Modify
 | File | Change |
 |------|--------|
-| `src/pages/NetworkScan.tsx` | Filter networks by domain, add agent required message |
+| `src/pages/Settings.tsx` | Fix handleTestNtp to save config first |
 
-### Changes
-
-1. **Filter networks dropdown by selectedDomainId**
+### Implementation
 ```typescript
-const filteredNetworks = networks.filter(n => 
-  !selectedDomainId || n.domain_id === selectedDomainId
-);
+const handleTestNtp = async () => {
+  if (!selectedDomainId) {
+    toast({ title: t('common.error'), description: t('settings.selectDomainFirst'), variant: 'destructive' });
+    return;
+  }
+  
+  setIsTestingNtp(true);
+  setNtpTestResult(null);
+  
+  try {
+    // Save config first
+    const { data: config, error: saveError } = await supabase
+      .from('ntp_configs')
+      .upsert({
+        domain_id: selectedDomainId,
+        name: 'Default NTP Config',
+        servers: [ntpSettings.ntp_server_primary, ntpSettings.ntp_server_secondary].filter(Boolean),
+        sync_interval_seconds: parseInt(ntpSettings.ntp_sync_interval) || 3600,
+        is_active: ntpSettings.ntp_enabled,
+      }, { onConflict: 'domain_id' })
+      .select()
+      .single();
+    
+    if (saveError) throw saveError;
+    
+    const response = await supabase.functions.invoke('test-connection', {
+      body: { domain_id: selectedDomainId, module: 'ntp', config_id: config.id }
+    });
+    
+    setNtpTestResult(response.data || { success: false, status: 'fail', message: 'No response' });
+  } catch (error: any) {
+    setNtpTestResult({ success: false, status: 'fail', message: error.message });
+  } finally {
+    setIsTestingNtp(false);
+  }
+};
 ```
 
-2. **Auto-fill IP range from network subnet when network selected**
+---
+
+## Phase 5: Employee Reports Download
+
+### Current Behavior
+Reports are uploaded with `file_name` stored, but actual file is not saved to storage. The `file_url` column exists but is not populated.
+
+### Enhancement Options
+**Option A**: Store file in Supabase Storage (recommended)
+**Option B**: Store file content as base64 in database
+
+### Recommended Implementation (Option A)
+
+1. **Upload Flow**: Save file to Supabase Storage bucket `employee-reports`
+2. **Store URL**: Save the storage URL in `file_url` column
+3. **Download**: Generate signed URL and trigger download
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/pages/EmployeeReports.tsx` | Add file upload to storage, add download button |
+
+### Implementation
 ```typescript
+// Upload to storage
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!formData.profile_id || !selectedFile) {
+    toast({ ... });
+    return;
+  }
+
+  try {
+    // Upload file to storage
+    const filePath = `${formData.profile_id}/${Date.now()}_${selectedFile.name}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('employee-reports')
+      .upload(filePath, selectedFile);
+    
+    if (uploadError) throw uploadError;
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('employee-reports')
+      .getPublicUrl(filePath);
+
+    const reportData = {
+      profile_id: formData.profile_id,
+      report_date: formData.report_date,
+      report_type: formData.report_type,
+      file_name: selectedFile.name,
+      file_url: filePath, // Store path for signed URL generation
+      notes: formData.notes || null,
+      uploaded_by: profile?.id,
+    };
+
+    const { error } = await supabase.from('employee_reports').insert([reportData]);
+    if (error) throw error;
+
+    toast({ title: t('common.success') });
+    ...
+  } catch (error: any) {
+    toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+  }
+};
+
+// Download handler
+const handleDownload = async (report: EmployeeReport) => {
+  if (!report.file_url) {
+    toast({ title: t('common.error'), description: t('employeeReports.noFile'), variant: 'destructive' });
+    return;
+  }
+  
+  try {
+    const { data, error } = await supabase.storage
+      .from('employee-reports')
+      .download(report.file_url);
+    
+    if (error) throw error;
+    
+    // Create download link
+    const url = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = report.file_name || 'report.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (error: any) {
+    toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+  }
+};
+```
+
+### Storage Bucket Creation (SQL)
+```sql
+-- Create storage bucket for employee reports
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('employee-reports', 'employee-reports', false);
+
+-- RLS policy for bucket access
+CREATE POLICY "Users can upload their reports"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'employee-reports');
+
+CREATE POLICY "Admins can view all reports"
+ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'employee-reports');
+```
+
+---
+
+## Phase 6: Tasks Enhancement
+
+### Requirement 1: Filter Servers by User Domain Access
+When adding a task, only show servers that the assigned employee has access to via domain_memberships.
+
+### Requirement 2: Add Import Button for Excel Bulk Import
+Allow admins to import tasks from Excel with format:
+- Employee Name
+- Task Title
+- Description
+- Due Date
+- Frequency
+- Server (optional)
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/pages/Tasks.tsx` | Filter servers, add Import button and dialog |
+
+### Server Filtering Logic
+```typescript
+// Get user's domain memberships
+const { data: memberships } = useDomainMemberships(formData.assigned_to || profile?.id);
+
+// Filter servers by accessible domains
+const accessibleDomainIds = memberships?.map(m => m.domain_id) || [];
+
+// Get servers from accessible domains
+const accessibleServers = useMemo(() => {
+  if (!formData.assigned_to && !profile?.id) return servers;
+  
+  // Get networks for accessible domains
+  return servers.filter(server => {
+    const network = networks.find(n => n.id === server.network_id);
+    if (!network) return false;
+    return accessibleDomainIds.includes(network.domain_id);
+  });
+}, [servers, networks, accessibleDomainIds]);
+```
+
+### Import Dialog
+```jsx
+<Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>{t('tasks.importTasks')}</DialogTitle>
+    </DialogHeader>
+    
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>{t('tasks.importFile')} (Excel)</Label>
+        <Input type="file" accept=".xlsx,.xls" onChange={handleImportFileChange} />
+      </div>
+      
+      {importPreview.length > 0 && (
+        <div className="space-y-2">
+          <Label>{t('tasks.preview')}</Label>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Employee</TableHead>
+                <TableHead>Task</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {importPreview.map((row, i) => (
+                <TableRow key={i}>
+                  <TableCell>{row.employee_name}</TableCell>
+                  <TableCell>{row.title}</TableCell>
+                  <TableCell>{row.due_date}</TableCell>
+                  <TableCell>
+                    {row.profile_id ? (
+                      <Badge className="bg-green-500/10 text-green-700">Ready</Badge>
+                    ) : (
+                      <Badge variant="destructive">Employee not found</Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+          {t('common.cancel')}
+        </Button>
+        <Button onClick={handleImportSubmit} disabled={importPreview.length === 0}>
+          {t('common.import')} ({importPreview.filter(r => r.profile_id).length})
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+```
+
+---
+
+## Phase 7: Network Scan Enhancement
+
+### Requirements
+1. Auto-fill IP range from selected network's subnet
+2. Make IP range optional (use network subnet if not specified)
+3. Filter networks by selected domain
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/pages/NetworkScan.tsx` | Auto-fill from network, make IP range optional |
+
+### Implementation
+```typescript
+// Filter networks by domain
+const filteredNetworks = useMemo(() => {
+  if (!selectedDomainId) return networks;
+  return networks.filter(n => n.domain_id === selectedDomainId);
+}, [networks, selectedDomainId]);
+
+// Auto-fill IP range when network is selected
 useEffect(() => {
   if (selectedNetworkId) {
     const network = networks.find(n => n.id === selectedNetworkId);
@@ -326,106 +493,162 @@ useEffect(() => {
     }
   }
 }, [selectedNetworkId, networks]);
-```
 
-3. **Add agent required message**
-Replace simulated scan with clear message:
-```jsx
-<Alert>
-  <AlertCircle className="h-4 w-4" />
-  <AlertDescription>
-    {language === 'ar' 
-      ? 'يتطلب الفحص وكيل (Agent) مثبت في الشبكة المحلية. الفحص المباشر من المتصفح غير مدعوم لأسباب أمنية.'
-      : 'Network scanning requires an agent installed on your local network. Direct browser scanning is not supported for security reasons.'
-    }
-  </AlertDescription>
-</Alert>
-```
-
----
-
-## Phase 8: ScanAgents Diagnostics Panel
-
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/pages/ScanAgents.tsx` | Add events panel, last error column |
-| `src/hooks/useScanAgents.ts` | Add useAgentEvents hook |
-
-### New Hook
-```typescript
-export function useAgentEvents(agentId: string) {
-  return useQuery({
-    queryKey: ['agent_events', agentId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('agent_events')
-        .select('*')
-        .eq('agent_id', agentId)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!agentId,
-  });
-}
+// Update validation - IP range optional if network selected
+const handleStartScan = async () => {
+  if (!scanName) {
+    toast({ title: t('common.error'), description: t('scan.nameRequired'), variant: 'destructive' });
+    return;
+  }
+  
+  // Use IP range from form or from network
+  let scanIpRange = ipRange;
+  if (!scanIpRange && selectedNetworkId) {
+    const network = networks.find(n => n.id === selectedNetworkId);
+    scanIpRange = network?.subnet || '';
+  }
+  
+  if (!scanIpRange) {
+    toast({ title: t('common.error'), description: t('scan.ipRangeRequired'), variant: 'destructive' });
+    return;
+  }
+  
+  // Proceed with scan...
+};
 ```
 
 ### UI Enhancement
-- Add "Last Error" column showing most recent error event
-- Add expandable row or dialog showing recent 50 events
+- Add placeholder showing network subnet
+- Show hint that IP range is auto-filled from network
+- Mark IP range field as optional
 
 ---
 
-## Technical Summary
+## Database Migrations Required
+
+### Migration 1: Mail Config Auth Fields
+```sql
+ALTER TABLE mail_configs 
+  ADD COLUMN IF NOT EXISTS smtp_username text,
+  ADD COLUMN IF NOT EXISTS smtp_password_encrypted text;
+```
+
+### Migration 2: File Share Credentials
+```sql
+ALTER TABLE file_shares 
+  ADD COLUMN IF NOT EXISTS smb_username text,
+  ADD COLUMN IF NOT EXISTS smb_password_encrypted text;
+```
+
+### Migration 3: Storage Bucket for Reports
+```sql
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('employee-reports', 'employee-reports', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- RLS Policies
+CREATE POLICY "Authenticated users can upload reports" 
+ON storage.objects FOR INSERT TO authenticated 
+WITH CHECK (bucket_id = 'employee-reports');
+
+CREATE POLICY "Authenticated users can read reports" 
+ON storage.objects FOR SELECT TO authenticated 
+USING (bucket_id = 'employee-reports');
+
+CREATE POLICY "Authenticated users can delete own reports" 
+ON storage.objects FOR DELETE TO authenticated 
+USING (bucket_id = 'employee-reports');
+```
+
+---
+
+## New Translations
+
+### Arabic
+```text
+'fileShares.username': 'اسم المستخدم',
+'fileShares.password': 'كلمة المرور',
+'fileShares.domainCredentials': 'بيانات اعتماد الدومين',
+'settings.smtpUsername': 'اسم المستخدم',
+'settings.smtpPassword': 'كلمة المرور',
+'settings.gmailAppPasswordHint': 'لـ Gmail، استخدم "كلمة مرور التطبيق" بدلاً من كلمة المرور العادية',
+'settings.selectDomainFirst': 'اختر النطاق أولاً',
+'employeeReports.download': 'تحميل',
+'employeeReports.noFile': 'الملف غير متوفر',
+'tasks.importTasks': 'استيراد المهام',
+'tasks.importFile': 'ملف الاستيراد',
+'tasks.preview': 'معاينة',
+'scan.nameRequired': 'اسم الفحص مطلوب',
+'scan.ipRangeOptional': 'نطاق IP (اختياري إذا تم اختيار الشبكة)',
+'scan.autoFilledFromNetwork': 'تم الملء تلقائياً من الشبكة المحددة',
+```
+
+### English
+```text
+'fileShares.username': 'Username',
+'fileShares.password': 'Password',
+'fileShares.domainCredentials': 'Domain Credentials',
+'settings.smtpUsername': 'Username',
+'settings.smtpPassword': 'Password',
+'settings.gmailAppPasswordHint': 'For Gmail, use "App Password" instead of your regular password',
+'settings.selectDomainFirst': 'Select a domain first',
+'employeeReports.download': 'Download',
+'employeeReports.noFile': 'File not available',
+'tasks.importTasks': 'Import Tasks',
+'tasks.importFile': 'Import File',
+'tasks.preview': 'Preview',
+'scan.nameRequired': 'Scan name is required',
+'scan.ipRangeOptional': 'IP Range (optional if network selected)',
+'scan.autoFilledFromNetwork': 'Auto-filled from selected network',
+```
+
+---
+
+## Files Summary
 
 ### Files to Create
-None - all changes are modifications to existing files.
+- None
 
 ### Files to Modify
-
 | File | Changes |
 |------|---------|
-| `src/contexts/LanguageContext.tsx` | Add ~20 new translation keys for both AR/EN |
-| `src/components/datacenter/NodeTable.tsx` | Add edit/delete actions with dialogs |
-| `src/components/datacenter/VMTable.tsx` | Add edit/delete actions + server linking |
-| `src/components/datacenter/ClusterForm.tsx` | Add datacenter selection dropdown |
-| `src/components/datacenter/TopologyView.tsx` | Add datacenter level to hierarchy |
-| `src/pages/Settings.tsx` | Wire test buttons to edge function with result display |
-| `src/pages/NetworkScan.tsx` | Filter networks by domain, add agent message |
-| `src/pages/ScanAgents.tsx` | Add diagnostics panel and events display |
-| `src/hooks/useScanAgents.ts` | Add useAgentEvents hook |
+| `src/contexts/LanguageContext.tsx` | Add ~15 new translation keys |
+| `src/components/datacenter/VMTable.tsx` | Add server auto-fill effect |
+| `src/components/fileshares/FileShareForm.tsx` | Add SMB credential fields |
+| `src/pages/Settings.tsx` | Fix test connection flow, add SMTP auth fields |
+| `src/pages/EmployeeReports.tsx` | Add file storage upload, add download button |
+| `src/pages/Tasks.tsx` | Filter servers by domain access, add Import dialog |
+| `src/pages/NetworkScan.tsx` | Auto-fill IP from network, make optional, filter networks |
 
-### No Database Changes Required
-All schema and edge functions are already in place from previous implementation.
+### Database Migrations
+1. Add SMTP auth columns to `mail_configs`
+2. Add SMB credentials to `file_shares`
+3. Create storage bucket `employee-reports` with RLS policies
 
 ---
 
 ## Implementation Order
 
-1. **LanguageContext.tsx** - Add missing translations (fixes "common.status" issue)
-2. **NodeTable.tsx** - Add edit/delete actions
-3. **VMTable.tsx** - Add edit/delete + server linking
-4. **ClusterForm.tsx** - Add datacenter dropdown
-5. **TopologyView.tsx** - Show datacenter level
-6. **Settings.tsx** - Wire test buttons with result display
-7. **NetworkScan.tsx** - Domain filtering + agent message
-8. **ScanAgents.tsx** - Diagnostics panel
+1. **Database Migrations** - Add required columns and storage bucket
+2. **Translations** - Add all new keys
+3. **Settings.tsx** - Fix test connection flow (high priority - user reported issue)
+4. **VMTable.tsx** - Add server auto-fill
+5. **FileShareForm.tsx** - Add SMB credentials
+6. **EmployeeReports.tsx** - Add download functionality
+7. **Tasks.tsx** - Add server filtering and import
+8. **NetworkScan.tsx** - Auto-fill and optional IP range
 
 ---
 
 ## Verification Checklist
 
 After implementation:
-- [ ] "common.status" shows as "الحالة" / "Status" in NodeTable and VMTable
-- [ ] Can edit/delete nodes from Physical tab
-- [ ] Can edit/delete VMs from Virtualization tab
-- [ ] VM form shows option to link to or create server
-- [ ] Cluster form requires datacenter selection
-- [ ] TopologyView shows Domain → Datacenter → Cluster → Node → VM
-- [ ] Mail test button calls edge function and shows result
-- [ ] LDAP test button calls edge function and shows result
-- [ ] NTP test button calls edge function and shows result
-- [ ] NetworkScan filters networks by selected domain
-- [ ] ScanAgents shows last error and recent events
+- [ ] VM form auto-fills data when server is selected
+- [ ] File Share form shows username/password for SMB type
+- [ ] Mail test button works and shows result
+- [ ] NTP test button works and shows result
+- [ ] Employee reports can be downloaded
+- [ ] Tasks form only shows accessible servers
+- [ ] Tasks import from Excel works
+- [ ] Network scan auto-fills IP from network
+- [ ] Network scan works with just network selected (no manual IP)
