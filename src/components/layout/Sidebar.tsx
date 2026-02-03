@@ -314,7 +314,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {visibleMenuItems.map(item => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
-            const linkContent = <Link to={item.path} className={cn("flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-right", isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-md' : 'text-sidebar-foreground', collapsed && 'justify-center')}>
+            const linkContent = <Link to={item.path} className={cn("flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", dir === 'rtl' ? 'flex-row-reverse text-right' : 'text-left', isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-md' : 'text-sidebar-foreground', collapsed && 'justify-center')}>
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {!collapsed && <span className="truncate">{t(item.label)}</span>}
               </Link>;
