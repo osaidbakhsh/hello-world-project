@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DataTableHeader, serverSortOptions, applySortToData } from '@/components/DataTableHeader';
 import { useSmartImport } from '@/hooks/useSmartImport';
+import { DataPagination, usePagination } from '@/components/ui/data-pagination';
 
 interface ServerFormData {
   name: string;
@@ -189,6 +190,16 @@ const Servers: React.FC = () => {
   const sortedServers = useMemo(() => {
     return applySortToData(filteredServers, sortValue);
   }, [filteredServers, sortValue]);
+
+  // Pagination
+  const {
+    currentPage,
+    pageSize,
+    totalItems,
+    paginatedData: paginatedServers,
+    handlePageChange,
+    handlePageSizeChange,
+  } = usePagination(sortedServers, 10);
 
   const handleSubmit = async () => {
     // Validation
@@ -1018,8 +1029,8 @@ const Servers: React.FC = () => {
                       ))}
                     </TableRow>
                   ))
-                ) : sortedServers.length > 0 ? (
-                  sortedServers.map((server) => {
+                ) : paginatedServers.length > 0 ? (
+                  paginatedServers.map((server) => {
                     const network = allNetworks.find((n) => n.id === server.network_id);
                     const domain = domains.find((d) => d.id === network?.domain_id);
                     return (
@@ -1089,6 +1100,17 @@ const Servers: React.FC = () => {
               </TableBody>
             </Table>
           </div>
+          
+          {/* Pagination */}
+          {sortedServers.length > 0 && (
+            <DataPagination
+              currentPage={currentPage}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
         </CardContent>
       </Card>
     </div>
