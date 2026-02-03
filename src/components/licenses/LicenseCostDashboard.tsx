@@ -10,7 +10,20 @@ interface LicenseCostDashboardProps {
   domains: Array<{ id: string; name: string }>;
 }
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+// Domain-specific colors - distinct and professional
+const DOMAIN_COLORS: Record<string, string> = {
+  'os.com': 'hsl(173, 80%, 23%)',      // Primary teal
+  'at.com': 'hsl(43, 65%, 56%)',       // Gold accent
+  'is.com': 'hsl(220, 70%, 50%)',      // Blue
+};
+
+const FALLBACK_COLORS = [
+  'hsl(173, 80%, 23%)',  // Teal
+  'hsl(43, 65%, 56%)',   // Gold
+  'hsl(220, 70%, 50%)',  // Blue
+  'hsl(340, 65%, 47%)',  // Rose
+  'hsl(280, 60%, 50%)',  // Purple
+];
 
 const LicenseCostDashboard: React.FC<LicenseCostDashboardProps> = ({ licenses, domains }) => {
   const { t, language, dir } = useLanguage();
@@ -84,12 +97,20 @@ const LicenseCostDashboard: React.FC<LicenseCostDashboardProps> = ({ licenses, d
     }).format(value);
   };
 
-  // Pie chart data for top domains
-  const pieData = domainCostData.slice(0, 5).map((d, index) => ({
-    name: d.name,
-    value: d.cost,
-    fill: COLORS[index % COLORS.length],
-  }));
+  // Pie chart data for top domains with consistent colors
+  const pieData = domainCostData.slice(0, 5).map((d, index) => {
+    // Use domain-specific color if available, otherwise fallback
+    const domainKey = Object.keys(DOMAIN_COLORS).find(key => 
+      d.name.toLowerCase().includes(key.toLowerCase().replace('.com', ''))
+    );
+    const color = domainKey ? DOMAIN_COLORS[domainKey] : FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+    
+    return {
+      name: d.name,
+      value: d.cost,
+      fill: color,
+    };
+  });
 
   return (
     <div className="space-y-6" dir={dir}>
