@@ -1,5 +1,33 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Database constraint mappings - these must match the CHECK constraints in the database
+const ALLOWED_VALUES = {
+  cluster_type: ['nutanix', 'vmware', 'hyperv', 'other'] as const,
+  rf_level: ['RF2', 'RF3'] as const,
+  storage_type: ['all-flash', 'hybrid', 'hdd'] as const,
+  node_role: ['compute', 'storage', 'hybrid'] as const,
+  node_status: ['active', 'maintenance', 'decommissioned'] as const,
+} as const;
+
+// Validation helper for cluster data
+function validateClusterData(cluster: any): string[] {
+  const errors: string[] = [];
+  
+  if (cluster.cluster_type && !ALLOWED_VALUES.cluster_type.includes(cluster.cluster_type)) {
+    errors.push(`Invalid cluster_type: '${cluster.cluster_type}'. Allowed: ${ALLOWED_VALUES.cluster_type.join(', ')}`);
+  }
+  
+  if (cluster.rf_level && !ALLOWED_VALUES.rf_level.includes(cluster.rf_level)) {
+    errors.push(`Invalid rf_level: '${cluster.rf_level}'. Allowed: ${ALLOWED_VALUES.rf_level.join(', ')}`);
+  }
+  
+  if (cluster.storage_type && !ALLOWED_VALUES.storage_type.includes(cluster.storage_type)) {
+    errors.push(`Invalid storage_type: '${cluster.storage_type}'. Allowed: ${ALLOWED_VALUES.storage_type.join(', ')}`);
+  }
+  
+  return errors;
+}
+
 // Professional domains - 3 distinct domains
 const professionalDomains = [
   { name: 'os.com', description: 'Operations & Systems Domain - Core infrastructure management' },
@@ -446,7 +474,7 @@ const professionalClusters = [
   { 
     datacenterName: 'DC-DAMMAM-01', 
     name: 'IS-HYPERV-SEC', 
-    cluster_type: 'hyper-v',
+    cluster_type: 'hyperv',  // Fixed: was 'hyper-v', DB constraint expects 'hyperv'
     vendor: 'Microsoft',
     platform_version: 'Windows Server 2022',
     hypervisor_version: 'Hyper-V 10.0',
