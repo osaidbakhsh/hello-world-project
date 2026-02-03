@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import EmployeeTaskUpload from '@/components/employees/EmployeeTaskUpload';
 import { useToast } from '@/hooks/use-toast';
+import { DataPagination, usePagination } from '@/components/ui/data-pagination';
 
 const Employees: React.FC = () => {
   const { t, dir, language } = useLanguage();
@@ -68,6 +69,16 @@ const Employees: React.FC = () => {
       (emp.position || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [profiles, searchQuery]);
+
+  // Pagination
+  const {
+    currentPage,
+    pageSize,
+    totalItems,
+    paginatedData: paginatedEmployees,
+    handlePageChange,
+    handlePageSizeChange,
+  } = usePagination(filteredEmployees, 12);
 
   // Get employee tasks
   const getEmployeeTasks = (profileId: string): Task[] => {
@@ -292,8 +303,8 @@ const Employees: React.FC = () => {
               </CardContent>
             </Card>
           ))
-        ) : filteredEmployees.length > 0 ? (
-          filteredEmployees.map((employee) => {
+        ) : paginatedEmployees.length > 0 ? (
+          paginatedEmployees.map((employee) => {
             const tasks = getEmployeeTasks(employee.id);
             const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'in-progress');
             const completedTasks = tasks.filter(t => t.status === 'completed');
@@ -391,6 +402,20 @@ const Employees: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredEmployees.length > 0 && (
+        <Card>
+          <DataPagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            pageSizeOptions={[12, 24, 48, 96]}
+          />
+        </Card>
+      )}
 
       {/* Employee Details Dialog */}
       <Dialog open={!!selectedEmployee} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
