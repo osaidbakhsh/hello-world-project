@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWebsiteApplications, useDomains } from '@/hooks/useSupabaseData';
+import { useWebsiteApplications, useDomains, WebsiteApplication } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -101,6 +101,10 @@ import {
   Tablet,
   Laptop,
   Printer,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
+  Save,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -190,7 +194,7 @@ const WebApps: React.FC = () => {
   const { t, dir, language } = useLanguage();
   const { isAdmin, profile } = useAuth();
   const { toast } = useToast();
-  const { data: apps, isLoading, refetch } = useWebsiteApplications();
+  const { data: apps, isLoading, refetch } = useWebsiteApplications(true);
   const { data: domains } = useDomains();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -200,14 +204,27 @@ const WebApps: React.FC = () => {
   const [deletingApp, setDeletingApp] = useState<any | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<WebAppForm>(initialFormData);
+  
+  // Sorting state
+  const [localApps, setLocalApps] = useState<WebsiteApplication[]>([]);
+  const [hasOrderChanges, setHasOrderChanges] = useState(false);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  // Sync local apps with fetched data
+  useEffect(() => {
+    if (apps.length > 0) {
+      setLocalApps(apps);
+      setHasOrderChanges(false);
+    }
+  }, [apps]);
 
   // For employees, filter apps by their domains
   const visibleApps = useMemo(() => {
-    if (isAdmin) return apps;
+    if (isAdmin) return localApps;
     // For employees, show only apps from domains they have access to
     const myDomainIds = domains.map(d => d.id);
-    return apps.filter(app => !app.domain_id || myDomainIds.includes(app.domain_id));
-  }, [apps, domains, isAdmin]);
+    return localApps.filter(app => !app.domain_id || myDomainIds.includes(app.domain_id));
+  }, [localApps, domains, isAdmin]);
 
   const getCategoryLabel = (category: string) => {
     switch (category) {
@@ -242,6 +259,59 @@ const WebApps: React.FC = () => {
     (app.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (app.category || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Move app up or down
+  const moveApp = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= localApps.length) return;
+
+    const newApps = [...localApps];
+    [newApps[index], newApps[targetIndex]] = [newApps[targetIndex], newApps[index]];
+    
+    // Update sort_order for all items
+    newApps.forEach((app, i) => {
+      app.sort_order = i;
+    });
+    
+    setLocalApps(newApps);
+    setHasOrderChanges(true);
+  };
+
+  // Save new sort order to database
+  const saveSortOrder = async () => {
+    setIsSavingOrder(true);
+    try {
+      // Update each app's sort_order
+      const updates = localApps.map((app, index) => 
+        supabase
+          .from('website_applications')
+          .update({ sort_order: index })
+          .eq('id', app.id)
+      );
+
+      const results = await Promise.all(updates);
+      const hasError = results.some(r => r.error);
+      
+      if (hasError) {
+        throw new Error('Failed to update some items');
+      }
+
+      toast({
+        title: t('common.success'),
+        description: language === 'ar' ? 'تم حفظ الترتيب بنجاح' : 'Sort order saved successfully',
+      });
+      setHasOrderChanges(false);
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
 
   const handleSubmit = async () => {
     // Validate with Zod
@@ -296,6 +366,9 @@ const WebApps: React.FC = () => {
         if (error) throw error;
         toast({ title: t('common.success'), description: t('webApps.updateSuccess') });
       } else {
+        // Get the max sort_order
+        const maxOrder = localApps.reduce((max, app) => Math.max(max, app.sort_order || 0), -1);
+        
         const { error } = await supabase
           .from('website_applications')
           .insert({
@@ -307,6 +380,7 @@ const WebApps: React.FC = () => {
             domain_id: formData.domain_id || null,
             is_active: formData.is_active,
             created_by: profile?.id || null,
+            sort_order: maxOrder + 1,
           });
 
         if (error) throw error;
@@ -392,12 +466,28 @@ const WebApps: React.FC = () => {
           </div>
         </div>
 
-        {canManage && (
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="w-4 h-4 me-2" />
-            {t('webApps.add')}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canManage && hasOrderChanges && (
+            <Button 
+              onClick={saveSortOrder} 
+              disabled={isSavingOrder}
+              variant="default"
+            >
+              {isSavingOrder ? (
+                <Loader2 className="w-4 h-4 me-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 me-2" />
+              )}
+              {language === 'ar' ? 'حفظ الترتيب' : 'Save Order'}
+            </Button>
+          )}
+          {canManage && (
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="w-4 h-4 me-2" />
+              {t('webApps.add')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -452,6 +542,11 @@ const WebApps: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  {canManage && (
+                    <TableHead className="w-[80px]">
+                      {language === 'ar' ? 'ترتيب' : 'Order'}
+                    </TableHead>
+                  )}
                   <TableHead>{t('webApps.app')}</TableHead>
                   <TableHead>{t('webApps.url')}</TableHead>
                   <TableHead>{t('webApps.category')}</TableHead>
@@ -464,7 +559,7 @@ const WebApps: React.FC = () => {
                 {isLoading ? (
                   Array.from({ length: 3 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
+                      {Array.from({ length: canManage ? 7 : 6 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-6 w-full" />
                         </TableCell>
@@ -473,18 +568,46 @@ const WebApps: React.FC = () => {
                   ))
                 ) : filteredApps.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12">
+                    <TableCell colSpan={canManage ? 7 : 6} className="text-center py-12">
                       <Globe className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground">{t('webApps.noApps')}</p>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredApps.map((app) => {
+                  filteredApps.map((app, index) => {
                     const IconComponent = getIcon(app.icon || 'globe');
                     const domain = domains.find((d) => d.id === app.domain_id);
+                    const originalIndex = localApps.findIndex(a => a.id === app.id);
 
                     return (
                       <TableRow key={app.id}>
+                        {canManage && (
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <GripVertical className="w-4 h-4 text-muted-foreground" />
+                              <div className="flex flex-col">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => moveApp(originalIndex, 'up')}
+                                  disabled={originalIndex === 0}
+                                >
+                                  <ArrowUp className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => moveApp(originalIndex, 'down')}
+                                  disabled={originalIndex === localApps.length - 1}
+                                >
+                                  <ArrowDown className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-primary/10">
