@@ -219,6 +219,7 @@ const translations: Record<Language, Record<string, string>> = {
     'onCall.noEscalationRules': 'لا توجد قواعد تصعيد',
     'onCall.level': 'المستوى',
     'onCall.waitFor': 'انتظر',
+    'onCall.editSchedule': 'تعديل جدول المناوبة',
     
     // Maintenance Windows
     'maintenance.title': 'نوافذ الصيانة',
@@ -1846,6 +1847,7 @@ const translations: Record<Language, Record<string, string>> = {
     'onCall.noEscalationRules': 'No escalation rules',
     'onCall.level': 'Level',
     'onCall.waitFor': 'Wait for',
+    'onCall.editSchedule': 'Edit Schedule',
     
     // Maintenance Windows
     'maintenance.title': 'Maintenance Windows',
