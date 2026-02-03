@@ -544,32 +544,31 @@ const WebApps: React.FC = () => {
           if (!open) resetForm();
         }}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg" dir={dir}>
+          <DialogHeader className="text-start">
             <DialogTitle className="flex items-center gap-2">
               {editingApp ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
               {editingApp ? t('webApps.editApp') : t('webApps.addApp')}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-start">
               {t('webApps.appDesc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('webApps.appName')} *</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder={`${t('common.example')}: Jira`}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="text-start block">{t('webApps.appName')} *</Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder={`${t('common.example')}: Jira`}
+                className="text-start"
+              />
             </div>
 
             {/* Icon Grid Selector */}
             <div className="space-y-2">
-              <Label>{t('webApps.icon')}</Label>
+              <Label className="text-start block">{t('webApps.icon')}</Label>
               <div className="grid grid-cols-10 gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg bg-muted/20">
                 {iconOptions.map((opt) => {
                   const Icon = opt.icon;
@@ -594,7 +593,7 @@ const WebApps: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>{t('webApps.url')} (URL) *</Label>
+              <Label className="text-start block">{t('webApps.url')} (URL) *</Label>
               <Input
                 value={formData.url}
                 onChange={(e) => setFormData({ ...formData, url: e.target.value })}
@@ -605,23 +604,24 @@ const WebApps: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>{t('webApps.description')}</Label>
+              <Label className="text-start block">{t('webApps.description')}</Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder={t('webApps.description')}
                 rows={2}
+                className="text-start"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{t('webApps.category')}</Label>
+                <Label className="text-start block">{t('webApps.category')}</Label>
                 <Select
                   value={formData.category}
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-start">
                     <SelectValue placeholder={t('webApps.selectCategory')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -634,12 +634,12 @@ const WebApps: React.FC = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>{t('webApps.domain')}</Label>
+                <Label className="text-start block">{t('webApps.domain')}</Label>
                 <Select
                   value={formData.domain_id || "all"}
                   onValueChange={(value) => setFormData({ ...formData, domain_id: value === "all" ? "" : value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-start">
                     <SelectValue placeholder={t('webApps.publicForAll')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -655,7 +655,7 @@ const WebApps: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-              <div>
+              <div className="text-start">
                 <Label>{t('webApps.enabled')}</Label>
                 <p className="text-xs text-muted-foreground">{t('webApps.enabledDesc')}</p>
               </div>
@@ -666,13 +666,13 @@ const WebApps: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              {t('common.cancel')}
-            </Button>
+          <DialogFooter className="flex-row-reverse sm:flex-row-reverse gap-2">
             <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="w-4 h-4 me-2 animate-spin" />}
               {editingApp ? t('webApps.saveChanges') : t('common.add')}
+            </Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              {t('common.cancel')}
             </Button>
           </DialogFooter>
         </DialogContent>
