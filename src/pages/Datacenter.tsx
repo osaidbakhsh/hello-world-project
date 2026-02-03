@@ -112,32 +112,34 @@ const Datacenter: React.FC = () => {
         </Card>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview" className="gap-2">
-              <LayoutGrid className="w-4 h-4" />
-              {t('datacenter.overview')}
-            </TabsTrigger>
-            <TabsTrigger value="datacenters" className="gap-2">
-              <Building2 className="w-4 h-4" />
-              {language === 'ar' ? 'مراكز البيانات' : 'Datacenters'}
-            </TabsTrigger>
-            <TabsTrigger value="clusters" className="gap-2">
-              <Layers className="w-4 h-4" />
-              {t('datacenter.clustersTab')}
-            </TabsTrigger>
-            <TabsTrigger value="physical" className="gap-2">
-              <Cpu className="w-4 h-4" />
-              {t('datacenter.physical')}
-            </TabsTrigger>
-            <TabsTrigger value="virtualization" className="gap-2">
-              <Monitor className="w-4 h-4" />
-              {t('datacenter.virtualization')}
-            </TabsTrigger>
-            <TabsTrigger value="topology" className="gap-2">
-              <Network className="w-4 h-4" />
-              {t('datacenter.topology')}
-            </TabsTrigger>
-          </TabsList>
+          <div className={language === 'ar' ? 'flex justify-end' : 'flex justify-start'}>
+            <TabsList>
+              <TabsTrigger value="overview" className="gap-2">
+                <LayoutGrid className="w-4 h-4" />
+                {t('datacenter.overview')}
+              </TabsTrigger>
+              <TabsTrigger value="datacenters" className="gap-2">
+                <Building2 className="w-4 h-4" />
+                {language === 'ar' ? 'مراكز البيانات' : 'Datacenters'}
+              </TabsTrigger>
+              <TabsTrigger value="clusters" className="gap-2">
+                <Layers className="w-4 h-4" />
+                {t('datacenter.clustersTab')}
+              </TabsTrigger>
+              <TabsTrigger value="physical" className="gap-2">
+                <Cpu className="w-4 h-4" />
+                {t('datacenter.physical')}
+              </TabsTrigger>
+              <TabsTrigger value="virtualization" className="gap-2">
+                <Monitor className="w-4 h-4" />
+                {t('datacenter.virtualization')}
+              </TabsTrigger>
+              <TabsTrigger value="topology" className="gap-2">
+                <Network className="w-4 h-4" />
+                {t('datacenter.topology')}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview">
             <DatacenterOverview 
