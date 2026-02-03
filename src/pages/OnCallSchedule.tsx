@@ -274,7 +274,7 @@ const OnCallSchedule: React.FC = () => {
                 {t('onCall.addSchedule')}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg" dir={dir}>
               <DialogHeader>
                 <DialogTitle>{t('onCall.addSchedule')}</DialogTitle>
               </DialogHeader>
@@ -370,7 +370,7 @@ const OnCallSchedule: React.FC = () => {
             setIsEditDialogOpen(open);
             if (!open) setEditingSchedule(null);
           }}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg" dir={dir}>
               <DialogHeader>
                 <DialogTitle>{t('onCall.editSchedule')}</DialogTitle>
               </DialogHeader>
@@ -493,21 +493,23 @@ const OnCallSchedule: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="schedules">
-            <CalendarIcon className="w-4 h-4 me-2" />
-            {t('onCall.schedules')}
-          </TabsTrigger>
-          <TabsTrigger value="current">
-            <Phone className="w-4 h-4 me-2" />
-            {t('onCall.currentOnCall')}
-          </TabsTrigger>
-          <TabsTrigger value="escalation">
-            <ArrowUp className="w-4 h-4 me-2" />
-            {t('onCall.escalation')}
-          </TabsTrigger>
-        </TabsList>
+<Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className={dir === 'rtl' ? 'flex justify-end' : 'flex justify-start'}>
+          <TabsList>
+            <TabsTrigger value="schedules">
+              <CalendarIcon className="w-4 h-4 me-2" />
+              {t('onCall.schedules')}
+            </TabsTrigger>
+            <TabsTrigger value="current">
+              <Phone className="w-4 h-4 me-2" />
+              {t('onCall.currentOnCall')}
+            </TabsTrigger>
+            <TabsTrigger value="escalation">
+              <ArrowUp className="w-4 h-4 me-2" />
+              {t('onCall.escalation')}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Schedules Tab */}
         <TabsContent value="schedules" className="space-y-4">

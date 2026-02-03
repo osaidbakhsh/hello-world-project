@@ -373,7 +373,7 @@ const MaintenanceWindows: React.FC = () => {
                 {t('maintenance.add')}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir={dir}>
               <DialogHeader>
                 <DialogTitle>{t('maintenance.add')}</DialogTitle>
               </DialogHeader>
@@ -533,21 +533,23 @@ const MaintenanceWindows: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="calendar">
-            <CalendarIcon className="w-4 h-4 me-2" />
-            {t('maintenance.calendar')}
-          </TabsTrigger>
-          <TabsTrigger value="list">
-            <FileText className="w-4 h-4 me-2" />
-            {t('maintenance.list')}
-          </TabsTrigger>
-          <TabsTrigger value="changes">
-            <Wrench className="w-4 h-4 me-2" />
-            {t('maintenance.changeRequests')}
-          </TabsTrigger>
-        </TabsList>
+<Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className={dir === 'rtl' ? 'flex justify-end' : 'flex justify-start'}>
+          <TabsList>
+            <TabsTrigger value="calendar">
+              <CalendarIcon className="w-4 h-4 me-2" />
+              {t('maintenance.calendar')}
+            </TabsTrigger>
+            <TabsTrigger value="list">
+              <FileText className="w-4 h-4 me-2" />
+              {t('maintenance.list')}
+            </TabsTrigger>
+            <TabsTrigger value="changes">
+              <Wrench className="w-4 h-4 me-2" />
+              {t('maintenance.changeRequests')}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Calendar Tab */}
         <TabsContent value="calendar" className="space-y-4">

@@ -311,7 +311,7 @@ const DatacenterTable: React.FC<Props> = ({ domainId }) => {
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align={language === 'ar' ? 'start' : 'end'}>
                             <DropdownMenuItem onClick={() => openEditForm(dc)}>
                               <Pencil className="w-4 h-4 me-2" />
                               {t('common.edit')}
@@ -336,8 +336,8 @@ const DatacenterTable: React.FC<Props> = ({ domainId }) => {
       </CardContent>
 
       {/* Add/Edit Dialog */}
-      <Dialog open={showForm} onOpenChange={(open) => !open && closeForm()}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+<Dialog open={showForm} onOpenChange={(open) => !open && closeForm()}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir={language === 'ar' ? 'rtl' : 'ltr'}>
           <DialogHeader>
             <DialogTitle>
               {editingDC 

@@ -280,7 +280,7 @@ const Licenses: React.FC = () => {
               {t('licenses.add')}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg" dir={dir}>
             <DialogHeader>
               <DialogTitle>
                 {editingLicense ? t('common.edit') : t('licenses.add')}
@@ -396,8 +396,9 @@ const Licenses: React.FC = () => {
       </div>
 
       {/* View Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className={dir === 'rtl' ? 'flex justify-end' : 'flex justify-start'}>
+          <TabsList className="grid w-full max-w-[400px] grid-cols-2">
           <TabsTrigger value="list" className="gap-2">
             <List className="w-4 h-4" />
             {language === 'ar' ? 'القائمة' : 'List'}
@@ -406,7 +407,8 @@ const Licenses: React.FC = () => {
             <BarChart3 className="w-4 h-4" />
             {language === 'ar' ? 'تحليل التكلفة' : 'Cost Analysis'}
           </TabsTrigger>
-        </TabsList>
+          </TabsList>
+        </div>
 
         <TabsContent value="dashboard" className="mt-6">
           <LicenseCostDashboard licenses={licenses} domains={domains} />

@@ -207,8 +207,8 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingCluster} onOpenChange={() => setEditingCluster(null)}>
-        <DialogContent className="max-w-2xl">
+<Dialog open={!!editingCluster} onOpenChange={() => setEditingCluster(null)}>
+        <DialogContent className="max-w-2xl" dir={language === 'ar' ? 'rtl' : 'ltr'}>
           <DialogHeader>
             <DialogTitle>{language === 'ar' ? 'تعديل الكلستر' : 'Edit Cluster'}</DialogTitle>
           </DialogHeader>
@@ -340,8 +340,8 @@ const ClusterTable: React.FC<Props> = ({ domainId }) => {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent dir={language === 'ar' ? 'rtl' : 'ltr'}>
           <AlertDialogHeader>
             <AlertDialogTitle>{language === 'ar' ? 'حذف الكلستر' : 'Delete Cluster'}</AlertDialogTitle>
             <AlertDialogDescription>

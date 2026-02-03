@@ -325,7 +325,7 @@ const DatacenterOverview: React.FC<Props> = ({ domainId, stats, clusters }) => {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+<AlertDialogContent dir={language === 'ar' ? 'rtl' : 'ltr'}>
           <AlertDialogHeader>
             <AlertDialogTitle>{language === 'ar' ? 'حذف الكلستر' : 'Delete Cluster'}</AlertDialogTitle>
             <AlertDialogDescription>

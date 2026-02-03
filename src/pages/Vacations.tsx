@@ -444,7 +444,7 @@ const Vacations: React.FC = () => {
                 {t('servers.export')}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align={dir === 'rtl' ? 'start' : 'end'} className="w-56">
               <DropdownMenuItem onClick={() => handleExportExcel(false)}>
                 <FileSpreadsheet className="w-4 h-4 me-2" />
                 Excel - جميع الموظفين
@@ -479,7 +479,7 @@ const Vacations: React.FC = () => {
                 {t('employees.addVacation')}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg" dir={dir}>
               <DialogHeader>
                 <DialogTitle>{t('employees.addVacation')}</DialogTitle>
               </DialogHeader>

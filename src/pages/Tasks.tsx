@@ -558,7 +558,7 @@ const Tasks: React.FC = () => {
                 {t('common.export')}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align={dir === 'rtl' ? 'start' : 'end'}>
               <DropdownMenuItem onClick={exportTasksExcel}>
                 <FileSpreadsheet className="w-4 h-4 me-2" />
                 Excel
@@ -588,7 +588,7 @@ const Tasks: React.FC = () => {
                 {t('tasks.add')}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg" dir={dir}>
             <DialogHeader>
               <DialogTitle>
                 {editingTask ? t('common.edit') : t('tasks.add')}
@@ -695,17 +695,19 @@ const Tasks: React.FC = () => {
       {/* View Mode Tabs for Admin */}
       {isAdmin && (
         <div className="flex items-center gap-4">
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my' | 'team')}>
-            <TabsList>
-              <TabsTrigger value="my" className="gap-2">
-                <User className="w-4 h-4" />
-                {t('dashboard.myTasks')}
-              </TabsTrigger>
-              <TabsTrigger value="team" className="gap-2">
-                <Users className="w-4 h-4" />
-                {t('dashboard.teamTasks')}
-              </TabsTrigger>
-            </TabsList>
+<Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my' | 'team')}>
+            <div className={dir === 'rtl' ? 'flex justify-end' : 'flex justify-start'}>
+              <TabsList>
+                <TabsTrigger value="my" className="gap-2">
+                  <User className="w-4 h-4" />
+                  {t('dashboard.myTasks')}
+                </TabsTrigger>
+                <TabsTrigger value="team" className="gap-2">
+                  <Users className="w-4 h-4" />
+                  {t('dashboard.teamTasks')}
+                </TabsTrigger>
+              </TabsList>
+            </div>
           </Tabs>
 
           {viewMode === 'team' && (

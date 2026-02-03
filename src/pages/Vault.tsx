@@ -132,23 +132,25 @@ const Vault: React.FC = () => {
       </Alert>
 
       {/* View Mode Tabs */}
-      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my' | 'shared')}>
-        <TabsList>
-          <TabsTrigger value="my" className="gap-2">
-            <Lock className="h-4 w-4" />
-            {t('vault.myVault')}
-            {filteredMyItems.length > 0 && (
-              <Badge variant="secondary" className="ms-1">{filteredMyItems.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="shared" className="gap-2">
-            <Shield className="h-4 w-4" />
-            {t('vault.sharedWithMe')}
-            {filteredSharedItems.length > 0 && (
-              <Badge variant="secondary" className="ms-1">{filteredSharedItems.length}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+<Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my' | 'shared')}>
+        <div className={dir === 'rtl' ? 'flex justify-end' : 'flex justify-start'}>
+          <TabsList>
+            <TabsTrigger value="my" className="gap-2">
+              <Lock className="h-4 w-4" />
+              {t('vault.myVault')}
+              {filteredMyItems.length > 0 && (
+                <Badge variant="secondary" className="ms-1">{filteredMyItems.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="shared" className="gap-2">
+              <Shield className="h-4 w-4" />
+              {t('vault.sharedWithMe')}
+              {filteredSharedItems.length > 0 && (
+                <Badge variant="secondary" className="ms-1">{filteredSharedItems.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Filters */}
         <Card className="mt-4">

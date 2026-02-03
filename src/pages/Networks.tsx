@@ -271,18 +271,20 @@ const Networks: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+<Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <TabsList>
-            <TabsTrigger value="domains" className="gap-2">
-              <Building2 className="w-4 h-4" />
-              {t('networks.domainsTab')} ({domains.length})
-            </TabsTrigger>
-            <TabsTrigger value="networks" className="gap-2">
-              <NetworkIcon className="w-4 h-4" />
-              {t('networks.networksTab')} ({networks.length})
-            </TabsTrigger>
-          </TabsList>
+          <div className={dir === 'rtl' ? 'flex justify-end' : 'flex justify-start'}>
+            <TabsList>
+              <TabsTrigger value="domains" className="gap-2">
+                <Building2 className="w-4 h-4" />
+                {t('networks.domainsTab')} ({domains.length})
+              </TabsTrigger>
+              <TabsTrigger value="networks" className="gap-2">
+                <NetworkIcon className="w-4 h-4" />
+                {t('networks.networksTab')} ({networks.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {activeTab === 'domains' ? (
             <Dialog open={isDomainDialogOpen} onOpenChange={(open) => {
@@ -295,7 +297,7 @@ const Networks: React.FC = () => {
                   {t('networks.addDomain')}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-lg" dir={dir}>
                 <DialogHeader>
                   <DialogTitle>
                     {editingDomain ? t('common.edit') : t('networks.addNewDomain')}
@@ -341,7 +343,7 @@ const Networks: React.FC = () => {
                   {t('networks.addNetwork')}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-lg" dir={dir}>
                 <DialogHeader>
                   <DialogTitle>
                     {editingNetwork ? t('common.edit') : t('networks.addNewNetwork')}

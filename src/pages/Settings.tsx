@@ -471,19 +471,21 @@ const Settings: React.FC = () => {
         const visibleTabs = allTabs.filter(tab => !tab.advanced || showAdvanced);
         
         return (
-          <Tabs defaultValue="general" className="w-full">
-            <TabsList className="flex flex-wrap justify-start gap-1 h-auto p-1 w-full">
-              {visibleTabs.map(tab => (
-                <TabsTrigger 
-                  key={tab.value} 
-                  value={tab.value} 
-                  className="gap-2 flex-shrink-0"
-                >
-                  <tab.icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t(tab.labelKey)}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
+<Tabs defaultValue="general" className="w-full">
+            <div className={dir === 'rtl' ? 'flex justify-end' : 'flex justify-start'}>
+              <TabsList className="flex flex-wrap justify-start gap-1 h-auto p-1">
+                {visibleTabs.map(tab => (
+                  <TabsTrigger 
+                    key={tab.value} 
+                    value={tab.value} 
+                    className="gap-2 flex-shrink-0"
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    <span className="hidden sm:inline">{t(tab.labelKey)}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
         {/* General Settings Tab */}
         <TabsContent value="general" className="space-y-6 mt-6">
