@@ -492,25 +492,25 @@ const Settings: React.FC = () => {
           {/* Profile Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                 <User className="w-5 h-5" />
                 {t('settings.accountInfo')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className={cn("flex items-center justify-between", dir === 'rtl' && 'flex-row-reverse')}>
                 <span className="text-muted-foreground">{t('settings.name')}</span>
                 <span className="font-medium">{profile?.full_name}</span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className={cn("flex items-center justify-between", dir === 'rtl' && 'flex-row-reverse')}>
                 <span className="text-muted-foreground">{t('settings.email')}</span>
                 <span className="font-medium">{profile?.email}</span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className={cn("flex items-center justify-between", dir === 'rtl' && 'flex-row-reverse')}>
                 <span className="text-muted-foreground">{t('settings.role')}</span>
                 <span className="font-medium">{profile?.role === 'admin' ? t('settings.admin') : t('settings.employee')}</span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className={cn("flex items-center justify-between", dir === 'rtl' && 'flex-row-reverse')}>
                 <span className="text-muted-foreground">{t('settings.department')}</span>
                 <span className="font-medium">{profile?.department || 'IT'}</span>
               </div>
@@ -521,44 +521,45 @@ const Settings: React.FC = () => {
           {isAdmin && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                   <Palette className="w-5 h-5" />
                   {t('settings.appBranding')}
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className={dir === 'rtl' ? 'text-right' : 'text-left'}>
                   {t('settings.appBrandingDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>{t('settings.appName')}</Label>
-                  <div className="flex gap-2">
+                  <Label className={dir === 'rtl' ? 'text-right block' : ''}>{t('settings.appName')}</Label>
+                  <div className={cn("flex gap-2", dir === 'rtl' && 'flex-row-reverse')}>
                     <Input
                       value={localAppName}
                       onChange={(e) => setLocalAppName(e.target.value)}
                       placeholder="IT"
                       maxLength={20}
+                      className={dir === 'rtl' ? 'text-right' : ''}
                     />
                     <Button onClick={handleSaveAppName}>{t('common.save')}</Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">{t('settings.showsInSidebar')}</p>
+                  <p className={cn("text-xs text-muted-foreground", dir === 'rtl' ? 'text-right' : '')}>{t('settings.showsInSidebar')}</p>
                 </div>
 
                 <Separator className="my-4" />
 
                 {/* Login Background Upload */}
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
+                  <Label className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                     <ImageIcon className="w-4 h-4" />
                     {t('settings.loginBackground')}
                   </Label>
-                  <div className="flex gap-2 items-center">
+                  <div className={cn("flex gap-2 items-center", dir === 'rtl' && 'flex-row-reverse')}>
                     <img
                       src={backgroundUrl}
                       alt="Login background preview"
                       className="h-16 w-28 object-cover rounded border"
                     />
-                    <div className="flex flex-col gap-1">
+                    <div className={cn("flex flex-col gap-1", dir === 'rtl' ? 'items-end' : 'items-start')}>
                       <input
                         ref={bgInputRef}
                         type="file"
@@ -586,17 +587,17 @@ const Settings: React.FC = () => {
           {/* Language Settings */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                 <Globe className="w-5 h-5" />
                 {t('settings.languageSettings')}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className={dir === 'rtl' ? 'text-right' : 'text-left'}>
                 {t('settings.chooseLanguage')}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
+              <div className={cn("flex items-center justify-between", dir === 'rtl' && 'flex-row-reverse')}>
+                <div className={cn("space-y-0.5", dir === 'rtl' ? 'text-right' : 'text-left')}>
                   <Label>{t('settings.interfaceLanguage')}</Label>
                   <p className="text-sm text-muted-foreground">
                     {language === 'ar' ? 'العربية' : 'English'}
@@ -617,27 +618,27 @@ const Settings: React.FC = () => {
           {/* About */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                 <Info className="w-5 h-5" />
                 {t('settings.about')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className={cn("flex items-center justify-between", dir === 'rtl' && 'flex-row-reverse')}>
                   <span className="text-muted-foreground">{t('settings.application')}</span>
                   <span className="font-medium">IT Infrastructure Manager</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className={cn("flex items-center justify-between", dir === 'rtl' && 'flex-row-reverse')}>
                   <span className="text-muted-foreground">{t('settings.version')}</span>
                   <span className="font-medium">2.0.0</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className={cn("flex items-center justify-between", dir === 'rtl' && 'flex-row-reverse')}>
                   <span className="text-muted-foreground">{t('settings.storage')}</span>
                   <span className="font-medium">Lovable Cloud</span>
                 </div>
                 <Separator />
-                <p className="text-sm text-muted-foreground">
+                <p className={cn("text-sm text-muted-foreground", dir === 'rtl' ? 'text-right' : 'text-left')}>
                   {t('settings.cloudStorageNote')}
                 </p>
               </div>
@@ -648,15 +649,15 @@ const Settings: React.FC = () => {
           {isAdmin && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                   <Database className="w-5 h-5" />
                   {t('settings.testData')}
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className={dir === 'rtl' ? 'text-right' : 'text-left'}>
                   {t('settings.testDataDesc')}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className={cn("space-y-4", dir === 'rtl' ? 'text-right' : 'text-left')}>
                 <Button onClick={handleSeedData} disabled={isSeeding || isResetting}>
                   {isSeeding ? (
                     <>
@@ -701,7 +702,7 @@ const Settings: React.FC = () => {
           {/* Domain Selector for Tests */}
           <Card>
             <CardContent className="py-4">
-              <div className="flex items-center gap-4">
+              <div className={cn("flex items-center gap-4", dir === 'rtl' && 'flex-row-reverse')}>
                 <Label>{t('common.domain')}</Label>
                 <Select value={selectedDomainId} onValueChange={setSelectedDomainId}>
                   <SelectTrigger className="w-[220px]">
@@ -719,19 +720,19 @@ const Settings: React.FC = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                 <Mail className="w-5 h-5" />
-                إعدادات البريد (Exchange Server)
+                {t('settings.mailExchangeTitle')}
               </CardTitle>
-              <CardDescription>
-                تكوين خادم البريد للتكامل مع Exchange Server 2019
+              <CardDescription className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+                {t('settings.mailExchangeDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-                <div>
-                  <Label className="text-base">تفعيل البريد</Label>
-                  <p className="text-sm text-muted-foreground">تفعيل إرسال الإشعارات عبر البريد</p>
+              <div className={cn("flex items-center justify-between p-4 border rounded-lg bg-muted/50", dir === 'rtl' && 'flex-row-reverse')}>
+                <div className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+                  <Label className="text-base">{t('settings.enableMail')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('settings.enableMailDesc')}</p>
                 </div>
                 <Switch
                   checked={mailSettings.smtp_enabled}
@@ -740,61 +741,67 @@ const Settings: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>خادم SMTP</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.smtpServer')}</Label>
                   <Input
                     placeholder="mail.example.com"
                     value={mailSettings.smtp_host}
                     onChange={(e) => setMailSettings(prev => ({ ...prev, smtp_host: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>المنفذ</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.port')}</Label>
                   <Input
                     placeholder="587"
                     value={mailSettings.smtp_port}
                     onChange={(e) => setMailSettings(prev => ({ ...prev, smtp_port: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>اسم المستخدم</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.username')}</Label>
                   <Input
                     placeholder="user@example.com"
                     value={mailSettings.smtp_user}
                     onChange={(e) => setMailSettings(prev => ({ ...prev, smtp_user: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>كلمة المرور</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.password')}</Label>
                   <Input
                     type="password"
                     placeholder="••••••••"
                     value={mailSettings.smtp_password}
                     onChange={(e) => setMailSettings(prev => ({ ...prev, smtp_password: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>البريد المرسل</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.fromEmail')}</Label>
                   <Input
                     placeholder="noreply@example.com"
                     value={mailSettings.smtp_from_email}
                     onChange={(e) => setMailSettings(prev => ({ ...prev, smtp_from_email: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>اسم المرسل</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.fromName')}</Label>
                   <Input
                     placeholder="IT Infrastructure"
                     value={mailSettings.smtp_from_name}
                     onChange={(e) => setMailSettings(prev => ({ ...prev, smtp_from_name: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <Label>تشفير TLS/SSL</Label>
-                  <p className="text-sm text-muted-foreground">استخدام اتصال آمن</p>
+              <div className={cn("flex items-center justify-between p-4 border rounded-lg", dir === 'rtl' && 'flex-row-reverse')}>
+                <div className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+                  <Label>{t('settings.tlsEncryption')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('settings.useSecureConnection')}</p>
                 </div>
                 <Switch
                   checked={mailSettings.smtp_encryption === 'tls'}
@@ -802,13 +809,13 @@ const Settings: React.FC = () => {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className={cn("flex gap-2", dir === 'rtl' && 'flex-row-reverse')}>
                 <Button onClick={handleSaveMailSettings} className="flex-1">
-                  حفظ الإعدادات
+                  {t('settings.saveSettings')}
                 </Button>
                 <Button variant="outline" onClick={handleTestMail} disabled={isTestingMail || !selectedDomainId}>
                   {isTestingMail ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : null}
-                  اختبار الاتصال
+                  {t('settings.testConnection')}
                 </Button>
               </div>
               {renderTestResult(mailTestResult)}
@@ -820,19 +827,19 @@ const Settings: React.FC = () => {
         <TabsContent value="ldap" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                 <Shield className="w-5 h-5" />
-                إعدادات LDAP (Active Directory)
+                {t('settings.ldapTitle')}
               </CardTitle>
-              <CardDescription>
-                تكوين الاتصال بـ Active Directory Domain Controller لاستيراد المستخدمين
+              <CardDescription className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+                {t('settings.ldapDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-                <div>
-                  <Label className="text-base">تفعيل LDAP</Label>
-                  <p className="text-sm text-muted-foreground">تفعيل مزامنة المستخدمين من Active Directory</p>
+              <div className={cn("flex items-center justify-between p-4 border rounded-lg bg-muted/50", dir === 'rtl' && 'flex-row-reverse')}>
+                <div className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+                  <Label className="text-base">{t('settings.enableLdap')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('settings.enableLdapDesc')}</p>
                 </div>
                 <Switch
                   checked={ldapSettings.ldap_enabled}
@@ -841,64 +848,70 @@ const Settings: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>خادم LDAP</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.ldapServer')}</Label>
                   <Input
                     placeholder="dc.example.local"
                     value={ldapSettings.ldap_host}
                     onChange={(e) => setLdapSettings(prev => ({ ...prev, ldap_host: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>المنفذ</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.port')}</Label>
                   <Input
-                    placeholder="389 أو 636 لـ SSL"
+                    placeholder="389 / 636 SSL"
                     value={ldapSettings.ldap_port}
                     onChange={(e) => setLdapSettings(prev => ({ ...prev, ldap_port: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="md:col-span-2 space-y-2">
+                <div className={cn("md:col-span-2 space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
                   <Label>Base DN</Label>
                   <Input
                     placeholder="DC=example,DC=local"
                     value={ldapSettings.ldap_base_dn}
                     onChange={(e) => setLdapSettings(prev => ({ ...prev, ldap_base_dn: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Bind DN (حساب الربط)</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.bindDn')}</Label>
                   <Input
                     placeholder="CN=ldap_user,OU=Service Accounts,DC=example,DC=local"
                     value={ldapSettings.ldap_bind_dn}
                     onChange={(e) => setLdapSettings(prev => ({ ...prev, ldap_bind_dn: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>كلمة مرور الربط</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.bindPassword')}</Label>
                   <Input
                     type="password"
                     placeholder="••••••••"
                     value={ldapSettings.ldap_bind_password}
                     onChange={(e) => setLdapSettings(prev => ({ ...prev, ldap_bind_password: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="md:col-span-2 space-y-2">
-                  <Label>فلتر المستخدمين</Label>
+                <div className={cn("md:col-span-2 space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.userFilter')}</Label>
                   <Input
                     placeholder="(sAMAccountName={username})"
                     value={ldapSettings.ldap_user_filter}
                     onChange={(e) => setLdapSettings(prev => ({ ...prev, ldap_user_filter: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                   <p className="text-xs text-muted-foreground">
-                    فلتر LDAP للبحث عن المستخدمين. استخدم {'{username}'} كعنصر نائب.
+                    {t('settings.userFilterDesc')}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <Label>استخدام SSL/TLS</Label>
-                  <p className="text-sm text-muted-foreground">اتصال آمن (LDAPS - المنفذ 636)</p>
+              <div className={cn("flex items-center justify-between p-4 border rounded-lg", dir === 'rtl' && 'flex-row-reverse')}>
+                <div className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+                  <Label>{t('settings.useSslTls')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('settings.ldapsPort')}</p>
                 </div>
                 <Switch
                   checked={ldapSettings.ldap_use_ssl}
@@ -906,28 +919,27 @@ const Settings: React.FC = () => {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className={cn("flex gap-2", dir === 'rtl' && 'flex-row-reverse')}>
                 <Button onClick={handleSaveLdapSettings} className="flex-1">
-                  حفظ الإعدادات
+                  {t('settings.saveSettings')}
                 </Button>
                 <Button variant="outline" onClick={handleTestLdap} disabled={isTestingLdap || !selectedDomainId}>
                   {isTestingLdap ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : null}
-                  اختبار الاتصال
+                  {t('settings.testConnection')}
                 </Button>
                 <Button variant="outline">
-                  مزامنة المستخدمين
+                  {t('settings.syncUsers')}
                 </Button>
               </div>
               {renderTestResult(ldapTestResult)}
 
               <div className="p-4 border rounded-lg bg-info/10 border-info/20">
-                <div className="flex gap-2 items-start">
+                <div className={cn("flex gap-2 items-start", dir === 'rtl' && 'flex-row-reverse')}>
                   <Info className="w-5 h-5 text-info mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-medium text-info">ملاحظة هامة</p>
+                  <div className={cn("text-sm", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                    <p className="font-medium text-info">{t('settings.importantNote')}</p>
                     <p className="text-muted-foreground">
-                      تأكد من أن حساب الربط لديه صلاحيات القراءة على OU المستخدمين في Active Directory.
-                      لا يتم تخزين كلمات المرور محلياً - يتم التحقق منها مباشرة مع DC.
+                      {t('settings.ldapNote')}
                     </p>
                   </div>
                 </div>
@@ -940,19 +952,19 @@ const Settings: React.FC = () => {
         <TabsContent value="ntp" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                 <Clock className="w-5 h-5" />
-                إعدادات NTP (مزامنة الوقت)
+                {t('settings.ntpTitle')}
               </CardTitle>
-              <CardDescription>
-                تكوين خوادم NTP لمزامنة الوقت عبر جميع السيرفرات
+              <CardDescription className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+                {t('settings.ntpDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-                <div>
-                  <Label className="text-base">تفعيل NTP</Label>
-                  <p className="text-sm text-muted-foreground">تفعيل مزامنة الوقت التلقائية</p>
+              <div className={cn("flex items-center justify-between p-4 border rounded-lg bg-muted/50", dir === 'rtl' && 'flex-row-reverse')}>
+                <div className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+                  <Label className="text-base">{t('settings.enableNtp')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('settings.enableNtpDesc')}</p>
                 </div>
                 <Switch
                   checked={ntpSettings.ntp_enabled}
@@ -961,67 +973,69 @@ const Settings: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>خادم NTP الأساسي</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.primaryNtpServer')}</Label>
                   <Input
-                    placeholder="time.windows.com أو pool.ntp.org"
+                    placeholder="time.windows.com / pool.ntp.org"
                     value={ntpSettings.ntp_server_primary}
                     onChange={(e) => setNtpSettings(prev => ({ ...prev, ntp_server_primary: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>خادم NTP الاحتياطي</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.backupNtpServer')}</Label>
                   <Input
                     placeholder="time.google.com"
                     value={ntpSettings.ntp_server_secondary}
                     onChange={(e) => setNtpSettings(prev => ({ ...prev, ntp_server_secondary: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>فترة المزامنة (بالثواني)</Label>
+                <div className={cn("space-y-2", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                  <Label>{t('settings.syncInterval')}</Label>
                   <Input
                     type="number"
                     placeholder="3600"
                     value={ntpSettings.ntp_sync_interval}
                     onChange={(e) => setNtpSettings(prev => ({ ...prev, ntp_sync_interval: e.target.value }))}
+                    className={dir === 'rtl' ? 'text-right' : ''}
                   />
                   <p className="text-xs text-muted-foreground">
-                    الافتراضي: 3600 ثانية (ساعة واحدة)
+                    {t('settings.syncIntervalDefault')}
                   </p>
                 </div>
               </div>
 
-              <div className="p-4 border rounded-lg bg-muted/30">
-                <h4 className="font-medium mb-2">خوادم NTP شائعة:</h4>
+              <div className={cn("p-4 border rounded-lg bg-muted/30", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                <h4 className="font-medium mb-2">{t('settings.commonNtpServers')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
                   <div>• time.windows.com (Microsoft)</div>
                   <div>• time.google.com (Google)</div>
-                  <div>• pool.ntp.org (عام)</div>
+                  <div>• pool.ntp.org (Public)</div>
                   <div>• time.apple.com (Apple)</div>
                   <div>• ntp.ubuntu.com (Ubuntu)</div>
                   <div>• time.cloudflare.com (Cloudflare)</div>
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className={cn("flex gap-2", dir === 'rtl' && 'flex-row-reverse')}>
                 <Button onClick={handleSaveNtpSettings} className="flex-1">
-                  حفظ الإعدادات
+                  {t('settings.saveSettings')}
                 </Button>
                 <Button variant="outline" onClick={handleTestNtp} disabled={isTestingNtp || !selectedDomainId}>
                   {isTestingNtp ? <Loader2 className="w-4 h-4 animate-spin me-2" /> : null}
-                  اختبار المزامنة
+                  {t('settings.testSync')}
                 </Button>
               </div>
               {renderTestResult(ntpTestResult)}
 
               <div className="p-4 border rounded-lg bg-warning/10 border-warning/20">
-                <div className="flex gap-2 items-start">
+                <div className={cn("flex gap-2 items-start", dir === 'rtl' && 'flex-row-reverse')}>
                   <Info className="w-5 h-5 text-warning mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-medium text-warning">نصيحة</p>
+                  <div className={cn("text-sm", dir === 'rtl' ? 'text-right' : 'text-left')}>
+                    <p className="font-medium text-warning">{t('settings.tip')}</p>
                     <p className="text-muted-foreground">
-                      للبيئات الإنتاجية، يُفضل استخدام خادم NTP داخلي (مثل Domain Controller) لضمان تزامن الوقت
-                      بين جميع الأجهزة في الشبكة المحلية.
+                      {t('settings.ntpTip')}
                     </p>
                   </div>
                 </div>
@@ -1034,40 +1048,40 @@ const Settings: React.FC = () => {
         <TabsContent value="templates" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                 <FileSpreadsheet className="w-5 h-5" />
-                قوالب Excel
+                {t('settings.excelTemplates')}
               </CardTitle>
-              <CardDescription>
-                تحميل قوالب جاهزة لاستيراد البيانات
+              <CardDescription className={dir === 'rtl' ? 'text-right' : 'text-left'}>
+                {t('settings.downloadTemplates')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <Button variant="outline" onClick={downloadServerTemplate} className="gap-2 justify-start">
+                <Button variant="outline" onClick={downloadServerTemplate} className={cn("gap-2", dir === 'rtl' ? 'flex-row-reverse justify-end' : 'justify-start')}>
                   <Download className="w-4 h-4" />
-                  قالب السيرفرات
+                  {t('settings.serverTemplate')}
                 </Button>
-                <Button variant="outline" onClick={downloadNetworkTemplate} className="gap-2 justify-start">
+                <Button variant="outline" onClick={downloadNetworkTemplate} className={cn("gap-2", dir === 'rtl' ? 'flex-row-reverse justify-end' : 'justify-start')}>
                   <Download className="w-4 h-4" />
-                  قالب الشبكات
+                  {t('settings.networkTemplate')}
                 </Button>
-                <Button variant="outline" onClick={downloadEmployeeTemplate} className="gap-2 justify-start">
+                <Button variant="outline" onClick={downloadEmployeeTemplate} className={cn("gap-2", dir === 'rtl' ? 'flex-row-reverse justify-end' : 'justify-start')}>
                   <Download className="w-4 h-4" />
-                  قالب الموظفين
+                  {t('settings.employeeTemplate')}
                 </Button>
-                <Button variant="outline" onClick={downloadLicenseTemplate} className="gap-2 justify-start">
+                <Button variant="outline" onClick={downloadLicenseTemplate} className={cn("gap-2", dir === 'rtl' ? 'flex-row-reverse justify-end' : 'justify-start')}>
                   <Download className="w-4 h-4" />
-                  قالب التراخيص
+                  {t('settings.licenseTemplate')}
                 </Button>
-                <Button variant="outline" onClick={downloadEmployeeReportTemplate} className="gap-2 justify-start">
+                <Button variant="outline" onClick={downloadEmployeeReportTemplate} className={cn("gap-2", dir === 'rtl' ? 'flex-row-reverse justify-end' : 'justify-start')}>
                   <Download className="w-4 h-4" />
-                  قالب تقارير الموظفين
+                  {t('settings.employeeReportTemplate')}
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground flex items-start gap-2">
+              <p className={cn("text-sm text-muted-foreground flex items-start gap-2", dir === 'rtl' && 'flex-row-reverse text-right')}>
                 <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                كل قالب يتضمن صفحة تعليمات توضح الأعمدة المطلوبة وتنسيق البيانات.
+                {t('settings.templateNote')}
               </p>
             </CardContent>
           </Card>
