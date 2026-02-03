@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface StatCardProps {
   title: string;
@@ -12,6 +13,7 @@ interface StatCardProps {
   };
   variant?: 'primary' | 'accent' | 'success' | 'warning' | 'danger';
   className?: string;
+  isLoading?: boolean;
 }
 
 const StatCard: React.FC<StatCardProps> = ({
@@ -21,6 +23,7 @@ const StatCard: React.FC<StatCardProps> = ({
   trend,
   variant = 'primary',
   className,
+  isLoading = false,
 }) => {
   const variantClasses = {
     primary: 'stat-primary',
@@ -62,7 +65,11 @@ const StatCard: React.FC<StatCardProps> = ({
           )}
         </div>
 
-        <h3 className="text-3xl font-bold mb-1">{value}</h3>
+        {isLoading ? (
+          <Skeleton className="h-9 w-16 mb-1 bg-primary-foreground/20" />
+        ) : (
+          <h3 className="text-3xl font-bold mb-1">{value}</h3>
+        )}
         <p className="text-sm opacity-90">{title}</p>
       </div>
     </div>
