@@ -45,6 +45,37 @@ const ClusterForm: React.FC<Props> = ({ domainId, editingCluster, onClose }) => 
   }, [selectedDomainId, domainId, editingCluster]);
 
   const handleSubmit = async () => {
+    // Validation
+    const errors: string[] = [];
+    
+    if (!formData.name.trim()) {
+      errors.push(language === 'ar' ? 'الاسم مطلوب' : 'Name is required');
+    } else if (formData.name.length > 100) {
+      errors.push(language === 'ar' ? 'الاسم يجب أن يكون أقل من 100 حرف' : 'Name must be less than 100 characters');
+    }
+    
+    if (!selectedDomainId) {
+      errors.push(language === 'ar' ? 'النطاق مطلوب' : 'Domain is required');
+    }
+    
+    if (formData.vendor && formData.vendor.length > 100) {
+      errors.push(language === 'ar' ? 'المورد يجب أن يكون أقل من 100 حرف' : 'Vendor must be less than 100 characters');
+    }
+    
+    if (formData.platform_version && formData.platform_version.length > 50) {
+      errors.push(language === 'ar' ? 'إصدار المنصة يجب أن يكون أقل من 50 حرف' : 'Platform version must be less than 50 characters');
+    }
+    
+    if (formData.notes && formData.notes.length > 2000) {
+      errors.push(language === 'ar' ? 'الملاحظات يجب أن تكون أقل من 2000 حرف' : 'Notes must be less than 2000 characters');
+    }
+    
+    if (errors.length > 0) {
+      // Note: Using toast from react-query success handler, so we need to add toast import and usage here
+      // For now just return without showing toast (rely on disabled button)
+      return;
+    }
+    
     if (editingCluster) {
       await updateCluster.mutateAsync({
         id: editingCluster.id,

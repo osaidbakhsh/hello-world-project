@@ -132,8 +132,42 @@ const Networks: React.FC = () => {
 
   // Network CRUD operations
   const handleNetworkSubmit = async () => {
-    if (!networkForm.name || !networkForm.domain_id) {
-      toast({ title: t('common.error'), description: t('networks.networkRequired'), variant: 'destructive' });
+    // Validation
+    const ipv4Pattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const cidrPattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(?:[0-9]|[1-2][0-9]|3[0-2])$/;
+    const errors: string[] = [];
+    
+    if (!networkForm.name.trim()) {
+      errors.push('Name is required');
+    } else if (networkForm.name.length > 100) {
+      errors.push('Name must be less than 100 characters');
+    }
+    
+    if (!networkForm.domain_id) {
+      errors.push('Domain is required');
+    }
+    
+    if (networkForm.subnet && !cidrPattern.test(networkForm.subnet)) {
+      errors.push('Invalid CIDR format (e.g., 192.168.1.0/24)');
+    }
+    
+    if (networkForm.gateway && !ipv4Pattern.test(networkForm.gateway)) {
+      errors.push('Invalid gateway IP address');
+    }
+    
+    // Validate DNS servers if provided
+    if (networkForm.dns_servers) {
+      const dnsServers = networkForm.dns_servers.split(',').map(s => s.trim()).filter(Boolean);
+      for (const dns of dnsServers) {
+        if (!ipv4Pattern.test(dns)) {
+          errors.push(`Invalid DNS server IP: ${dns}`);
+          break;
+        }
+      }
+    }
+    
+    if (errors.length > 0) {
+      toast({ title: t('common.error'), description: errors[0], variant: 'destructive' });
       return;
     }
 

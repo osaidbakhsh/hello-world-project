@@ -125,10 +125,40 @@ const Licenses: React.FC = () => {
   }, [filteredLicenses, sortValue]);
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.expiry_date) {
+    // Validation
+    const errors: string[] = [];
+    
+    if (!formData.name.trim()) {
+      errors.push(language === 'ar' ? 'الاسم مطلوب' : 'Name is required');
+    } else if (formData.name.length > 100) {
+      errors.push(language === 'ar' ? 'الاسم يجب أن يكون أقل من 100 حرف' : 'Name must be less than 100 characters');
+    }
+    
+    if (!formData.expiry_date) {
+      errors.push(language === 'ar' ? 'تاريخ الانتهاء مطلوب' : 'Expiry date is required');
+    }
+    
+    if (formData.purchase_date && formData.expiry_date && 
+        new Date(formData.expiry_date) <= new Date(formData.purchase_date)) {
+      errors.push(language === 'ar' ? 'تاريخ الانتهاء يجب أن يكون بعد تاريخ الشراء' : 'Expiry date must be after purchase date');
+    }
+    
+    if (formData.license_key && formData.license_key.length > 500) {
+      errors.push(language === 'ar' ? 'مفتاح الترخيص يجب أن يكون أقل من 500 حرف' : 'License key must be less than 500 characters');
+    }
+    
+    if (formData.cost < 0) {
+      errors.push(language === 'ar' ? 'التكلفة يجب أن تكون 0 أو أكثر' : 'Cost must be 0 or greater');
+    }
+    
+    if (formData.quantity < 1) {
+      errors.push(language === 'ar' ? 'الكمية يجب أن تكون 1 على الأقل' : 'Quantity must be at least 1');
+    }
+    
+    if (errors.length > 0) {
       toast({
         title: t('common.error'),
-        description: 'Please fill in required fields',
+        description: errors[0],
         variant: 'destructive',
       });
       return;

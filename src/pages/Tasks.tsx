@@ -316,10 +316,23 @@ const Tasks: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.title) {
+    // Validation
+    const errors: string[] = [];
+    
+    if (!formData.title.trim()) {
+      errors.push(language === 'ar' ? 'عنوان المهمة مطلوب' : 'Title is required');
+    } else if (formData.title.length > 200) {
+      errors.push(language === 'ar' ? 'العنوان يجب أن يكون أقل من 200 حرف' : 'Title must be less than 200 characters');
+    }
+    
+    if (formData.description && formData.description.length > 2000) {
+      errors.push(language === 'ar' ? 'الوصف يجب أن يكون أقل من 2000 حرف' : 'Description must be less than 2000 characters');
+    }
+    
+    if (errors.length > 0) {
       toast({
         title: t('common.error'),
-        description: 'يرجى إدخال عنوان المهمة',
+        description: errors[0],
         variant: 'destructive',
       });
       return;
