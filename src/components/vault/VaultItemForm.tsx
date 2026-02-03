@@ -128,10 +128,32 @@ const VaultItemForm: React.FC<VaultItemFormProps> = ({
   };
 
   const handleSubmit = async () => {
+    // Validation
+    const urlPattern = /^https?:\/\/[^\s]+$/;
+    const errors: string[] = [];
+    
     if (!formData.title.trim()) {
+      errors.push('Title is required');
+    } else if (formData.title.length > 100) {
+      errors.push('Title must be less than 100 characters');
+    }
+    
+    if (formData.username && formData.username.length > 255) {
+      errors.push('Username must be less than 255 characters');
+    }
+    
+    if (formData.url && formData.url.trim() && !urlPattern.test(formData.url)) {
+      errors.push('Invalid URL format');
+    }
+    
+    if (formData.notes && formData.notes.length > 2000) {
+      errors.push('Notes must be less than 2000 characters');
+    }
+    
+    if (errors.length > 0) {
       toast({
         title: t('common.error'),
-        description: t('validation.fillRequired'),
+        description: errors[0],
         variant: 'destructive',
       });
       return;

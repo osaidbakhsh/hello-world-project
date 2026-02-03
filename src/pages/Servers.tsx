@@ -191,10 +191,38 @@ const Servers: React.FC = () => {
   }, [filteredServers, sortValue]);
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.ip_address) {
+    // Validation
+    const ipv4Pattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const errors: string[] = [];
+    
+    if (!formData.name.trim()) {
+      errors.push('Name is required');
+    } else if (formData.name.length > 100) {
+      errors.push('Name must be less than 100 characters');
+    }
+    
+    if (!formData.ip_address.trim()) {
+      errors.push('IP address is required');
+    } else if (!ipv4Pattern.test(formData.ip_address)) {
+      errors.push('Invalid IPv4 address format');
+    }
+    
+    if (formData.notes && formData.notes.length > 2000) {
+      errors.push('Notes must be less than 2000 characters');
+    }
+    
+    if (formData.rpo_hours && isNaN(parseInt(formData.rpo_hours))) {
+      errors.push('RPO hours must be a valid number');
+    }
+    
+    if (formData.rto_hours && isNaN(parseInt(formData.rto_hours))) {
+      errors.push('RTO hours must be a valid number');
+    }
+    
+    if (errors.length > 0) {
       toast({
         title: t('common.error'),
-        description: 'Please fill in required fields',
+        description: errors[0],
         variant: 'destructive',
       });
       return;

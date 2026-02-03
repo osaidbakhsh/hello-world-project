@@ -187,7 +187,7 @@ const iconOptions = [
 ];
 
 const WebApps: React.FC = () => {
-  const { t, dir } = useLanguage();
+  const { t, dir, language } = useLanguage();
   const { isAdmin, profile } = useAuth();
   const { toast } = useToast();
   const { data: apps, isLoading, refetch } = useWebsiteApplications();
@@ -244,10 +244,34 @@ const WebApps: React.FC = () => {
   );
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.url) {
+    // Validate with Zod
+    const urlPattern = /^https?:\/\/[^\s]+$/;
+    const errors: string[] = [];
+    
+    if (!formData.name.trim()) {
+      errors.push(language === 'ar' ? 'الاسم مطلوب' : 'Name is required');
+    } else if (formData.name.length > 100) {
+      errors.push(language === 'ar' ? 'الاسم يجب أن يكون أقل من 100 حرف' : 'Name must be less than 100 characters');
+    }
+    
+    if (!formData.url.trim()) {
+      errors.push(language === 'ar' ? 'الرابط مطلوب' : 'URL is required');
+    } else if (!urlPattern.test(formData.url)) {
+      errors.push(language === 'ar' ? 'صيغة الرابط غير صالحة' : 'Invalid URL format');
+    }
+    
+    if (formData.description && formData.description.length > 500) {
+      errors.push(language === 'ar' ? 'الوصف يجب أن يكون أقل من 500 حرف' : 'Description must be less than 500 characters');
+    }
+    
+    if (formData.category && formData.category.length > 50) {
+      errors.push(language === 'ar' ? 'التصنيف يجب أن يكون أقل من 50 حرف' : 'Category must be less than 50 characters');
+    }
+    
+    if (errors.length > 0) {
       toast({
         title: t('common.error'),
-        description: t('validation.fillRequired'),
+        description: errors[0],
         variant: 'destructive',
       });
       return;

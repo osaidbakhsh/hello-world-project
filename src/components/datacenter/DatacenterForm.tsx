@@ -28,10 +28,27 @@ const DatacenterForm: React.FC<Props> = ({ domainId, onClose, onSuccess }) => {
   });
 
   const handleSubmit = async () => {
+    // Validation
+    const errors: string[] = [];
+    
     if (!formData.name.trim()) {
+      errors.push(language === 'ar' ? 'الاسم مطلوب' : 'Name is required');
+    } else if (formData.name.length > 100) {
+      errors.push(language === 'ar' ? 'الاسم يجب أن يكون أقل من 100 حرف' : 'Name must be less than 100 characters');
+    }
+    
+    if (formData.location && formData.location.length > 200) {
+      errors.push(language === 'ar' ? 'الموقع يجب أن يكون أقل من 200 حرف' : 'Location must be less than 200 characters');
+    }
+    
+    if (formData.notes && formData.notes.length > 2000) {
+      errors.push(language === 'ar' ? 'الملاحظات يجب أن تكون أقل من 2000 حرف' : 'Notes must be less than 2000 characters');
+    }
+    
+    if (errors.length > 0) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'الاسم مطلوب' : 'Name is required',
+        description: errors[0],
         variant: 'destructive',
       });
       return;
