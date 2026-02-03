@@ -7,6 +7,7 @@ const ALLOWED_VALUES = {
   storage_type: ['all-flash', 'hybrid', 'hdd'] as const,
   node_role: ['compute', 'storage', 'hybrid'] as const,
   node_status: ['active', 'maintenance', 'decommissioned'] as const,
+  vault_item_type: ['server', 'website', 'network_device', 'application', 'api_key', 'other'] as const,
 } as const;
 
 // Validation helper for cluster data
@@ -987,8 +988,8 @@ const professionalVaultItems = [
   { title: 'Nutanix Prism Admin', username: 'admin', item_type: 'application', url: 'https://prism.os.com', notes: 'Nutanix Prism Central admin' },
   { title: 'VMware vCenter', username: 'administrator@vsphere.local', item_type: 'application', url: 'https://vcenter.at.com', notes: 'vCenter Server admin' },
   { title: 'Zabbix API Key', username: 'api', item_type: 'api_key', notes: 'Zabbix monitoring API key' },
-  { title: 'AWS Root Account', username: 'root', item_type: 'cloud', url: 'https://console.aws.amazon.com', notes: 'AWS root account for DR' },
-  { title: 'Azure Portal', username: 'admin@company.onmicrosoft.com', item_type: 'cloud', url: 'https://portal.azure.com', notes: 'Azure admin portal' },
+  { title: 'AWS Root Account', username: 'root', item_type: 'other', url: 'https://console.aws.amazon.com', notes: 'AWS root account for DR (Cloud)' },
+  { title: 'Azure Portal', username: 'admin@company.onmicrosoft.com', item_type: 'other', url: 'https://portal.azure.com', notes: 'Azure admin portal (Cloud)' },
 ];
 
 // Professional Scan Agents
