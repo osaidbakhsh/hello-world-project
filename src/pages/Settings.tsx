@@ -43,6 +43,7 @@ const Settings: React.FC = () => {
   const [isSeeding, setIsSeeding] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [selectedDomainId, setSelectedDomainId] = useState<string>('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
   // Test states
@@ -118,6 +119,10 @@ const Settings: React.FC = () => {
           console.error('Failed to parse NTP settings');
         }
       }
+      
+      // Load advanced settings toggle
+      const savedAdvanced = await getSetting('show_advanced_settings');
+      setShowAdvanced(savedAdvanced === 'true');
     };
     loadSettings();
   }, [getSetting]);
@@ -423,47 +428,62 @@ const Settings: React.FC = () => {
   return (
     <div className="space-y-6 max-w-4xl mx-auto" dir={dir}>
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-3 rounded-xl bg-primary/10">
-          <SettingsIcon className="w-6 h-6 text-primary" />
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-primary/10">
+            <SettingsIcon className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">{t('nav.settings')}</h1>
+            <p className="text-muted-foreground">{t('settings.manageSettings')}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold">{t('nav.settings')}</h1>
-          <p className="text-muted-foreground">{t('settings.manageSettings')}</p>
+        
+        {/* Advanced Settings Toggle - RTL aware */}
+        <div className={cn(
+          "flex items-center gap-2",
+          dir === 'rtl' && 'flex-row-reverse'
+        )}>
+          <Label htmlFor="advanced-toggle" className="text-sm text-muted-foreground cursor-pointer">
+            {t('settings.showAdvanced')}
+          </Label>
+          <Switch
+            id="advanced-toggle"
+            checked={showAdvanced}
+            onCheckedChange={async (checked) => {
+              setShowAdvanced(checked);
+              await updateSetting('show_advanced_settings', String(checked));
+            }}
+          />
         </div>
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="general" className="gap-2">
-            <SettingsIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('settings.general')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="customization" className="gap-2">
-            <LayoutDashboard className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('settings.customization')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="mail" className="gap-2">
-            <Mail className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('settings.mail')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="ldap" className="gap-2">
-            <Shield className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('settings.ldap')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="ntp" className="gap-2">
-            <Clock className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('settings.ntp')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="https" className="gap-2">
-            <Lock className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('settings.https') || 'HTTPS'}</span>
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-2">
-            <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('settings.templates')}</span>
-          </TabsTrigger>
-        </TabsList>
+      {(() => {
+        const allTabs = [
+          { value: 'general', icon: SettingsIcon, labelKey: 'settings.general', advanced: false },
+          { value: 'customization', icon: LayoutDashboard, labelKey: 'settings.customization', advanced: false },
+          { value: 'mail', icon: Mail, labelKey: 'settings.mail', advanced: false },
+          { value: 'ldap', icon: Shield, labelKey: 'settings.ldap', advanced: true },
+          { value: 'ntp', icon: Clock, labelKey: 'settings.ntp', advanced: true },
+          { value: 'https', icon: Lock, labelKey: 'settings.https', advanced: false },
+          { value: 'templates', icon: FileSpreadsheet, labelKey: 'settings.templates', advanced: false },
+        ];
+        const visibleTabs = allTabs.filter(tab => !tab.advanced || showAdvanced);
+        
+        return (
+          <Tabs defaultValue="general" className="w-full">
+            <TabsList className="flex flex-wrap justify-start gap-1 h-auto p-1 w-full">
+              {visibleTabs.map(tab => (
+                <TabsTrigger 
+                  key={tab.value} 
+                  value={tab.value} 
+                  className="gap-2 flex-shrink-0"
+                >
+                  <tab.icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t(tab.labelKey)}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
         {/* General Settings Tab */}
         <TabsContent value="general" className="space-y-6 mt-6">
@@ -1055,7 +1075,9 @@ const Settings: React.FC = () => {
         <TabsContent value="https" className="space-y-6 mt-6">
           <HTTPSSettingsTab />
         </TabsContent>
-      </Tabs>
+          </Tabs>
+        );
+      })()}
     </div>
   );
 };
