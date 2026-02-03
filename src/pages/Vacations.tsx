@@ -120,6 +120,16 @@ const Vacations: React.FC = () => {
       return;
     }
 
+    // Validate start date is before or equal to end date
+    if (new Date(formData.start_date) > new Date(formData.end_date)) {
+      toast({
+        title: t('common.error'),
+        description: t('vacations.startBeforeEnd'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Check employee selection for admin
     if (isAdmin && !formData.profile_id) {
       toast({
