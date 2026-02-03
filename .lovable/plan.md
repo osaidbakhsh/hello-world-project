@@ -1,205 +1,124 @@
 
-# خطة شاملة لإصلاح مشاكل RTL في جميع أقسام التطبيق
+# خطة إضافة ميزة السحب والإفلات (Drag & Drop) لترتيب تطبيقات الويب
 
 ---
 
-## ملخص المشكلة
+## ملخص الميزة
 
-بناءً على فحص شامل للكود والصور المرفقة، تم اكتشاف مشاكل متعددة في دعم RTL (العربية) تشمل:
-
-1. **محاذاة التبويبات (Tabs)**: التبويبات تبقى على اليسار بدلاً من اليمين في وضع RTL
-2. **الأيقونات والنصوص**: ترتيب خاطئ للأيقونات مع النصوص
-3. **الفراغات (Spacing)**: استخدام `ml-`/`mr-` بدلاً من `ms-`/`me-`
-4. **الحوارات (Dialogs)**: عدم تطبيق `dir={dir}` على DialogContent
-5. **الجداول**: محاذاة خاطئة للأعمدة والخلايا
-6. **البطاقات (Cards)**: محاذاة عناصر داخلية غير صحيحة
+إضافة إمكانية ترتيب تطبيقات الويب في صفحة `/web-apps` عبر السحب والإفلات أو أزرار الأسهم (نفس النمط المستخدم في ترتيب القائمة الجانبية). سيتم عرض أول 8 تطبيقات حسب الترتيب الجديد في الصفحة الرئيسية.
 
 ---
 
-## الملفات المطلوب تعديلها
+## التغييرات المطلوبة
 
-### المرحلة 1: مكونات Datacenter (الأولوية العالية)
+### 1. تعديل قاعدة البيانات
 
-| الملف | المشاكل | الإصلاحات |
-|-------|---------|-----------|
-| `DatacenterOverview.tsx` | محاذاة بطاقات الكلسترات، الأيقونات | إضافة RTL-aware classes |
-| `ClusterTable.tsx` | Dialog بدون dir، الجدول | إضافة `dir={dir}` |
-| `DatacenterTable.tsx` | DropdownMenu محاذاة، Dialog | تصحيح align و dir |
-| `NodeTable.tsx` | Dialog و DropdownMenu | إضافة RTL classes |
-| `VMTable.tsx` | Dialog و DropdownMenu | إضافة RTL classes |
-| `TopologyView.tsx` | عناصر الشجرة، borders | تصحيح `ps-`/`pe-` و borders |
-| `ClusterForm.tsx` | Dialog محاذاة | إضافة `dir={dir}` |
-| `DatacenterForm.tsx` | Dialog محاذاة | إضافة `dir={dir}` |
+إضافة عمود `sort_order` لجدول `website_applications`:
 
-### المرحلة 2: الصفحات الرئيسية
+```sql
+ALTER TABLE website_applications 
+ADD COLUMN sort_order INTEGER DEFAULT 0;
 
-| الملف | المشاكل | الإصلاحات |
-|-------|---------|-----------|
-| `Servers.tsx` | Dialog، Table، Filters | إضافة RTL classes |
-| `Networks.tsx` | Tabs، Dialog، Cards | تصحيح محاذاة التبويبات |
-| `Licenses.tsx` | Tabs، Dialog، Table | إضافة RTL support |
-| `Tasks.tsx` | Tabs، Dialog، Kanban | تصحيح محاذاة |
-| `Vacations.tsx` | Dialog، Table | إضافة dir |
-| `MaintenanceWindows.tsx` | Tabs، Dialog، Calendar | RTL alignment |
-| `OnCallSchedule.tsx` | Tabs، Dialog، Cards | RTL alignment |
-| `FileShares.tsx` | Dialog، Table | RTL classes |
-| `NetworkScan.tsx` | Tabs، Dialog، Table | RTL alignment |
-| `Settings.tsx` | Tabs، Forms | RTL alignment |
-| `WebApps.tsx` | Dialog (تم إصلاحه جزئياً) | تحسينات إضافية |
-| `Vault.tsx` | Tabs، Cards | RTL alignment |
-
-### المرحلة 3: المكونات المشتركة
-
-| الملف | المشاكل | الإصلاحات |
-|-------|---------|-----------|
-| `VaultItemCard.tsx` | Badge positions، icons | RTL positions |
-| `FileShareForm.tsx` | Form layout | RTL form alignment |
-| `VaultItemForm.tsx` | (تم إصلاحه جزئياً) | تحسينات إضافية |
-| `KanbanBoard.tsx` | Card layout | RTL support |
-| `TaskCalendar.tsx` | Calendar direction | RTL calendar |
+-- تحديث الترتيب الحالي بناءً على التطبيقات الموجودة
+WITH ordered AS (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY created_at) - 1 as rn
+  FROM website_applications
+)
+UPDATE website_applications 
+SET sort_order = ordered.rn
+FROM ordered
+WHERE website_applications.id = ordered.id;
+```
 
 ---
 
-## التغييرات التقنية المطلوبة
+### 2. تعديل `src/hooks/useSupabaseData.ts`
 
-### 1. إضافة dir للـ Dialogs
+تحديث `useWebsiteApplications` للترتيب حسب `sort_order`:
 
 ```typescript
 // قبل
-<DialogContent className="max-w-2xl">
-
-// بعد  
-<DialogContent className="max-w-2xl" dir={dir}>
-```
-
-### 2. تصحيح الـ Spacing Classes
-
-```typescript
-// قبل - hardcoded direction
-className="ml-2"  // left margin
-className="mr-2"  // right margin
-className="pl-4"  // left padding
-className="pr-4"  // right padding
-
-// بعد - RTL-aware
-className="ms-2"  // margin-start
-className="me-2"  // margin-end
-className="ps-4"  // padding-start
-className="pe-4"  // padding-end
-```
-
-### 3. تصحيح محاذاة التبويبات
-
-```typescript
-// إضافة wrapper للتحكم في المحاذاة
-<div className={language === 'ar' ? 'flex justify-end' : 'flex justify-start'}>
-  <TabsList>
-    {/* ... tabs */}
-  </TabsList>
-</div>
-```
-
-### 4. تصحيح DropdownMenu Alignment
-
-```typescript
-// قبل
-<DropdownMenuContent align="end">
+.order('name');
 
 // بعد
-<DropdownMenuContent align={dir === 'rtl' ? 'start' : 'end'}>
-```
-
-### 5. تصحيح Border Directions
-
-```typescript
-// قبل
-className="border-l"  // left border
-className="border-r"  // right border
-
-// بعد
-className={dir === 'rtl' ? 'border-r' : 'border-l'}
-// أو استخدام Tailwind logical properties
-className="border-s"  // border-start
-className="border-e"  // border-end
-```
-
-### 6. تصحيح الأيقونات مع النصوص
-
-```typescript
-// قبل
-<Button>
-  <Icon className="mr-2" />
-  {text}
-</Button>
-
-// بعد
-<Button className={dir === 'rtl' ? 'flex-row-reverse' : ''}>
-  <Icon className="me-2" />
-  {text}
-</Button>
-```
-
-### 7. تصحيح محاذاة العناصر في Cards
-
-```typescript
-// قبل
-<div className="flex items-start justify-between">
-  <div>{content}</div>
-  <Badge>{status}</Badge>
-</div>
-
-// بعد - يعمل تلقائياً مع RTL
-// لكن تأكد من استخدام ms-/me- بدلاً من ml-/mr-
+.order('sort_order', { ascending: true });
 ```
 
 ---
 
-## قائمة الإصلاحات التفصيلية
+### 3. تعديل `src/pages/WebApps.tsx`
 
-### DatacenterOverview.tsx
-- [ ] إضافة `text-start` للعناوين
-- [ ] تصحيح `flex justify-between` للبطاقات
-- [ ] استخدام `ms-` بدلاً من `ml-` للـ Badges
-- [ ] تصحيح `flex gap-1` في أزرار الإجراءات
+إضافة وظائف الترتيب:
 
-### ClusterTable.tsx
-- [ ] إضافة `dir={dir}` للـ Dialog
-- [ ] تصحيح محاذاة الجدول
-- [ ] تصحيح DialogFooter alignment
+| العنصر | التغيير |
+|--------|---------|
+| **State جديد** | إضافة `sortedApps` و `isSorting` |
+| **أزرار الترتيب** | إضافة `ArrowUp` و `ArrowDown` و `GripVertical` لكل صف |
+| **دالة moveApp** | تبديل ترتيب التطبيقين |
+| **دالة saveSortOrder** | حفظ الترتيب الجديد في قاعدة البيانات |
+| **واجهة المستخدم** | عمود جديد للترتيب + زر "حفظ الترتيب" |
 
-### DatacenterTable.tsx
-- [ ] إضافة `dir={dir}` للـ Dialog
-- [ ] تصحيح DropdownMenu align
-- [ ] تصحيح search input icon position
+**مكونات واجهة المستخدم الجديدة:**
 
-### TopologyView.tsx
-- [ ] تصحيح `ps-` و borders للعناصر الشجرية
-- [ ] تصحيح `text-start` للأزرار
-- [ ] تصحيح badges position
+```
++-------+------------------+------+----------+--------+--------+---------+
+| ترتيب | التطبيق          | URL  | التصنيف  | الدومين| الحالة | إجراءات |
++-------+------------------+------+----------+--------+--------+---------+
+| ⋮ ↑↓ | VMware vCenter   | ...  | بنية    | ...    | نشط   | ✏️ 🗑️   |
+| ⋮ ↑↓ | Active Directory | ...  | أمان    | ...    | نشط   | ✏️ 🗑️   |
++-------+------------------+------+----------+--------+--------+---------+
+                              [حفظ الترتيب]
+```
 
-### جميع الصفحات الرئيسية
-- [ ] إضافة wrapper للـ TabsList مع conditional alignment
-- [ ] إضافة `dir={dir}` لجميع Dialogs
-- [ ] استبدال `ml-`/`mr-` بـ `ms-`/`me-`
-- [ ] تصحيح search input icon positions
-- [ ] تصحيح DropdownMenu alignments
+---
+
+### 4. تعديل `src/components/dashboard/WebAppsWidget.tsx`
+
+التأكد من عرض أول 8 تطبيقات حسب `sort_order` (سيتم تلقائياً لأن الـ hook يرتب حسب sort_order).
+
+---
+
+## التفاصيل التقنية
+
+### الملفات المتأثرة:
+
+1. **Migration جديدة** - إضافة `sort_order` column
+2. **`src/hooks/useSupabaseData.ts`** - تحديث الترتيب
+3. **`src/pages/WebApps.tsx`** - إضافة UI الترتيب ووظائفه
+
+### منطق الترتيب:
+
+```typescript
+const moveApp = (index: number, direction: 'up' | 'down') => {
+  const targetIndex = direction === 'up' ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= apps.length) return;
+  
+  const newApps = [...apps];
+  [newApps[index], newApps[targetIndex]] = [newApps[targetIndex], newApps[index]];
+  
+  // تحديث sort_order
+  newApps.forEach((app, i) => app.sort_order = i);
+  setLocalApps(newApps);
+  setHasChanges(true);
+};
+
+const saveSortOrder = async () => {
+  for (const app of localApps) {
+    await supabase
+      .from('website_applications')
+      .update({ sort_order: app.sort_order })
+      .eq('id', app.id);
+  }
+  refetch();
+};
+```
 
 ---
 
 ## النتيجة المتوقعة
 
-- تبويبات على اليمين في وضع RTL
-- أيقونات على الجهة الصحيحة من النص
-- فراغات متناسقة في كلا الاتجاهين
-- حوارات محاذاة بشكل صحيح
-- جداول قابلة للقراءة في RTL
-- تجربة مستخدم احترافية للمستخدمين العرب
-
----
-
-## ملاحظات التنفيذ
-
-1. سيتم تعديل كل ملف على حدة
-2. سيتم اختبار كل تغيير في وضعي LTR و RTL
-3. سيتم الحفاظ على التوافق مع الكود الحالي
-4. الأولوية لصفحة Datacenter ثم باقي الصفحات
+- المدير يستطيع ترتيب التطبيقات من صفحة `/web-apps`
+- أول 8 تطبيقات (حسب الترتيب) تظهر في لوحة التحكم
+- الترتيب محفوظ في قاعدة البيانات
+- واجهة مستخدم سهلة مع أزرار أعلى/أسفل
+- دعم كامل لـ RTL
