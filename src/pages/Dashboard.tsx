@@ -111,36 +111,42 @@ const Dashboard: React.FC = () => {
           value={stats.totalServers}
           icon={Server}
           variant="primary"
+          isLoading={isLoading}
         />
         <StatCard
           title={t('dashboard.activeServers')}
           value={stats.activeServers}
           icon={CheckCircle}
           variant="success"
+          isLoading={isLoading}
         />
         <StatCard
           title={t('dashboard.expiringLicenses')}
           value={stats.expiringLicenses}
           icon={KeyRound}
           variant={stats.expiringLicenses > 0 ? 'warning' : 'accent'}
+          isLoading={isLoading}
         />
         <StatCard
           title={t('dashboard.pendingTasks')}
           value={stats.pendingTasks}
           icon={ListTodo}
           variant={stats.overdueTasks > 0 ? 'danger' : 'primary'}
+          isLoading={isLoading}
         />
         <StatCard
           title={t('dashboard.employees')}
           value={stats.totalEmployees}
           icon={Users}
           variant="accent"
+          isLoading={isLoading}
         />
         <StatCard
           title={t('dashboard.domains')}
           value={stats.totalNetworks}
           icon={Network}
           variant="primary"
+          isLoading={isLoading}
         />
       </div>
 
