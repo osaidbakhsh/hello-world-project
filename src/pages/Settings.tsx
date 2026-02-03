@@ -645,16 +645,18 @@ const Settings: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Test Data - Admin Only */}
+          {/* Demo Data Generator - Admin Only */}
           {isAdmin && (
             <Card>
               <CardHeader>
                 <CardTitle className={cn("flex items-center gap-2", dir === 'rtl' && 'flex-row-reverse justify-end')}>
                   <Database className="w-5 h-5" />
-                  {t('settings.testData')}
+                  {language === 'ar' ? 'مُولّد البيانات التجريبية' : 'Demo Data Generator'}
                 </CardTitle>
                 <CardDescription className={dir === 'rtl' ? 'text-right' : 'text-left'}>
-                  {t('settings.testDataDesc')}
+                  {language === 'ar' 
+                    ? 'إنشاء بيانات تجريبية للاختبار فقط. يمكن إعادة تعيينها لاحقاً من قبل المسؤول الأعلى.' 
+                    : 'Creates demo data for testing only. Can be reset later by Super Admin.'}
                 </CardDescription>
               </CardHeader>
               <CardContent className={cn("space-y-4", dir === 'rtl' ? 'text-right' : 'text-left')}>
@@ -665,7 +667,7 @@ const Settings: React.FC = () => {
                       {t('common.loading')}
                     </>
                   ) : (
-                    t('settings.createTestData')
+                    language === 'ar' ? 'إنشاء بيانات تجريبية' : 'Generate Demo Data'
                   )}
                 </Button>
                 
@@ -682,7 +684,7 @@ const Settings: React.FC = () => {
                         {t('common.loading')}
                       </>
                     ) : (
-                      t('settings.resetDemoData')
+                      language === 'ar' ? 'إعادة تعيين البيانات التجريبية' : 'Reset Demo Data'
                     )}
                   </Button>
                 )}
