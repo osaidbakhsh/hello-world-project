@@ -1,249 +1,258 @@
 
-
-# Implementation Plan: Advanced Settings Toggle + Vault Cleanup
+# خطة إصلاح التعديل في المناوبات (On-Call Schedule)
 
 ---
 
-## Phase 1: Settings Tabs Layout Fix (Immediate)
+## المشكلة
 
-### 1.1 Add State and Persistence for Advanced Toggle
+زر التعديل موجود في واجهة المستخدم لكنه **لا يعمل** لأنه:
+- لا يوجد `onClick` handler
+- لا يوجد dialog للتعديل
+- لا يوجد mutation لتحديث البيانات في قاعدة البيانات
 
-**File:** `src/pages/Settings.tsx`
+---
 
-Add state after line 46:
+## الحل
+
+### 1. إضافة State للتعديل
+
 ```typescript
-const [showAdvanced, setShowAdvanced] = useState(false);
+// بعد السطر 72
+const [editingSchedule, setEditingSchedule] = useState<OnCallSchedule | null>(null);
+const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 ```
 
-Add effect to load setting (after line 123):
+---
+
+### 2. إضافة Update Mutation
+
 ```typescript
-useEffect(() => {
-  const loadAdvancedSetting = async () => {
-    const value = await getSetting('show_advanced_settings');
-    setShowAdvanced(value === 'true');
-  };
-  loadAdvancedSetting();
-}, [getSetting]);
+// بعد deleteScheduleMutation (السطر 164)
+const updateScheduleMutation = useMutation({
+  mutationFn: async (schedule: { 
+    id: string; 
+    name: string; 
+    domain_id: string | null;
+    rotation_type: string; 
+    team_members: string[];
+    is_active: boolean;
+  }) => {
+    const { data, error } = await supabase
+      .from('on_call_schedules')
+      .update({
+        name: schedule.name,
+        domain_id: schedule.domain_id,
+        rotation_type: schedule.rotation_type,
+        team_members: schedule.team_members,
+        is_active: schedule.is_active,
+      })
+      .eq('id', schedule.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['on_call_schedules'] });
+    toast.success(t('common.saved'));
+    setIsEditDialogOpen(false);
+    setEditingSchedule(null);
+  },
+  onError: (error) => {
+    toast.error(t('common.error'));
+    console.error(error);
+  },
+});
 ```
 
-### 1.2 Define Tabs Configuration Array
+---
 
-Add before return statement (around line 420):
-```typescript
-const allTabs = [
-  { value: 'general', icon: SettingsIcon, labelKey: 'settings.general', advanced: false },
-  { value: 'customization', icon: LayoutDashboard, labelKey: 'settings.customization', advanced: false },
-  { value: 'mail', icon: Mail, labelKey: 'settings.mail', advanced: false },
-  { value: 'ldap', icon: Shield, labelKey: 'settings.ldap', advanced: true },
-  { value: 'ntp', icon: Clock, labelKey: 'settings.ntp', advanced: true },
-  { value: 'https', icon: Lock, labelKey: 'settings.https', advanced: false },
-  { value: 'templates', icon: FileSpreadsheet, labelKey: 'settings.templates', advanced: false },
-];
+### 3. إضافة Dialog للتعديل
 
-const visibleTabs = allTabs.filter(tab => !tab.advanced || showAdvanced);
-```
-
-### 1.3 Update Header with Toggle Switch
-
-Replace header section (lines 425-434) with:
 ```tsx
-<div className="flex items-center justify-between flex-wrap gap-4">
-  <div className="flex items-center gap-3">
-    <div className="p-3 rounded-xl bg-primary/10">
-      <SettingsIcon className="w-6 h-6 text-primary" />
-    </div>
-    <div>
-      <h1 className="text-3xl font-bold">{t('nav.settings')}</h1>
-      <p className="text-muted-foreground">{t('settings.manageSettings')}</p>
-    </div>
-  </div>
-  
-  {/* Advanced Settings Toggle - RTL aware */}
-  <div className={cn(
-    "flex items-center gap-2",
-    dir === 'rtl' && 'flex-row-reverse'
-  )}>
-    <Label htmlFor="advanced-toggle" className="text-sm text-muted-foreground cursor-pointer">
-      {t('settings.showAdvanced')}
-    </Label>
-    <Switch
-      id="advanced-toggle"
-      checked={showAdvanced}
-      onCheckedChange={async (checked) => {
-        setShowAdvanced(checked);
-        await updateSetting('show_advanced_settings', String(checked));
-      }}
-    />
-  </div>
-</div>
+{/* Edit Dialog - يضاف بعد Add Dialog */}
+<Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+  setIsEditDialogOpen(open);
+  if (!open) setEditingSchedule(null);
+}}>
+  <DialogContent className="max-w-lg">
+    <DialogHeader>
+      <DialogTitle>{t('onCall.editSchedule')}</DialogTitle>
+    </DialogHeader>
+    {editingSchedule && (
+      <div className="space-y-4">
+        <div>
+          <Label>{t('common.name')}</Label>
+          <Input
+            value={editingSchedule.name}
+            onChange={(e) => setEditingSchedule(prev => prev ? { ...prev, name: e.target.value } : null)}
+          />
+        </div>
+        <div>
+          <Label>{t('nav.domains')}</Label>
+          <Select 
+            value={editingSchedule.domain_id || ''} 
+            onValueChange={(value) => setEditingSchedule(prev => prev ? { ...prev, domain_id: value || null } : null)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t('domainSummary.selectDomain')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">{t('common.none')}</SelectItem>
+              {domains?.map(domain => (
+                <SelectItem key={domain.id} value={domain.id}>
+                  {domain.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>{t('onCall.rotationType')}</Label>
+          <Select 
+            value={editingSchedule.rotation_type} 
+            onValueChange={(value) => setEditingSchedule(prev => prev ? { ...prev, rotation_type: value } : null)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">{t('onCall.daily')}</SelectItem>
+              <SelectItem value="weekly">{t('onCall.weekly')}</SelectItem>
+              <SelectItem value="biweekly">{t('onCall.biweekly')}</SelectItem>
+              <SelectItem value="monthly">{t('onCall.monthly')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>{t('onCall.teamMembers')}</Label>
+          <Select onValueChange={(profileId) => {
+            if (editingSchedule && !editingSchedule.team_members?.includes(profileId)) {
+              setEditingSchedule(prev => prev ? { 
+                ...prev, 
+                team_members: [...(prev.team_members || []), profileId] 
+              } : null);
+            }
+          }}>
+            <SelectTrigger>
+              <SelectValue placeholder={t('onCall.selectMember')} />
+            </SelectTrigger>
+            <SelectContent>
+              {profiles?.filter(p => !editingSchedule.team_members?.includes(p.id)).map(profile => (
+                <SelectItem key={profile.id} value={profile.id}>
+                  {profile.full_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {editingSchedule.team_members?.map((memberId, index) => {
+              const profile = getProfile(memberId);
+              return (
+                <Badge key={memberId} variant="secondary" className="gap-1">
+                  <span className="text-xs text-muted-foreground">#{index + 1}</span>
+                  {profile?.full_name}
+                  <button
+                    onClick={() => setEditingSchedule(prev => prev ? {
+                      ...prev,
+                      team_members: prev.team_members?.filter(id => id !== memberId) || []
+                    } : null)}
+                    className="ms-1 hover:text-destructive"
+                  >
+                    ×
+                  </button>
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label>{t('common.status')}</Label>
+          <Button
+            variant={editingSchedule.is_active ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setEditingSchedule(prev => prev ? { ...prev, is_active: !prev.is_active } : null)}
+          >
+            {editingSchedule.is_active ? t('common.active') : t('common.inactive')}
+          </Button>
+        </div>
+        <Button 
+          className="w-full" 
+          onClick={() => editingSchedule && updateScheduleMutation.mutate({
+            id: editingSchedule.id,
+            name: editingSchedule.name,
+            domain_id: editingSchedule.domain_id,
+            rotation_type: editingSchedule.rotation_type,
+            team_members: editingSchedule.team_members || [],
+            is_active: editingSchedule.is_active,
+          })}
+          disabled={!editingSchedule.name || !editingSchedule.team_members?.length}
+        >
+          {t('common.save')}
+        </Button>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
 ```
 
-### 1.4 Replace Static Grid with Flexbox Tabs
+---
 
-Replace TabsList (lines 437-466) with:
+### 4. تفعيل زر التعديل
+
+تغيير السطر 387:
+
 ```tsx
-<TabsList className="flex flex-wrap justify-start gap-1 h-auto p-1 w-full">
-  {visibleTabs.map(tab => (
-    <TabsTrigger 
-      key={tab.value} 
-      value={tab.value} 
-      className="gap-2 flex-shrink-0"
-    >
-      <tab.icon className="w-4 h-4" />
-      <span className="hidden sm:inline">{t(tab.labelKey)}</span>
-    </TabsTrigger>
-  ))}
-</TabsList>
+// من:
+<Button variant="ghost" size="icon" className="h-8 w-8">
+  <Edit className="w-4 h-4" />
+</Button>
+
+// إلى:
+<Button 
+  variant="ghost" 
+  size="icon" 
+  className="h-8 w-8"
+  onClick={() => {
+    setEditingSchedule(schedule);
+    setIsEditDialogOpen(true);
+  }}
+>
+  <Edit className="w-4 h-4" />
+</Button>
 ```
 
 ---
 
-## Phase 2: Add Translation Key
+### 5. إضافة مفتاح الترجمة
 
-**File:** `src/contexts/LanguageContext.tsx`
+في `src/contexts/LanguageContext.tsx`:
 
-Add after line 90 (Arabic section):
+**العربية:**
 ```typescript
-'settings.showAdvanced': 'إظهار الإعدادات المتقدمة',
+'onCall.editSchedule': 'تعديل جدول المناوبة',
 ```
 
-Add in English section (around line 2690):
+**الإنجليزية:**
 ```typescript
-'settings.showAdvanced': 'Show advanced settings',
+'onCall.editSchedule': 'Edit Schedule',
 ```
 
 ---
 
-## Phase 3: Drop Legacy Vault Columns (After User Confirmation)
+## ملخص الملفات المطلوب تعديلها
 
-### 3.1 Database Migration SQL
-
-```sql
--- Phase 3: Remove legacy sensitive columns from vault_items
--- All secrets now live in vault_item_secrets table
-
--- Safety check: verify no orphaned items with legacy data
-DO $$
-DECLARE
-  orphan_count INTEGER;
-BEGIN
-  SELECT COUNT(*) INTO orphan_count
-  FROM vault_items vi
-  WHERE (
-    vi.username IS NOT NULL 
-    OR vi.password_encrypted IS NOT NULL 
-    OR vi.password_iv IS NOT NULL 
-    OR vi.notes IS NOT NULL
-  )
-  AND NOT EXISTS (
-    SELECT 1 FROM vault_item_secrets vis 
-    WHERE vis.vault_item_id = vi.id
-  );
-  
-  IF orphan_count > 0 THEN
-    RAISE EXCEPTION 'Found % vault items with legacy data but no secrets record. Run vault-migrate-secrets first.', orphan_count;
-  END IF;
-END $$;
-
--- Drop legacy columns
-ALTER TABLE vault_items 
-  DROP COLUMN IF EXISTS username,
-  DROP COLUMN IF EXISTS password_encrypted,
-  DROP COLUMN IF EXISTS password_iv,
-  DROP COLUMN IF EXISTS notes;
-
--- Add audit comment
-COMMENT ON TABLE vault_items IS 'Vault metadata only. Sensitive fields removed 2026-02-03, now in vault_item_secrets.';
-```
-
-### 3.2 Frontend Cleanup (After Migration)
-
-**File:** `src/hooks/useVaultData.ts` - Remove lines 21-25:
-```typescript
-// REMOVE these legacy fields from VaultItem interface:
-// username?: string | null;
-// notes?: string | null;
-// password_encrypted?: string | null;
-// password_iv?: string | null;
-```
-
-**File:** `src/components/vault/VaultItemCard.tsx` - Remove lines 93-98:
-```tsx
-// REMOVE this block:
-// {item.username && (
-//   <p className="text-sm text-muted-foreground truncate">
-//     <User className="inline w-3 h-3 me-1" />
-//     {item.username}
-//   </p>
-// )}
-```
-
-**File:** `src/components/vault/VaultItemCard.tsx` - Update line 145:
-```tsx
-// CHANGE from:
-hasPassword={!!item.password_encrypted || true}
-// TO:
-hasPassword={true}
-```
+| الملف | التغييرات |
+|-------|----------|
+| `src/pages/OnCallSchedule.tsx` | إضافة state للتعديل، mutation للتحديث، dialog للتعديل، تفعيل onClick على زر Edit |
+| `src/contexts/LanguageContext.tsx` | إضافة `onCall.editSchedule` |
 
 ---
 
-## Phase 4: Final Verification Report (After Phase 3)
+## النتيجة المتوقعة
 
-### Expected vault_items Columns
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| id | uuid | Primary key |
-| title | text | Item name |
-| url | text | URL/link |
-| item_type | text | Category |
-| linked_server_id | uuid | FK to servers |
-| linked_network_id | uuid | FK to networks |
-| linked_application_id | uuid | FK to web_apps |
-| tags | ARRAY | Labels |
-| owner_id | uuid | Owner (enforced) |
-| requires_2fa_reveal | boolean | 2FA requirement |
-| last_password_reveal | timestamp | Last reveal time |
-| password_reveal_count | integer | Reveal counter |
-| created_at | timestamp | Creation time |
-| updated_at | timestamp | Update time |
-| created_by | uuid | Creator |
-
-**REMOVED**: username, password_encrypted, password_iv, notes
-
-### Final Test Matrix
-
-| # | Test Case | Expected | Status |
-|---|-----------|----------|--------|
-| 1 | vault_items schema | No username/password_encrypted/password_iv/notes | PENDING |
-| 2 | view_metadata API query | Returns only title/type/url/tags | PENDING |
-| 3 | Super admin lists vault_items | Only sees own items | PENDING |
-| 4 | Super admin decrypts unshared | 403 Forbidden | PENDING |
-| 5 | view_metadata decrypts | 403 Forbidden | PENDING |
-| 6 | view_secret decrypts | Allowed | PENDING |
-| 7 | Share creation | Owner only | PENDING |
-| 8 | Revocation | Immediate effect | PENDING |
-| 9 | Audit logs | Owner-only visibility | PENDING |
-
----
-
-## Files to Modify
-
-| File | Phase | Changes |
-|------|-------|---------|
-| `src/pages/Settings.tsx` | 1 | Add toggle, flexbox tabs, persistence |
-| `src/contexts/LanguageContext.tsx` | 2 | Add `settings.showAdvanced` (AR + EN) |
-| Database Migration | 3 | Drop legacy columns (after confirmation) |
-| `src/hooks/useVaultData.ts` | 3 | Remove legacy interface fields |
-| `src/components/vault/VaultItemCard.tsx` | 3 | Remove username display, fix hasPassword |
-
----
-
-## Execution Order
-
-1. **Now**: Implement Phase 1 + 2 (Settings toggle with flexbox tabs)
-2. **User Action**: Confirm Vault UI reveal/sharing works correctly
-3. **After Confirmation**: Execute Phase 3 (database migration + frontend cleanup)
-4. **Final**: Run verification and update PASS/FAIL matrix
+- الضغط على زر ✏️ يفتح dialog لتعديل الجدول
+- يمكن تغيير الاسم، الدومين، نوع التدوير، أعضاء الفريق، والحالة
+- حفظ التغييرات يحدث قاعدة البيانات فوراً
+- الواجهة تتحدث تلقائياً بعد الحفظ
 
