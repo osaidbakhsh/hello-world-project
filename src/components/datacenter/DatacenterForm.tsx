@@ -87,9 +87,11 @@ const DatacenterForm: React.FC<Props> = ({ domainId, onClose, onSuccess }) => {
     }
   };
 
+  const dir = language === 'ar' ? 'rtl' : 'ltr';
+  
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" dir={dir}>
         <DialogHeader>
           <DialogTitle>
             {language === 'ar' ? 'إضافة مركز بيانات' : 'Add Datacenter'}
