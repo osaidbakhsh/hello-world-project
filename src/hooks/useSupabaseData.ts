@@ -14,6 +14,7 @@ export interface WebsiteApplication {
   is_active: boolean;
   created_by: string | null;
   created_at: string;
+  sort_order: number;
 }
 
 export interface Notification {
@@ -452,18 +453,22 @@ export function useDashboardStats(selectedDomainId?: string) {
 }
 
 // Website Applications hooks
-export function useWebsiteApplications() {
+export function useWebsiteApplications(includeInactive = false) {
   const [data, setData] = useState<WebsiteApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetch = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: result, error } = await supabase
+      let query = supabase
         .from('website_applications')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
+        .select('*');
+      
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+      
+      const { data: result, error } = await query.order('sort_order', { ascending: true });
       if (error) throw error;
       setData((result as WebsiteApplication[]) || []);
     } catch (e) {
@@ -472,7 +477,7 @@ export function useWebsiteApplications() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [includeInactive]);
 
   useEffect(() => {
     fetch();
