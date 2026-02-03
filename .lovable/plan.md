@@ -1,258 +1,249 @@
 
-# Vault Share Employee Picker + Domain-Scoped Visibility + Translation Fixes
 
-## Summary
-
-This implementation adds domain-scoped employee visibility for vault sharing, with privacy enhancements and translation fixes.
+# Implementation Plan: Advanced Settings Toggle + Vault Cleanup
 
 ---
 
-## Section 1: Database Migration
+## Phase 1: Settings Tabs Layout Fix (Immediate)
 
-### 1.1 Create `list_visible_employees()` RPC Function
+### 1.1 Add State and Persistence for Advanced Toggle
 
-**Privacy-aware implementation:**
-- Super admin returns: `id`, `full_name`, `email` (global directory)
-- Non-admin returns: `id`, `full_name` only (domain-scoped, no email for privacy)
+**File:** `src/pages/Settings.tsx`
+
+Add state after line 46:
+```typescript
+const [showAdvanced, setShowAdvanced] = useState(false);
+```
+
+Add effect to load setting (after line 123):
+```typescript
+useEffect(() => {
+  const loadAdvancedSetting = async () => {
+    const value = await getSetting('show_advanced_settings');
+    setShowAdvanced(value === 'true');
+  };
+  loadAdvancedSetting();
+}, [getSetting]);
+```
+
+### 1.2 Define Tabs Configuration Array
+
+Add before return statement (around line 420):
+```typescript
+const allTabs = [
+  { value: 'general', icon: SettingsIcon, labelKey: 'settings.general', advanced: false },
+  { value: 'customization', icon: LayoutDashboard, labelKey: 'settings.customization', advanced: false },
+  { value: 'mail', icon: Mail, labelKey: 'settings.mail', advanced: false },
+  { value: 'ldap', icon: Shield, labelKey: 'settings.ldap', advanced: true },
+  { value: 'ntp', icon: Clock, labelKey: 'settings.ntp', advanced: true },
+  { value: 'https', icon: Lock, labelKey: 'settings.https', advanced: false },
+  { value: 'templates', icon: FileSpreadsheet, labelKey: 'settings.templates', advanced: false },
+];
+
+const visibleTabs = allTabs.filter(tab => !tab.advanced || showAdvanced);
+```
+
+### 1.3 Update Header with Toggle Switch
+
+Replace header section (lines 425-434) with:
+```tsx
+<div className="flex items-center justify-between flex-wrap gap-4">
+  <div className="flex items-center gap-3">
+    <div className="p-3 rounded-xl bg-primary/10">
+      <SettingsIcon className="w-6 h-6 text-primary" />
+    </div>
+    <div>
+      <h1 className="text-3xl font-bold">{t('nav.settings')}</h1>
+      <p className="text-muted-foreground">{t('settings.manageSettings')}</p>
+    </div>
+  </div>
+  
+  {/* Advanced Settings Toggle - RTL aware */}
+  <div className={cn(
+    "flex items-center gap-2",
+    dir === 'rtl' && 'flex-row-reverse'
+  )}>
+    <Label htmlFor="advanced-toggle" className="text-sm text-muted-foreground cursor-pointer">
+      {t('settings.showAdvanced')}
+    </Label>
+    <Switch
+      id="advanced-toggle"
+      checked={showAdvanced}
+      onCheckedChange={async (checked) => {
+        setShowAdvanced(checked);
+        await updateSetting('show_advanced_settings', String(checked));
+      }}
+    />
+  </div>
+</div>
+```
+
+### 1.4 Replace Static Grid with Flexbox Tabs
+
+Replace TabsList (lines 437-466) with:
+```tsx
+<TabsList className="flex flex-wrap justify-start gap-1 h-auto p-1 w-full">
+  {visibleTabs.map(tab => (
+    <TabsTrigger 
+      key={tab.value} 
+      value={tab.value} 
+      className="gap-2 flex-shrink-0"
+    >
+      <tab.icon className="w-4 h-4" />
+      <span className="hidden sm:inline">{t(tab.labelKey)}</span>
+    </TabsTrigger>
+  ))}
+</TabsList>
+```
+
+---
+
+## Phase 2: Add Translation Key
+
+**File:** `src/contexts/LanguageContext.tsx`
+
+Add after line 90 (Arabic section):
+```typescript
+'settings.showAdvanced': 'إظهار الإعدادات المتقدمة',
+```
+
+Add in English section (around line 2690):
+```typescript
+'settings.showAdvanced': 'Show advanced settings',
+```
+
+---
+
+## Phase 3: Drop Legacy Vault Columns (After User Confirmation)
+
+### 3.1 Database Migration SQL
 
 ```sql
--- Create the RPC function for visible employees
-CREATE OR REPLACE FUNCTION list_visible_employees()
-RETURNS TABLE (
-  id UUID,
-  full_name TEXT,
-  email TEXT
-)
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
+-- Phase 3: Remove legacy sensitive columns from vault_items
+-- All secrets now live in vault_item_secrets table
+
+-- Safety check: verify no orphaned items with legacy data
+DO $$
 DECLARE
-  current_profile_id UUID;
-  is_super BOOLEAN;
+  orphan_count INTEGER;
 BEGIN
-  current_profile_id := get_my_profile_id();
+  SELECT COUNT(*) INTO orphan_count
+  FROM vault_items vi
+  WHERE (
+    vi.username IS NOT NULL 
+    OR vi.password_encrypted IS NOT NULL 
+    OR vi.password_iv IS NOT NULL 
+    OR vi.notes IS NOT NULL
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM vault_item_secrets vis 
+    WHERE vis.vault_item_id = vi.id
+  );
   
-  IF current_profile_id IS NULL THEN
-    RETURN;
+  IF orphan_count > 0 THEN
+    RAISE EXCEPTION 'Found % vault items with legacy data but no secrets record. Run vault-migrate-secrets first.', orphan_count;
   END IF;
+END $$;
 
-  is_super := is_super_admin();
+-- Drop legacy columns
+ALTER TABLE vault_items 
+  DROP COLUMN IF EXISTS username,
+  DROP COLUMN IF EXISTS password_encrypted,
+  DROP COLUMN IF EXISTS password_iv,
+  DROP COLUMN IF EXISTS notes;
 
-  -- Super admin: see ALL employees with email (global directory)
-  IF is_super THEN
-    RETURN QUERY
-    SELECT p.id, p.full_name, p.email
-    FROM profiles p
-    WHERE p.id <> current_profile_id
-    ORDER BY p.full_name;
-    RETURN;
-  END IF;
-
-  -- Non-admin: see only employees in shared domains (no email for privacy)
-  RETURN QUERY
-  SELECT DISTINCT p.id, p.full_name, NULL::TEXT as email
-  FROM profiles p
-  JOIN domain_memberships dm_emp ON dm_emp.profile_id = p.id
-  JOIN domain_memberships dm_me ON dm_me.domain_id = dm_emp.domain_id
-  WHERE dm_me.profile_id = current_profile_id
-    AND p.id <> current_profile_id
-  ORDER BY p.full_name;
-END;
-$$;
-
--- Grant execute to authenticated users
-GRANT EXECUTE ON FUNCTION list_visible_employees() TO authenticated;
-
--- Add performance index for domain membership lookups
-CREATE INDEX IF NOT EXISTS idx_domain_memberships_profile_domain 
-ON domain_memberships(profile_id, domain_id);
+-- Add audit comment
+COMMENT ON TABLE vault_items IS 'Vault metadata only. Sensitive fields removed 2026-02-03, now in vault_item_secrets.';
 ```
 
----
+### 3.2 Frontend Cleanup (After Migration)
 
-## Section 2: Frontend Hook
-
-### 2.1 Create `useVisibleEmployees` Hook
-
-**New file:** `src/hooks/useVisibleEmployees.ts`
-
+**File:** `src/hooks/useVaultData.ts` - Remove lines 21-25:
 ```typescript
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+// REMOVE these legacy fields from VaultItem interface:
+// username?: string | null;
+// notes?: string | null;
+// password_encrypted?: string | null;
+// password_iv?: string | null;
+```
 
-export interface VisibleEmployee {
-  id: string;
-  full_name: string;
-  email: string | null;
-}
+**File:** `src/components/vault/VaultItemCard.tsx` - Remove lines 93-98:
+```tsx
+// REMOVE this block:
+// {item.username && (
+//   <p className="text-sm text-muted-foreground truncate">
+//     <User className="inline w-3 h-3 me-1" />
+//     {item.username}
+//   </p>
+// )}
+```
 
-export function useVisibleEmployees() {
-  return useQuery({
-    queryKey: ['visible-employees'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('list_visible_employees');
-      if (error) throw error;
-      return (data || []) as VisibleEmployee[];
-    },
-    // Ensure fresh data for domain membership changes
-    staleTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-  });
-}
+**File:** `src/components/vault/VaultItemCard.tsx` - Update line 145:
+```tsx
+// CHANGE from:
+hasPassword={!!item.password_encrypted || true}
+// TO:
+hasPassword={true}
 ```
 
 ---
 
-## Section 3: Invalidate on Domain Membership Changes
+## Phase 4: Final Verification Report (After Phase 3)
 
-### 3.1 Update `EmployeePermissions.tsx`
+### Expected vault_items Columns
 
-**Location:** Lines 511-513 (after `await refetchMemberships()`)
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | uuid | Primary key |
+| title | text | Item name |
+| url | text | URL/link |
+| item_type | text | Category |
+| linked_server_id | uuid | FK to servers |
+| linked_network_id | uuid | FK to networks |
+| linked_application_id | uuid | FK to web_apps |
+| tags | ARRAY | Labels |
+| owner_id | uuid | Owner (enforced) |
+| requires_2fa_reveal | boolean | 2FA requirement |
+| last_password_reveal | timestamp | Last reveal time |
+| password_reveal_count | integer | Reveal counter |
+| created_at | timestamp | Creation time |
+| updated_at | timestamp | Update time |
+| created_by | uuid | Creator |
 
-**Add import at top:**
-```typescript
-import { useQueryClient } from '@tanstack/react-query';
-```
+**REMOVED**: username, password_encrypted, password_iv, notes
 
-**Add in component:**
-```typescript
-const queryClient = useQueryClient();
-```
+### Final Test Matrix
 
-**After line 511 (`await refetchMemberships();`):**
-```typescript
-await refetchMemberships();
-queryClient.invalidateQueries({ queryKey: ['visible-employees'] }); // NEW
-```
-
----
-
-## Section 4: Update VaultShareDialog
-
-### 4.1 Replace `useProfiles` with `useVisibleEmployees`
-
-**File:** `src/components/vault/VaultShareDialog.tsx`
-
-**Key changes:**
-1. Import new hook: `import { useVisibleEmployees } from '@/hooks/useVisibleEmployees';`
-2. Remove `useProfiles` import
-3. Handle loading state for employees
-4. Handle empty employee list with translated message
-5. Display `full_name` with optional email (only for super admin)
-6. Update `getProfileName` to use visible employees list
-
-**Modified structure:**
-- Line 4: Change import from `useProfiles` to `useVisibleEmployees`
-- Line 42: Change hook call to `useVisibleEmployees()`
-- Lines 51-55: Filter using `visibleEmployees`
-- Lines 124-126: Update `getProfileName` to use `visibleEmployees`
-- Lines 146-152: Add loading and empty state handling
+| # | Test Case | Expected | Status |
+|---|-----------|----------|--------|
+| 1 | vault_items schema | No username/password_encrypted/password_iv/notes | PENDING |
+| 2 | view_metadata API query | Returns only title/type/url/tags | PENDING |
+| 3 | Super admin lists vault_items | Only sees own items | PENDING |
+| 4 | Super admin decrypts unshared | 403 Forbidden | PENDING |
+| 5 | view_metadata decrypts | 403 Forbidden | PENDING |
+| 6 | view_secret decrypts | Allowed | PENDING |
+| 7 | Share creation | Owner only | PENDING |
+| 8 | Revocation | Immediate effect | PENDING |
+| 9 | Audit logs | Owner-only visibility | PENDING |
 
 ---
 
-## Section 5: Translation Keys
+## Files to Modify
 
-### 5.1 Arabic Translations (add after line 1470)
-
-```typescript
-// Vault Sharing
-'vault.myVault': 'خزنتي',
-'vault.sharedWithMe': 'مشاركة معي',
-'vault.share': 'مشاركة',
-'vault.shareWith': 'مشاركة مع',
-'vault.selectEmployee': 'اختر موظف',
-'vault.permissionLevel': 'مستوى الصلاحية',
-'vault.viewMetadataOnly': 'عرض البيانات فقط',
-'vault.viewSecret': 'عرض كلمة المرور',
-'vault.currentShares': 'المشاركات الحالية',
-'vault.noShares': 'لا توجد مشاركات',
-'vault.shareCreated': 'تمت المشاركة بنجاح',
-'vault.shareRevoked': 'تم إلغاء المشاركة',
-'vault.revokeAccess': 'إلغاء الصلاحية',
-'vault.cannotShareWithSelf': 'لا يمكن المشاركة مع نفسك',
-'vault.noEmployeesAvailable': 'لا يوجد موظفون متاحون',
-```
-
-### 5.2 English Translations (add after line 3063)
-
-```typescript
-// Vault Sharing
-'vault.myVault': 'My Vault',
-'vault.sharedWithMe': 'Shared with Me',
-'vault.share': 'Share',
-'vault.shareWith': 'Share with',
-'vault.selectEmployee': 'Select Employee',
-'vault.permissionLevel': 'Permission Level',
-'vault.viewMetadataOnly': 'View Metadata Only',
-'vault.viewSecret': 'View Secret',
-'vault.currentShares': 'Current Shares',
-'vault.noShares': 'No shares yet',
-'vault.shareCreated': 'Shared successfully',
-'vault.shareRevoked': 'Share revoked',
-'vault.revokeAccess': 'Revoke Access',
-'vault.cannotShareWithSelf': 'Cannot share with yourself',
-'vault.noEmployeesAvailable': 'No available employees',
-```
+| File | Phase | Changes |
+|------|-------|---------|
+| `src/pages/Settings.tsx` | 1 | Add toggle, flexbox tabs, persistence |
+| `src/contexts/LanguageContext.tsx` | 2 | Add `settings.showAdvanced` (AR + EN) |
+| Database Migration | 3 | Drop legacy columns (after confirmation) |
+| `src/hooks/useVaultData.ts` | 3 | Remove legacy interface fields |
+| `src/components/vault/VaultItemCard.tsx` | 3 | Remove username display, fix hasPassword |
 
 ---
 
-## Section 6: Files to Modify/Create
+## Execution Order
 
-| File | Action | Changes |
-|------|--------|---------|
-| Database migration | CREATE | Add `list_visible_employees()` RPC function with GRANT and index |
-| `src/hooks/useVisibleEmployees.ts` | CREATE | New hook with staleTime:0, refetchOnMount:'always', refetchOnWindowFocus:true |
-| `src/components/vault/VaultShareDialog.tsx` | MODIFY | Use new hook, handle empty/loading states, fix getProfileName |
-| `src/pages/EmployeePermissions.tsx` | MODIFY | Add queryClient invalidation after membership save |
-| `src/contexts/LanguageContext.tsx` | MODIFY | Add 15 missing translation keys (AR + EN) |
+1. **Now**: Implement Phase 1 + 2 (Settings toggle with flexbox tabs)
+2. **User Action**: Confirm Vault UI reveal/sharing works correctly
+3. **After Confirmation**: Execute Phase 3 (database migration + frontend cleanup)
+4. **Final**: Run verification and update PASS/FAIL matrix
 
----
-
-## Section 7: Implementation Order
-
-1. Apply database migration (create RPC function with GRANT and index)
-2. Create `useVisibleEmployees` hook with React Query freshness settings
-3. Update `VaultShareDialog` to use new hook with proper loading/empty states
-4. Update `EmployeePermissions` to invalidate visible-employees on membership changes
-5. Add all 15 missing translation keys (Arabic + English)
-6. Test and verify
-
----
-
-## Section 8: Technical Details
-
-### React Query Freshness Settings
-```typescript
-{
-  staleTime: 0,           // Always consider data stale
-  refetchOnMount: 'always', // Refetch every time component mounts
-  refetchOnWindowFocus: true, // Refetch when user returns to tab
-}
-```
-
-### Translation Key Verification
-All vault UI components already use `t('vault.*')` pattern correctly:
-- `Vault.tsx` line 139: `{t('vault.myVault')}`
-- `Vault.tsx` line 146: `{t('vault.sharedWithMe')}`
-- `VaultShareDialog.tsx` line 141: `{t('vault.shareWith')}`
-- `VaultShareDialog.tsx` line 155: `{t('vault.permissionLevel')}`
-
-The issue is the translation keys don't exist yet - the `t()` calls are correct but return the key name.
-
----
-
-## Section 9: Test Report Template
-
-| # | Scenario | Expected | Status |
-|---|----------|----------|--------|
-| 1 | Super admin opens Share dialog | Sees ALL employees with email, excluding self | PENDING |
-| 2 | Employee opens Share dialog | Sees only domain-scoped colleagues, no email | PENDING |
-| 3 | Add domain membership via Permissions page | Visible employees list updates without page refresh | PENDING |
-| 4 | Employee cannot see employees in unshared domains | Filtered list or empty | PENDING |
-| 5 | No raw `vault.*` keys in UI | All text translated | PENDING |
-| 6 | Empty employee list | Shows translated "No available employees" | PENDING |
-| 7 | Tab labels in Vault page | Shows "My Vault" / "Shared with Me" translated | PENDING |
-| 8 | Permission level labels | "View Metadata Only" / "View Secret" translated | PENDING |
