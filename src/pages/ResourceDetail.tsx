@@ -16,7 +16,6 @@ import {
   Globe,
   Building2,
   Server,
-  Network,
   Cpu,
   Monitor,
   ArrowLeft,
@@ -36,21 +35,19 @@ import { cn } from '@/lib/utils';
 
 const levelIcons: Record<HierarchyLevel, React.ElementType> = {
   site: MapPin,
-  domain: Globe,
   datacenter: Building2,
   cluster: Server,
-  network: Network,
   node: Cpu,
+  domain: Globe,
   vm: Monitor,
 };
 
 const levelLabels: Record<HierarchyLevel, { en: string; ar: string }> = {
   site: { en: 'Site', ar: 'الموقع' },
-  domain: { en: 'Domain', ar: 'النطاق' },
   datacenter: { en: 'Datacenter', ar: 'مركز البيانات' },
   cluster: { en: 'Cluster', ar: 'الكلستر' },
-  network: { en: 'Network', ar: 'الشبكة' },
   node: { en: 'Node', ar: 'العقدة' },
+  domain: { en: 'Domain', ar: 'النطاق' },
   vm: { en: 'VM', ar: 'الجهاز الافتراضي' },
 };
 
@@ -208,29 +205,6 @@ const ResourceDetail: React.FC = () => {
             }
             break;
           }
-          case 'network': {
-            const { data: network } = await supabase.from('networks').select('*').eq('id', id).single();
-            data = network;
-            
-            const netVmQuery = supabase.from('servers').select('id, status');
-            const netVmResult = await (netVmQuery as any).eq('network_id', id);
-            const netVms = netVmResult.data as Array<{ id: string; status: string | null }> | null;
-            if (netVms) {
-              statsData.vms = netVms.length;
-              const total = netVms.length;
-              const healthy = netVms.filter(v => v.status === 'production' || v.status === 'active' || v.status === 'online').length;
-              const warning = netVms.filter(v => v.status === 'maintenance' || v.status === 'warning').length;
-              const critical = netVms.filter(v => v.status === 'offline' || v.status === 'stopped').length;
-              healthData = {
-                total,
-                healthy,
-                warning,
-                critical,
-                healthPercent: total > 0 ? Math.round((healthy / total) * 100) : 100
-              };
-            }
-            break;
-          }
           case 'node': {
             const { data: node } = await supabase.from('cluster_nodes').select('*').eq('id', id).single();
             data = node;
@@ -321,7 +295,7 @@ const ResourceDetail: React.FC = () => {
       <HierarchyBreadcrumb />
 
       {/* Health Overview for aggregate levels */}
-      {healthStats && (level === 'site' || level === 'domain' || level === 'cluster' || level === 'network') && (
+      {healthStats && (level === 'site' || level === 'domain' || level === 'cluster' || level === 'node') && (
         <HealthOverviewWidget health={healthStats} language={language} level={level} />
       )}
 
@@ -649,7 +623,7 @@ const VMOverview: React.FC<{ resource: ResourceData; language: string }> = ({ re
       <Card className="bg-card/50">
         <CardContent className="pt-4 pb-3">
           <div className="flex items-center gap-2">
-            <Network className="w-5 h-5 text-accent" />
+            <Globe className="w-5 h-5 text-accent" />
             <div>
               <p className="text-xs text-muted-foreground">
                 {language === 'ar' ? 'عنوان IP' : 'IP Address'}

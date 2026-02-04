@@ -14,7 +14,6 @@ import {
   Globe,
   Building2,
   Server,
-  Network,
   Cpu,
   Monitor,
   Loader2,
@@ -23,31 +22,29 @@ import {
 
 const levelIcons: Record<HierarchyLevel, React.ElementType> = {
   site: MapPin,
-  domain: Globe,
   datacenter: Building2,
   cluster: Server,
-  network: Network,
   node: Cpu,
+  domain: Globe,
   vm: Monitor,
 };
 
 const levelColors: Record<HierarchyLevel, string> = {
   site: 'text-rose-500',
-  domain: 'text-blue-500',
   datacenter: 'text-amber-500',
   cluster: 'text-emerald-500',
-  network: 'text-purple-500',
   node: 'text-cyan-500',
+  domain: 'text-blue-500',
   vm: 'text-primary',
 };
 
+// New hierarchy: Site → Datacenter → Cluster → Node → Domain → VM
 const nextLevel: Record<HierarchyLevel, HierarchyLevel | null> = {
-  site: 'domain',
-  domain: 'datacenter',
+  site: 'datacenter',
   datacenter: 'cluster',
-  cluster: 'network',
-  network: 'vm',
-  node: null,
+  cluster: 'node',
+  node: 'domain',
+  domain: 'vm',
   vm: null,
 };
 
@@ -163,7 +160,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, depth }) => {
             <span className="truncate text-xs font-medium text-sidebar-foreground group-hover:text-sidebar-accent-foreground">
               {node.name}
             </span>
-            {(node.level === 'node' || node.level === 'vm') && (
+            {(node.level === 'node' || node.level === 'vm' || node.level === 'domain') && (
               <HealthBadge status={status} />
             )}
           </div>

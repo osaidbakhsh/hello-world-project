@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Sidebar from './Sidebar';
+import AppHeader from './AppHeader';
 import CommandPalette from '@/components/hierarchy/CommandPalette';
 
 const Layout: React.FC = () => {
@@ -20,13 +21,14 @@ const Layout: React.FC = () => {
       />
       <main
         className={cn(
-          'min-h-screen transition-all duration-300',
+          'min-h-screen transition-all duration-300 flex flex-col',
           dir === 'rtl' 
             ? (sidebarCollapsed ? 'mr-16' : 'mr-64')
             : (sidebarCollapsed ? 'ml-16' : 'ml-64')
         )}
       >
-        <div className="p-4">
+        <AppHeader />
+        <div className="flex-1 p-4">
           <Outlet />
         </div>
       </main>

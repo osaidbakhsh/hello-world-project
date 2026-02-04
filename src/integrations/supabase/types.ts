@@ -423,6 +423,7 @@ export type Database = {
           notes: string | null
           power_capacity_kw: number | null
           rack_count: number | null
+          site_id: string | null
           tier_level: string | null
           updated_at: string | null
         }
@@ -442,6 +443,7 @@ export type Database = {
           notes?: string | null
           power_capacity_kw?: number | null
           rack_count?: number | null
+          site_id?: string | null
           tier_level?: string | null
           updated_at?: string | null
         }
@@ -461,6 +463,7 @@ export type Database = {
           notes?: string | null
           power_capacity_kw?: number | null
           rack_count?: number | null
+          site_id?: string | null
           tier_level?: string | null
           updated_at?: string | null
         }
@@ -477,6 +480,13 @@ export type Database = {
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "datacenters_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -531,6 +541,7 @@ export type Database = {
           hierarchy_path: unknown
           id: string
           name: string
+          node_id: string | null
           site_id: string
         }
         Insert: {
@@ -540,6 +551,7 @@ export type Database = {
           hierarchy_path?: unknown
           id?: string
           name: string
+          node_id?: string | null
           site_id: string
         }
         Update: {
@@ -549,9 +561,17 @@ export type Database = {
           hierarchy_path?: unknown
           id?: string
           name?: string
+          node_id?: string | null
           site_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "domains_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "cluster_nodes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_domains_branch"
             columns: ["site_id"]
@@ -2420,6 +2440,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           disk_space: string | null
+          domain_id: string | null
           environment: string | null
           eol_date: string | null
           eos_date: string | null
@@ -2459,6 +2480,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           disk_space?: string | null
+          domain_id?: string | null
           environment?: string | null
           eol_date?: string | null
           eos_date?: string | null
@@ -2498,6 +2520,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           disk_space?: string | null
+          domain_id?: string | null
           environment?: string | null
           eol_date?: string | null
           eos_date?: string | null
@@ -2540,6 +2563,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servers_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
             referencedColumns: ["id"]
           },
           {
