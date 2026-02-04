@@ -5,13 +5,16 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppName, useAppSettings } from '@/hooks/useSupabaseData';
 import { useTheme } from 'next-themes';
-import { LayoutDashboard, Server, Users, KeyRound, ListTodo, Network, FileBarChart, Settings, Globe, ChevronLeft, ChevronRight, Calendar, FileSpreadsheet, Wifi, LogOut, User, Shield, History, Sun, Moon, Lock, Wrench, Building2, Phone, Clock, FolderKanban, Bot, ShoppingCart } from 'lucide-react';
+import { LayoutDashboard, Server, Users, KeyRound, ListTodo, Network, FileBarChart, Settings, Globe, ChevronLeft, ChevronRight, Calendar, FileSpreadsheet, Wifi, LogOut, User, Shield, History, Sun, Moon, Lock, Wrench, Building2, Phone, Clock, FolderKanban, Bot, ShoppingCart, FolderTree } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import NotificationBell from './NotificationBell';
+import HierarchyTree from '@/components/hierarchy/HierarchyTree';
+import GlobalSearch from '@/components/hierarchy/GlobalSearch';
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -205,6 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
   const [orderedMenuItems, setOrderedMenuItems] = useState<MenuItem[]>(allMenuItems);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [showHierarchy, setShowHierarchy] = useState(false);
 
   // Load saved sidebar order from database
   const loadSidebarOrder = useCallback(async () => {
@@ -307,10 +311,48 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>}
 
-      {/* Notification Bell for collapsed sidebar */}
-      {profile && collapsed && <div className="px-2 py-2 border-b border-sidebar-border flex justify-center">
-          <NotificationBell />
-        </div>}
+      {/* Global Search */}
+      {!collapsed && (
+        <div className="px-3 py-2 border-b border-sidebar-border">
+          <GlobalSearch collapsed={collapsed} />
+        </div>
+      )}
+      {collapsed && (
+        <div className="px-2 py-2 border-b border-sidebar-border flex justify-center">
+          <GlobalSearch collapsed={collapsed} />
+        </div>
+      )}
+
+      {/* Hierarchy Tree Toggle */}
+      {isAdmin && (
+        <Collapsible open={showHierarchy && !collapsed} onOpenChange={setShowHierarchy}>
+          <div className={cn("border-b border-sidebar-border", collapsed ? "px-2 py-2" : "px-3 py-2")}>
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size={collapsed ? "icon" : "sm"}
+                className={cn(
+                  "w-full text-sidebar-foreground hover:bg-sidebar-accent",
+                  collapsed ? "justify-center" : "justify-start gap-2"
+                )}
+              >
+                <FolderTree className="w-4 h-4" />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 text-start">{t('nav.infrastructure')}</span>
+                    <ChevronRight className={cn("w-4 h-4 transition-transform", showHierarchy && "rotate-90")} />
+                  </>
+                )}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <div className="h-[200px] border-b border-sidebar-border">
+              <HierarchyTree />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Navigation */}
       <ScrollArea className="flex-1">

@@ -682,3 +682,33 @@ if (!is_super_admin && !domain_ids.includes(targetDomainId)) {
 - Infrastructure Vault: Server-side encryption, operator/admin RLS, audit logs per reveal
 - Private Vault: Client-side PBKDF2 + AES-256-GCM, `auth.uid() = owner_id` policy blocks Super Admin
 - All secrets stored as hex-encoded ciphertext, never plaintext
+
+---
+
+## Phase 4: Hierarchical Navigation UI ✅ COMPLETED
+
+**Context Created:**
+- ✅ `HierarchyContext` - Manages selection state, expanded nodes, search, and data fetching with localStorage persistence
+
+**Components Created:**
+- ✅ `HierarchyTree` - Recursive TreeView with lazy loading for 7-level hierarchy (Site → Domain → Datacenter → Cluster → Network → Node → VM)
+- ✅ `HierarchyBreadcrumb` - Dynamic breadcrumb bar using hierarchy path with clickable segments
+- ✅ `GlobalSearch` - Cross-level search with results grouped by level, auto-expands tree to selected node
+
+**Pages Created:**
+- ✅ `ResourceDetail` - Unified resource detail page with level-specific stats and Vault tab integration
+
+**Features:**
+- Lazy loading: Children fetched only when parent node is expanded
+- Level-specific icons: MapPin (Site), Globe (Domain), Building2 (Datacenter), Server (Cluster), Network, Cpu (Node), Monitor (VM)
+- Realtime status for VMs using Supabase Realtime subscriptions
+- Persistent tree expansion and selection state via localStorage
+- Integrated search in sidebar with popover results
+
+**Routes Added:**
+- `/resource/:level/:id` - Dynamic resource detail page
+
+**Integration:**
+- Tree and search integrated into Sidebar under "Infrastructure" collapsible section
+- Breadcrumbs displayed on ResourceDetail page
+- InfraVaultTab shown for Node and VM resources
