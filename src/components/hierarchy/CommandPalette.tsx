@@ -17,7 +17,6 @@ import {
   Globe,
   Building2,
   Server,
-  Network,
   Cpu,
   Monitor,
   Search,
@@ -28,21 +27,19 @@ import { supabase } from '@/integrations/supabase/client';
 
 const levelIcons: Record<HierarchyLevel, React.ElementType> = {
   site: MapPin,
-  domain: Globe,
   datacenter: Building2,
   cluster: Server,
-  network: Network,
   node: Cpu,
+  domain: Globe,
   vm: Monitor,
 };
 
 const levelColors: Record<HierarchyLevel, string> = {
   site: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
-  domain: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   datacenter: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   cluster: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  network: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   node: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  domain: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   vm: 'bg-primary/20 text-primary border-primary/30',
 };
 
@@ -83,14 +80,13 @@ const CommandPalette: React.FC = () => {
       const searchPattern = `%${query}%`;
 
       try {
-        const [sites, domains, datacenters, clusters, networks, nodes, vms] = await Promise.all([
+        const [sites, datacenters, clusters, nodes, domains, vms] = await Promise.all([
           supabase.from('sites').select('id, name').ilike('name', searchPattern).limit(5),
-          supabase.from('domains').select('id, name, site_id, sites(name)').ilike('name', searchPattern).limit(5),
-          supabase.from('datacenters').select('id, name, domain_id, domains(name, sites(name))').ilike('name', searchPattern).limit(5),
-          supabase.from('clusters').select('id, name, datacenter_id, datacenters(name, domains(name, sites(name)))').ilike('name', searchPattern).limit(5),
-          supabase.from('networks').select('id, name, cluster_id, clusters(name, datacenters(name, domains(name, sites(name))))').ilike('name', searchPattern).limit(5),
-          supabase.from('cluster_nodes').select('id, name, cluster_id, status, clusters(name, datacenters(name, domains(name, sites(name))))').ilike('name', searchPattern).limit(5),
-          supabase.from('servers').select('id, name, network_id, status, networks(name, clusters(name, datacenters(name, domains(name, sites(name)))))').ilike('name', searchPattern).limit(5),
+          supabase.from('datacenters').select('id, name, site_id').ilike('name', searchPattern).limit(5),
+          supabase.from('clusters').select('id, name, datacenter_id').ilike('name', searchPattern).limit(5),
+          supabase.from('cluster_nodes').select('id, name, cluster_id, status').ilike('name', searchPattern).limit(5),
+          supabase.from('domains').select('id, name, node_id').ilike('name', searchPattern).limit(5),
+          supabase.from('servers').select('id, name, domain_id, status').ilike('name', searchPattern).limit(5),
         ]);
 
         const allResults: SearchResultWithPath[] = [];
@@ -106,100 +102,61 @@ const CommandPalette: React.FC = () => {
           })));
         }
 
-        // Domains
+        // Datacenters (under Site)
+        if (datacenters.data) {
+          allResults.push(...datacenters.data.map(dc => ({
+            id: dc.id,
+            name: dc.name,
+            level: 'datacenter' as HierarchyLevel,
+            parentId: dc.site_id,
+            fullPath: dc.name,
+          })));
+        }
+
+        // Clusters (under Datacenter)
+        if (clusters.data) {
+          allResults.push(...clusters.data.map(c => ({
+            id: c.id,
+            name: c.name,
+            level: 'cluster' as HierarchyLevel,
+            parentId: c.datacenter_id,
+            fullPath: c.name,
+          })));
+        }
+
+        // Nodes (under Cluster)
+        if (nodes.data) {
+          allResults.push(...nodes.data.map(n => ({
+            id: n.id,
+            name: n.name,
+            level: 'node' as HierarchyLevel,
+            parentId: n.cluster_id,
+            fullPath: n.name,
+            metadata: { status: n.status },
+          })));
+        }
+
+        // Domains (under Node)
         if (domains.data) {
           allResults.push(...domains.data.map(d => ({
             id: d.id,
             name: d.name,
             level: 'domain' as HierarchyLevel,
-            parentId: d.site_id,
-            fullPath: `${(d.sites as any)?.name || ''} › ${d.name}`,
+            parentId: d.node_id,
+            fullPath: d.name,
           })));
         }
 
-        // Datacenters
-        if (datacenters.data) {
-          allResults.push(...datacenters.data.map(dc => {
-            const domain = dc.domains as any;
-            const site = domain?.sites as any;
-            return {
-              id: dc.id,
-              name: dc.name,
-              level: 'datacenter' as HierarchyLevel,
-              parentId: dc.domain_id,
-              fullPath: `${site?.name || ''} › ${domain?.name || ''} › ${dc.name}`,
-            };
-          }));
-        }
-
-        // Clusters
-        if (clusters.data) {
-          allResults.push(...clusters.data.map(c => {
-            const dc = c.datacenters as any;
-            const domain = dc?.domains as any;
-            const site = domain?.sites as any;
-            return {
-              id: c.id,
-              name: c.name,
-              level: 'cluster' as HierarchyLevel,
-              parentId: c.datacenter_id,
-              fullPath: `${site?.name || ''} › ${domain?.name || ''} › ${dc?.name || ''} › ${c.name}`,
-            };
-          }));
-        }
-
-        // Networks
-        if (networks.data) {
-          allResults.push(...networks.data.map(n => {
-            const cluster = n.clusters as any;
-            const dc = cluster?.datacenters as any;
-            const domain = dc?.domains as any;
-            const site = domain?.sites as any;
-            return {
-              id: n.id,
-              name: n.name,
-              level: 'network' as HierarchyLevel,
-              parentId: n.cluster_id,
-              fullPath: `${site?.name || ''} › ${domain?.name || ''} › ${dc?.name || ''} › ${cluster?.name || ''} › ${n.name}`,
-            };
-          }));
-        }
-
-        // Nodes
-        if (nodes.data) {
-          allResults.push(...nodes.data.map(n => {
-            const cluster = n.clusters as any;
-            const dc = cluster?.datacenters as any;
-            const domain = dc?.domains as any;
-            const site = domain?.sites as any;
-            return {
-              id: n.id,
-              name: n.name,
-              level: 'node' as HierarchyLevel,
-              parentId: n.cluster_id,
-              fullPath: `${site?.name || ''} › ${domain?.name || ''} › ${dc?.name || ''} › ${cluster?.name || ''} › ${n.name}`,
-              metadata: { status: n.status },
-            };
-          }));
-        }
-
-        // VMs
+        // VMs (under Domain)
         if (vms.data) {
-          allResults.push(...vms.data.map(v => {
-            const network = v.networks as any;
-            const cluster = network?.clusters as any;
-            const dc = cluster?.datacenters as any;
-            const domain = dc?.domains as any;
-            const site = domain?.sites as any;
-            return {
-              id: v.id,
-              name: v.name,
-              level: 'vm' as HierarchyLevel,
-              parentId: v.network_id,
-              fullPath: `${site?.name || ''} › ${domain?.name || ''} › ${dc?.name || ''} › ${cluster?.name || ''} › ${network?.name || ''} › ${v.name}`,
-              metadata: { status: v.status },
-            };
-          }));
+          allResults.push(...vms.data.map(v => ({
+            id: v.id,
+            name: v.name,
+            level: 'vm' as HierarchyLevel,
+            parentId: v.domain_id,
+            fullPath: v.name,
+            metadata: { status: v.status },
+          })));
         }
 
         setResults(allResults);

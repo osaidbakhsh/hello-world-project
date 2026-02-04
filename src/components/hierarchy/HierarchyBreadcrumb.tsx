@@ -14,7 +14,6 @@ import {
   Globe,
   Building2,
   Server,
-  Network,
   Cpu,
   Monitor,
   Home
@@ -41,21 +40,19 @@ const healthLabels: Record<HealthStatus, string> = {
 
 const levelIcons: Record<HierarchyLevel, React.ElementType> = {
   site: MapPin,
-  domain: Globe,
   datacenter: Building2,
   cluster: Server,
-  network: Network,
   node: Cpu,
+  domain: Globe,
   vm: Monitor,
 };
 
 const levelColors: Record<HierarchyLevel, string> = {
   site: 'text-rose-500',
-  domain: 'text-blue-500',
   datacenter: 'text-amber-500',
   cluster: 'text-emerald-500',
-  network: 'text-purple-500',
   node: 'text-cyan-500',
+  domain: 'text-blue-500',
   vm: 'text-primary',
 };
 

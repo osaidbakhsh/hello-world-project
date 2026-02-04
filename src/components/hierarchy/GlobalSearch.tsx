@@ -24,7 +24,6 @@ import {
   Globe,
   Building2,
   Server,
-  Network,
   Cpu,
   Monitor,
   Loader2,
@@ -35,31 +34,28 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 const levelIcons: Record<HierarchyLevel, React.ElementType> = {
   site: MapPin,
-  domain: Globe,
   datacenter: Building2,
   cluster: Server,
-  network: Network,
   node: Cpu,
+  domain: Globe,
   vm: Monitor,
 };
 
 const levelLabels: Record<HierarchyLevel, { en: string; ar: string }> = {
   site: { en: 'Site', ar: 'موقع' },
-  domain: { en: 'Domain', ar: 'نطاق' },
   datacenter: { en: 'Datacenter', ar: 'مركز بيانات' },
   cluster: { en: 'Cluster', ar: 'كلستر' },
-  network: { en: 'Network', ar: 'شبكة' },
   node: { en: 'Node', ar: 'نود' },
+  domain: { en: 'Domain', ar: 'نطاق' },
   vm: { en: 'VM', ar: 'جهاز افتراضي' },
 };
 
 const levelColors: Record<HierarchyLevel, string> = {
   site: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
-  domain: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   datacenter: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
   cluster: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-  network: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
   node: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
+  domain: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   vm: 'bg-primary/10 text-primary border-primary/20',
 };
 

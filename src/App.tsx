@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SiteProvider } from "@/contexts/SiteContext";
 import { HierarchyProvider } from "@/contexts/HierarchyContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Layout from "@/components/layout/Layout";
@@ -52,8 +53,9 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <AuthProvider>
-          <HierarchyProvider>
-            <TooltipProvider>
+          <SiteProvider>
+            <HierarchyProvider>
+              <TooltipProvider>
               <Toaster />
               <Sonner />
             <BrowserRouter>
@@ -109,6 +111,7 @@ const App = () => (
             </BrowserRouter>
             </TooltipProvider>
           </HierarchyProvider>
+          </SiteProvider>
         </AuthProvider>
       </LanguageProvider>
     </QueryClientProvider>
