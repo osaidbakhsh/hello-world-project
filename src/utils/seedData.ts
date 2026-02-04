@@ -1058,16 +1058,16 @@ export async function seedAllData(): Promise<SeedResult> {
       scanAgents: 0,
     };
 
-    // 1. Get or create default branch for new domains
-    const { data: defaultBranch } = await supabase
-      .from('branches')
+    // 1. Get or create default site for new domains
+    const { data: defaultSite } = await supabase
+      .from('sites')
       .select('id')
       .eq('code', 'DEFAULT')
       .single();
     
-    const defaultBranchId = defaultBranch?.id;
-    if (!defaultBranchId) {
-      throw new Error('Default branch not found. Please run database migrations first.');
+    const defaultSiteId = defaultSite?.id;
+    if (!defaultSiteId) {
+      throw new Error('Default site not found. Please run database migrations first.');
     }
 
     // 2. Create Domains (only the 3 professional domains)
@@ -1075,7 +1075,7 @@ export async function seedAllData(): Promise<SeedResult> {
     const existingDomainNames = existingDomains?.map(d => d.name) || [];
     const newDomains = professionalDomains
       .filter(d => !existingDomainNames.includes(d.name))
-      .map(d => ({ ...d, branch_id: defaultBranchId }));
+      .map(d => ({ ...d, site_id: defaultSiteId }));
     
     if (newDomains.length > 0) {
       const { data: createdDomains, error: domainError } = await supabase
@@ -1103,24 +1103,51 @@ export async function seedAllData(): Promise<SeedResult> {
         .filter(Boolean)
     );
 
-    // Create DEFAULT-CLUSTERs for domains that need them
+    // Create DEFAULT-CLUSTERs for domains that need them (requires datacenter)
     for (const domainId of domainIdsWithNewNetworks) {
-      const { data: existingCluster } = await supabase
-        .from('clusters')
+      // First ensure DEFAULT-DATACENTER exists
+      let datacenterId: string;
+      const { data: existingDC } = await supabase
+        .from('datacenters')
         .select('id')
         .eq('domain_id', domainId)
-        .eq('name', 'DEFAULT-CLUSTER')
+        .eq('name', 'DEFAULT-DATACENTER')
         .maybeSingle();
 
-      if (!existingCluster) {
-        await supabase
-          .from('clusters')
+      if (existingDC?.id) {
+        datacenterId = existingDC.id;
+      } else {
+        const { data: newDC } = await supabase
+          .from('datacenters')
           .insert({
             domain_id: domainId,
-            name: 'DEFAULT-CLUSTER',
-            cluster_type: 'other',
+            name: 'DEFAULT-DATACENTER',
             notes: 'Auto-created for seed networks'
-          });
+          })
+          .select('id')
+          .single();
+        datacenterId = newDC?.id || '';
+      }
+
+      if (datacenterId) {
+        const { data: existingCluster } = await supabase
+          .from('clusters')
+          .select('id')
+          .eq('datacenter_id', datacenterId)
+          .eq('name', 'DEFAULT-CLUSTER')
+          .maybeSingle();
+
+        if (!existingCluster) {
+          await supabase
+            .from('clusters')
+            .insert({
+              datacenter_id: datacenterId,
+              domain_id: domainId,
+              name: 'DEFAULT-CLUSTER',
+              cluster_type: 'other',
+              notes: 'Auto-created for seed networks'
+            });
+        }
       }
     }
 

@@ -94,15 +94,15 @@ const Networks: React.FC = () => {
         if (error) throw error;
         toast({ title: t('common.success'), description: t('networks.domainUpdated') });
       } else {
-        // Get default branch for new domains
-        const { data: defaultBranch } = await supabase
-          .from('branches')
+        // Get default site for new domains
+        const { data: defaultSite } = await supabase
+          .from('sites')
           .select('id')
           .eq('code', 'DEFAULT')
           .single();
         
-        if (!defaultBranch?.id) {
-          throw new Error('Default branch not found');
+        if (!defaultSite?.id) {
+          throw new Error('Default site not found');
         }
 
         const { error } = await supabase
@@ -110,7 +110,7 @@ const Networks: React.FC = () => {
           .insert({ 
             name: domainForm.name, 
             description: domainForm.description,
-            branch_id: defaultBranch.id
+            site_id: defaultSite.id
           });
         
         if (error) throw error;
@@ -209,11 +209,36 @@ const Networks: React.FC = () => {
         if (error) throw error;
         toast({ title: t('common.success'), description: t('networks.networkUpdated') });
       } else {
+        // Get or create DEFAULT-DATACENTER for the selected domain
+        let datacenterId: string;
+        const { data: defaultDC } = await supabase
+          .from('datacenters')
+          .select('id')
+          .eq('domain_id', networkForm.domain_id)
+          .eq('name', 'DEFAULT-DATACENTER')
+          .maybeSingle();
+
+        if (defaultDC?.id) {
+          datacenterId = defaultDC.id;
+        } else {
+          const { data: newDC, error: dcError } = await supabase
+            .from('datacenters')
+            .insert({
+              domain_id: networkForm.domain_id,
+              name: 'DEFAULT-DATACENTER',
+              notes: 'Auto-created for network'
+            })
+            .select('id')
+            .single();
+          if (dcError) throw dcError;
+          datacenterId = newDC.id;
+        }
+
         // Get DEFAULT-CLUSTER for the selected domain
         const { data: defaultCluster, error: clusterError } = await supabase
           .from('clusters')
           .select('id')
-          .eq('domain_id', networkForm.domain_id)
+          .eq('datacenter_id', datacenterId)
           .eq('name', 'DEFAULT-CLUSTER')
           .maybeSingle();
 
@@ -221,11 +246,12 @@ const Networks: React.FC = () => {
         
         let clusterId = defaultCluster?.id;
         
-        // If no DEFAULT-CLUSTER exists, create one
+        // If no DEFAULT-CLUSTER exists, create one with datacenter_id
         if (!clusterId) {
           const { data: newCluster, error: createError } = await supabase
             .from('clusters')
             .insert({
+              datacenter_id: datacenterId,
               domain_id: networkForm.domain_id,
               name: 'DEFAULT-CLUSTER',
               cluster_type: 'other',
