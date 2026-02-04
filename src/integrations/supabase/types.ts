@@ -3356,10 +3356,14 @@ export type Database = {
       can_access_branch: { Args: { _branch_id: string }; Returns: boolean }
       can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
+      can_access_node: { Args: { _node_id: string }; Returns: boolean }
       can_access_server: { Args: { _server_id: string }; Returns: boolean }
+      can_access_vm: { Args: { _vm_id: string }; Returns: boolean }
       can_edit_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_edit_network: { Args: { _network_id: string }; Returns: boolean }
+      can_edit_node: { Args: { _node_id: string }; Returns: boolean }
       can_edit_server: { Args: { _server_id: string }; Returns: boolean }
+      can_edit_vm: { Args: { _vm_id: string }; Returns: boolean }
       can_manage_branch: { Args: { _branch_id: string }; Returns: boolean }
       can_manage_domain: { Args: { _domain_id: string }; Returns: boolean }
       generate_procurement_request_number: {
