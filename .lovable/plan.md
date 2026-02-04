@@ -1,301 +1,603 @@
-# Enterprise Hierarchy Implementation - Phases 1 & 2 COMPLETED ✅
 
-## Execution Date: 2026-02-04
-
----
-
-## Phase 1: Branch Hierarchy Foundation ✅
-
-### Pre-Implementation Corrections Applied
-
-| Issue | Original Plan | Corrected Approach | Status |
-|-------|---------------|-------------------|--------|
-| Fixed UUID | Hard-coded `00000000-...` | Use `code='DEFAULT'` as singleton key, SELECT id for backfill | ✅ Applied |
-| can_access_branch | Direct domain_memberships query | Use `can_access_domain(d.id)` for consistency | ✅ Applied |
-| update_updated_at_column | Assumed exists | ✅ Verified exists in database | ✅ Verified |
-
-### Verification Query Results (V1-V5)
-
-#### V1: branch_role enum exists ✅
-```
-typname      | enumlabel
--------------|---------------
-branch_role  | branch_admin
-branch_role  | branch_operator
-branch_role  | branch_viewer
-```
-
-#### V2: Default branch exists with code='DEFAULT' ✅
-```
-id                                   | name            | code    | created_at
--------------------------------------|-----------------|---------|---------------------------
-b3a74467-904a-49b5-b666-6bd5707b7a2e | Default Branch  | DEFAULT | 2026-02-04 09:05:37.210143+00
-```
-
-#### V3: All domains have branch_id (count of NULL must be 0) ✅
-```
-null_branch_count: 0
-```
-
-#### V4: No is_admin in domain/cluster policies ✅
-```
-(empty result - no is_admin references found)
-```
-
-#### V5: Security functions have correct search_path ✅
-```
-proname             | prosecdef | proconfig
---------------------|-----------|------------------------
-can_access_branch   | true      | [search_path=public]
-can_access_domain   | true      | [search_path=public]
-can_edit_domain     | true      | [search_path=public]
-can_manage_branch   | true      | [search_path=public]
-is_branch_admin     | true      | [search_path=public]
-```
+# Phase 1: Database Schema & RLS Implementation Plan
+## 7-Level Strict Hierarchy + Dual Vault Security Engine
 
 ---
 
-## Phase 2: Networks Under Clusters ✅
+## Executive Summary
 
-### Pre-Implementation Corrections Applied
-
-| Issue | Original Plan | Corrected Approach | Status |
-|-------|---------------|-------------------|--------|
-| cluster_type constraint | Used 'default' | Use 'other' (valid CHECK constraint value) | ✅ Applied |
-| Deterministic assignment | "first cluster" | Use 'DEFAULT-CLUSTER' by name per domain | ✅ Applied |
-| UNIQUE constraint | Not guaranteed | Added UNIQUE(domain_id, name) on clusters | ✅ Applied |
-
-### Verification Query Results
-
-#### V1: networks.cluster_id is NOT NULL ✅
-```
-column_name | is_nullable
-------------|------------
-cluster_id  | NO
-```
-
-#### V2: All networks have cluster_id (count of NULL must be 0) ✅
-```
-null_cluster_count: 0
-```
-
-#### V3: DEFAULT-CLUSTER exists for all domains with networks ✅
-```
-id                                   | name             | domain_id                            | domain_name
--------------------------------------|------------------|--------------------------------------|------------
-952a5456-ef23-4cab-b3c5-dbd0fa278f09 | DEFAULT-CLUSTER  | 0963198c-0cad-4eea-a049-17c5afb3c3c6 | at.com
-461330e7-e68d-46b5-9769-2a59d3a4b202 | DEFAULT-CLUSTER  | d0d75006-a186-41db-947d-68f49d567533 | os.com
-d1a7e57b-4ee6-4a31-be54-f41a1ba54f1f | DEFAULT-CLUSTER  | b9fd9bd2-1603-4ead-9251-a010ea1ba2ed | is.com
-```
-
-#### V4: FK constraint and index exist ✅
-- `fk_networks_cluster` FK constraint: ✅
-- `idx_networks_cluster` index: ✅
-
-#### V5: Network RLS policies use cluster chain (old policies removed) ✅
-```
-policyname       | cmd    | uses_cluster_chain
------------------|--------|-------------------
-networks_select  | SELECT | ✅ can_access_network(id)
-networks_insert  | INSERT | ✅ clusters.domain_id
-networks_update  | UPDATE | ✅ can_edit_network(id)
-networks_delete  | DELETE | ✅ clusters.domain_id
-```
-
-### Security Functions Created ✅
-- `can_access_network(_network_id)` - Uses cluster chain to domain
-- `can_edit_network(_network_id)` - Uses cluster chain to domain
-
-### Code Updates ✅
-- `src/pages/Networks.tsx` - Network form now includes cluster_id, auto-creates DEFAULT-CLUSTER if needed
-- `src/utils/seedData.ts` - Seed data creates DEFAULT-CLUSTERs before networks
-- `src/types/supabase-models.ts` - Network interface updated with cluster_id
+This plan implements a comprehensive restructuring of the database to support a strict 7-level enterprise hierarchy with two distinct vault systems: an Infrastructure Vault for domain-scoped credentials and an Employee Private Vault with zero-admin access.
 
 ---
 
-## Definition of Done Summary
+## Current State Analysis
 
-### Phase 1 ✅
-- [x] branch_role enum created
-- [x] branches table created with RLS
-- [x] branch_memberships table created with RLS
-- [x] domains.branch_id is NOT NULL
-- [x] Default branch created via code='DEFAULT' (not fixed UUID)
-- [x] All 3 existing domains assigned to Default branch
-- [x] Security functions created with SET search_path = public
-- [x] can_access_domain updated with branch_admin inheritance
-- [x] No is_admin() in domains/clusters policies
+### Existing Hierarchy (Partially Implemented)
 
-### Phase 2 ✅
-- [x] networks.cluster_id added and NOT NULL
-- [x] DEFAULT-CLUSTER created for each domain with networks
-- [x] Deterministic assignment using name='DEFAULT-CLUSTER'
-- [x] UNIQUE constraint on clusters(domain_id, name)
-- [x] FK fk_networks_cluster created
-- [x] Index idx_networks_cluster created
-- [x] can_access_network and can_edit_network functions created
-- [x] Network RLS policies updated to use cluster chain
-- [x] Old network policies (is_admin based) removed
-- [x] Frontend code updated to handle cluster_id
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        CURRENT STATE                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│  branches (L1) ─► domains (L2) ─► datacenters (L3)                      │
+│                          │                                               │
+│                          ├─► clusters (L4) ─► cluster_nodes (L6)        │
+│                          │         │                                     │
+│                          │         ├─► networks (L5) ─► servers (L7)    │
+│                          │         └─► vms (L7)                         │
+│                          │                                               │
+│                          └─► (direct domain resources)                   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Issues Identified
+
+| Issue | Current State | Required State |
+|-------|---------------|----------------|
+| Naming | `branches` table | Rename to `sites` |
+| Hierarchy Gap | Clusters skip Datacenters | Clusters under Datacenters (strict) |
+| datacenter_id | `clusters.datacenter_id` is NULLABLE | Must be NOT NULL |
+| Legacy RLS | 35 tables still use `is_admin()` | Replace with unified function |
+| Datacenters RLS | Uses `is_admin()` | Use hierarchical check |
+| LTREE | Not installed | Install for path queries |
+| Infrastructure Vault | Does not exist | Create with domain-scoped RLS |
+| Private Vault | Partial (vault_items) | Ensure absolute isolation |
+
+### Tables Still Using Legacy `is_admin()` (35 total)
+
+```text
+app_settings, audit_logs, change_requests, datacenters, domain_memberships,
+employee_reports, escalation_rules, file_shares, fileshare_scans, folder_stats,
+import_batches, infra_snapshots, licenses, maintenance_windows, manager_assignments,
+notifications, objects, on_call_assignments, on_call_schedules, procurement_quotations,
+procurement_request_items, procurement_requests, profiles, purchase_requests,
+scan_agents, scan_snapshots, system_health_checks, task_comments, task_templates,
+tasks, vacation_balances, vacations, vault_settings, website_applications, yearly_goals
+```
 
 ---
 
-## Security Warning (Pre-existing)
+## Target Hierarchy (7 Levels)
 
-The linter detected a pre-existing warning unrelated to Phase 1 & 2:
-- **Leaked Password Protection Disabled** - This is an auth configuration setting, not related to the hierarchy migration.
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        TARGET STATE                                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  L1: sites (renamed from branches)                                       │
+│      │                                                                   │
+│      ▼                                                                   │
+│  L2: domains                                                             │
+│      │                                                                   │
+│      ▼                                                                   │
+│  L3: datacenters (clusters MUST have datacenter_id)                     │
+│      │                                                                   │
+│      ▼                                                                   │
+│  L4: clusters (datacenter_id NOT NULL)                                  │
+│      │                                                                   │
+│      ├─────────────┬───────────────┐                                    │
+│      ▼             ▼               ▼                                    │
+│  L5: networks   cluster_nodes    vms                                    │
+│      │             (L6)          (L7)                                   │
+│      ▼                                                                   │
+│  L6: nodes ──► servers (L7)                                             │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Phase 3: Servers Under Networks ✅
+## Task 1: Schema Refactoring (Naming & Integrity)
 
-### Pre-Implementation Corrections Applied
+### 1.1 Rename `branches` to `sites`
 
-| Issue | Original Plan | Corrected Approach | Status |
-|-------|---------------|-------------------|--------|
-| NULL network_id | 45 servers had NULL | Created DEFAULT-NETWORK per domain, assigned all | ✅ Applied |
-| is_admin in policies | Legacy policies used is_admin | Replaced with can_access_server/can_edit_server | ✅ Applied |
+This requires:
+- Rename table: `branches` → `sites`
+- Rename FK column: `domains.branch_id` → `domains.site_id`
+- Rename membership table: `branch_memberships` → `site_memberships`
+- Rename column: `branch_role` → `site_role` (enum value update)
+- Update all security functions
 
-### Verification Query Results
+### 1.2 Enforce Strict Hierarchy FKs
 
-#### V1: servers.network_id is NOT NULL ✅
-```
-column_name | is_nullable
-------------|------------
-network_id  | NO
-```
+| Table | Column | Current | Action |
+|-------|--------|---------|--------|
+| domains | site_id | NOT NULL ✅ | Keep (was branch_id) |
+| datacenters | domain_id | NOT NULL ✅ | Keep |
+| clusters | datacenter_id | NULLABLE | Make NOT NULL, create DEFAULT-DC |
+| networks | cluster_id | NOT NULL ✅ | Keep |
+| cluster_nodes | cluster_id | NOT NULL ✅ | Keep |
+| vms | cluster_id | NOT NULL ✅ | Keep |
+| servers | network_id | NOT NULL ✅ | Keep |
 
-#### V2: All servers have network_id (count of NULL must be 0) ✅
-```
-null_network_count: 0
-```
+### 1.3 LTREE Extension
 
-#### V3: DEFAULT-NETWORK exists for each domain ✅
-```
-name             | cluster_name     | domain_name
------------------|------------------|------------
-DEFAULT-NETWORK  | DEFAULT-CLUSTER  | at.com
-DEFAULT-NETWORK  | DEFAULT-CLUSTER  | is.com
-DEFAULT-NETWORK  | DEFAULT-CLUSTER  | os.com
-```
-
-#### V4: Server RLS policies no longer use is_admin ✅
-```
-policyname      | cmd    | uses_new_functions
-----------------|--------|-------------------
-servers_select  | SELECT | ✅ can_access_server(id)
-servers_insert  | INSERT | ✅ can_edit_domain via network chain
-servers_update  | UPDATE | ✅ can_edit_server(id)
-servers_delete  | DELETE | ✅ is_domain_admin via network chain
-```
-
-#### V5: Security functions have correct search_path ✅
-```
-proname           | prosecdef | proconfig
-------------------|-----------|------------------------
-can_access_server | true      | [search_path=public]
-can_edit_server   | true      | [search_path=public]
-```
-
-### Code Updates ✅
-- `src/pages/Servers.tsx` - network_id validation enforced (required field)
-- `src/types/supabase-models.ts` - Server interface updated: `network_id: string` (not nullable)
-
-### Definition of Done ✅
-- [x] servers.network_id is NOT NULL
-- [x] DEFAULT-NETWORK created for each domain (under DEFAULT-CLUSTER)
-- [x] All 45 orphan servers assigned to DEFAULT-NETWORK
-- [x] FK fk_servers_network created
-- [x] Index idx_servers_network created
-- [x] can_access_server and can_edit_server functions created
-- [x] Server RLS policies updated to use network→cluster→domain chain
-- [x] Old server policies (is_admin based) removed
-- [x] Frontend code updated to require network_id
+LTREE is NOT currently installed. We will:
+- Enable LTREE extension
+- Add `hierarchy_path` column to key tables for efficient ancestor/descendant queries
+- Path format: `site_code.domain_code.dc_code.cluster_code`
 
 ---
 
-## Phase 4: VMs & Cluster Nodes Under Clusters ✅
+## Task 2: Advanced RLS Engine
 
-### Implementation Summary
+### 2.1 Unified Security Function
 
-VMs and Cluster Nodes already have `cluster_id` as NOT NULL. This phase focused on:
-1. Creating security functions (`can_access_vm`, `can_edit_vm`, `can_access_node`, `can_edit_node`)
-2. Updating RLS policies to use cluster→domain chain (removed `is_admin`)
+Create a single `check_resource_access(resource_uuid, resource_type, required_role)` function:
 
-### Verification Query Results
-
-#### V1: VM RLS policies updated ✅
-```
-policyname   | cmd    | uses_new_functions
--------------|--------|-------------------
-vms_select   | SELECT | ✅ can_access_vm(id)
-vms_insert   | INSERT | ✅ can_edit_domain via cluster chain
-vms_update   | UPDATE | ✅ can_edit_vm(id)
-vms_delete   | DELETE | ✅ is_domain_admin via cluster chain
+```sql
+-- Function signature (SECURITY DEFINER)
+CREATE FUNCTION check_resource_access(
+  _resource_id uuid,
+  _resource_type text,  -- 'site', 'domain', 'datacenter', 'cluster', 'network', 'node', 'vm', 'server'
+  _required_role text   -- 'viewer', 'operator', 'admin'
+) RETURNS boolean;
 ```
 
-#### V2: Cluster Nodes RLS policies updated ✅
-```
-policyname           | cmd    | uses_new_functions
----------------------|--------|-------------------
-cluster_nodes_select | SELECT | ✅ can_access_node(id)
-cluster_nodes_insert | INSERT | ✅ can_edit_domain via cluster chain
-cluster_nodes_update | UPDATE | ✅ can_edit_node(id)
-cluster_nodes_delete | DELETE | ✅ is_domain_admin via cluster chain
-```
+Logic flow:
+1. Super Admin → always TRUE
+2. Get resource's ancestry chain (site → domain → datacenter → cluster → etc.)
+3. Check user's highest role in ancestry
+4. Return TRUE if user's role >= required_role at any ancestor level
 
-#### V3: Security functions created ✅
-```
-proname         | prosecdef | proconfig
-----------------|-----------|------------------------
-can_access_vm   | true      | [search_path=public]
-can_edit_vm     | true      | [search_path=public]
-can_access_node | true      | [search_path=public]
-can_edit_node   | true      | [search_path=public]
-```
+### 2.2 Role Hierarchy
 
-### Definition of Done ✅
-- [x] can_access_vm and can_edit_vm functions created
-- [x] can_access_node and can_edit_node functions created
-- [x] VM RLS policies updated (removed is_admin)
-- [x] Cluster Nodes RLS policies updated (removed is_admin)
-- [x] All policies use cluster→domain chain
+| Role Level | Numeric | Inheritance |
+|------------|---------|-------------|
+| viewer | 1 | Can read |
+| operator | 2 | Can read + modify |
+| admin | 3 | Full access, manages children |
+
+### 2.3 Site Admin Cascade
+
+A site_admin automatically has admin rights on:
+- All domains in the site
+- All datacenters in those domains
+- All clusters, networks, nodes, VMs, servers below
 
 ---
 
-## Complete Hierarchy Summary
+## Task 3: Infrastructure Vault (Asset Credentials)
 
-The enterprise hierarchy is now fully implemented:
+### 3.1 Table Schema
 
+```sql
+CREATE TABLE infrastructure_credentials (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  resource_id uuid NOT NULL,        -- FK to any hierarchical resource
+  resource_type text NOT NULL,      -- 'server', 'network_device', 'cluster', 'vm', etc.
+  secret_name text NOT NULL,        -- e.g., 'root_password', 'api_key', 'certificate'
+  encrypted_value text NOT NULL,    -- AES-256-GCM encrypted
+  encryption_iv text NOT NULL,
+  created_by uuid REFERENCES profiles(id),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  
+  UNIQUE(resource_id, secret_name)
+);
 ```
-Branch (branch_admin inherits all)
-  └── Domain (domain_admin, domain_memberships)
-        ├── Datacenter
-        │     └── Cluster
-        │           ├── Network
-        │           │     └── Server
-        │           ├── ClusterNode
-        │           └── VM
-        └── (other domain resources: licenses, tasks, etc.)
+
+### 3.2 RLS Logic
+
+Access requires 'operator' or 'admin' role on the `resource_id` or any of its ancestors:
+
+```sql
+CREATE POLICY "infra_credentials_select" ON infrastructure_credentials
+FOR SELECT USING (
+  check_resource_access(resource_id, resource_type, 'operator')
+);
 ```
 
-### Security Function Chain
-- `can_access_branch` → direct membership OR access to any domain in branch
-- `can_access_domain` → direct membership OR branch_admin inheritance
-- `can_access_network` → via cluster→domain chain
-- `can_access_server` → via network→cluster→domain chain
-- `can_access_node` → via cluster→domain chain
-- `can_access_vm` → via cluster→domain chain
+### 3.3 Audit Trigger
 
-### Removed Legacy Functions
-- All `is_admin()` checks replaced with `is_super_admin()` or role-based functions
+Every SELECT on `infrastructure_credentials` is logged:
+
+```sql
+CREATE TABLE infra_credential_access_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  credential_id uuid NOT NULL REFERENCES infrastructure_credentials(id),
+  accessed_by uuid NOT NULL REFERENCES profiles(id),
+  access_type text NOT NULL,  -- 'view', 'reveal', 'decrypt'
+  ip_address text,
+  user_agent text,
+  accessed_at timestamptz DEFAULT now()
+);
+```
 
 ---
 
-## Remaining Work (Optional)
+## Task 4: Employee Private Vault (Strict Isolation)
 
-1. **Datacenters RLS**: Currently uses is_admin - should update to use domain chain
-2. **Other domain resources**: Review licenses, tasks, file_shares, etc. for is_admin usage
-3. **UI for Branch Management**: Create UI to manage branches and branch memberships
+### 4.1 Table Schema
 
-**Phases 1-4 Complete. Awaiting further instructions.**
+The existing `vault_items` and `vault_item_secrets` tables already implement owner-only access. However, we need to create an additional ultra-secure table:
+
+```sql
+CREATE TABLE user_private_vault (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  encrypted_content text NOT NULL,
+  encryption_iv text NOT NULL,
+  content_type text DEFAULT 'note',  -- 'note', 'credential', 'document'
+  title text NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
+
+### 4.2 Super-Admin-Block Policy
+
+This is the critical security policy:
+
+```sql
+-- ONLY policy on this table - owner exclusive
+CREATE POLICY "private_vault_owner_only" ON user_private_vault
+FOR ALL USING (
+  auth.uid() = owner_id
+) WITH CHECK (
+  auth.uid() = owner_id
+);
+
+-- CRITICAL: No bypass role, no service role exceptions
+-- Even service role cannot read (RLS enabled, no bypass)
+```
+
+Key protections:
+- Uses `auth.uid()` directly (not profile lookup)
+- No `is_super_admin()` bypass
+- No permissive policies that could grant additional access
+- Content is encrypted client-side (true zero-knowledge)
+
+---
+
+## Implementation Migrations
+
+### Migration 1: Enable LTREE + Rename Sites
+
+```sql
+-- Enable LTREE extension
+CREATE EXTENSION IF NOT EXISTS ltree;
+
+-- Rename tables and columns
+ALTER TABLE branches RENAME TO sites;
+ALTER TABLE branch_memberships RENAME TO site_memberships;
+ALTER TABLE site_memberships RENAME COLUMN branch_id TO site_id;
+ALTER TABLE site_memberships RENAME COLUMN branch_role TO site_role;
+ALTER TABLE domains RENAME COLUMN branch_id TO site_id;
+
+-- Update enum (create new, migrate, drop old)
+CREATE TYPE site_role AS ENUM ('site_admin', 'site_operator', 'site_viewer');
+
+-- Add hierarchy_path columns
+ALTER TABLE sites ADD COLUMN hierarchy_path ltree;
+ALTER TABLE domains ADD COLUMN hierarchy_path ltree;
+ALTER TABLE datacenters ADD COLUMN hierarchy_path ltree;
+ALTER TABLE clusters ADD COLUMN hierarchy_path ltree;
+```
+
+### Migration 2: Enforce Clusters → Datacenters
+
+```sql
+-- Create DEFAULT-DATACENTER for each domain with clusters
+INSERT INTO datacenters (domain_id, name, notes)
+SELECT DISTINCT domain_id, 'DEFAULT-DATACENTER', 'Auto-created for hierarchy enforcement'
+FROM clusters
+WHERE datacenter_id IS NULL
+ON CONFLICT DO NOTHING;
+
+-- Backfill clusters.datacenter_id
+UPDATE clusters c
+SET datacenter_id = (
+  SELECT id FROM datacenters dc 
+  WHERE dc.domain_id = c.domain_id 
+  AND dc.name = 'DEFAULT-DATACENTER'
+)
+WHERE c.datacenter_id IS NULL;
+
+-- Enforce NOT NULL
+ALTER TABLE clusters ALTER COLUMN datacenter_id SET NOT NULL;
+```
+
+### Migration 3: Unified Security Function
+
+```sql
+CREATE OR REPLACE FUNCTION check_resource_access(
+  _resource_id uuid,
+  _resource_type text,
+  _required_role text
+) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _domain_id uuid;
+  _site_id uuid;
+  _user_profile_id uuid;
+  _required_level int;
+  _user_level int := 0;
+BEGIN
+  -- Super admin bypass
+  IF is_super_admin() THEN RETURN TRUE; END IF;
+  
+  _user_profile_id := get_my_profile_id();
+  IF _user_profile_id IS NULL THEN RETURN FALSE; END IF;
+  
+  -- Map required role to level
+  _required_level := CASE _required_role
+    WHEN 'viewer' THEN 1
+    WHEN 'operator' THEN 2
+    WHEN 'admin' THEN 3
+    ELSE 1
+  END;
+  
+  -- Get domain_id and site_id based on resource type
+  CASE _resource_type
+    WHEN 'site' THEN
+      _site_id := _resource_id;
+      _domain_id := NULL;
+    WHEN 'domain' THEN
+      SELECT site_id INTO _site_id FROM domains WHERE id = _resource_id;
+      _domain_id := _resource_id;
+    WHEN 'datacenter' THEN
+      SELECT d.id, d.site_id INTO _domain_id, _site_id 
+      FROM datacenters dc JOIN domains d ON d.id = dc.domain_id 
+      WHERE dc.id = _resource_id;
+    WHEN 'cluster' THEN
+      SELECT d.id, d.site_id INTO _domain_id, _site_id 
+      FROM clusters c 
+      JOIN datacenters dc ON dc.id = c.datacenter_id
+      JOIN domains d ON d.id = dc.domain_id 
+      WHERE c.id = _resource_id;
+    WHEN 'network' THEN
+      SELECT d.id, d.site_id INTO _domain_id, _site_id 
+      FROM networks n
+      JOIN clusters c ON c.id = n.cluster_id
+      JOIN datacenters dc ON dc.id = c.datacenter_id
+      JOIN domains d ON d.id = dc.domain_id 
+      WHERE n.id = _resource_id;
+    WHEN 'node' THEN
+      SELECT d.id, d.site_id INTO _domain_id, _site_id 
+      FROM cluster_nodes cn
+      JOIN clusters c ON c.id = cn.cluster_id
+      JOIN datacenters dc ON dc.id = c.datacenter_id
+      JOIN domains d ON d.id = dc.domain_id 
+      WHERE cn.id = _resource_id;
+    WHEN 'vm' THEN
+      SELECT d.id, d.site_id INTO _domain_id, _site_id 
+      FROM vms v
+      JOIN clusters c ON c.id = v.cluster_id
+      JOIN datacenters dc ON dc.id = c.datacenter_id
+      JOIN domains d ON d.id = dc.domain_id 
+      WHERE v.id = _resource_id;
+    WHEN 'server' THEN
+      SELECT d.id, d.site_id INTO _domain_id, _site_id 
+      FROM servers s
+      JOIN networks n ON n.id = s.network_id
+      JOIN clusters c ON c.id = n.cluster_id
+      JOIN datacenters dc ON dc.id = c.datacenter_id
+      JOIN domains d ON d.id = dc.domain_id 
+      WHERE s.id = _resource_id;
+    ELSE
+      RETURN FALSE;
+  END CASE;
+  
+  -- Check site membership
+  IF _site_id IS NOT NULL THEN
+    SELECT CASE sm.site_role
+      WHEN 'site_admin' THEN 3
+      WHEN 'site_operator' THEN 2
+      WHEN 'site_viewer' THEN 1
+      ELSE 0
+    END INTO _user_level
+    FROM site_memberships sm
+    WHERE sm.site_id = _site_id AND sm.profile_id = _user_profile_id;
+    
+    IF _user_level >= _required_level THEN RETURN TRUE; END IF;
+  END IF;
+  
+  -- Check domain membership
+  IF _domain_id IS NOT NULL THEN
+    SELECT CASE 
+      WHEN dm.domain_role = 'domain_admin' THEN 3
+      WHEN dm.can_edit THEN 2
+      ELSE 1
+    END INTO _user_level
+    FROM domain_memberships dm
+    WHERE dm.domain_id = _domain_id AND dm.profile_id = _user_profile_id;
+    
+    IF _user_level >= _required_level THEN RETURN TRUE; END IF;
+  END IF;
+  
+  RETURN FALSE;
+END;
+$$;
+```
+
+### Migration 4: Infrastructure Credentials Table
+
+```sql
+CREATE TABLE infrastructure_credentials (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  resource_id uuid NOT NULL,
+  resource_type text NOT NULL,
+  secret_name text NOT NULL,
+  encrypted_value text NOT NULL,
+  encryption_iv text NOT NULL,
+  created_by uuid REFERENCES profiles(id),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(resource_id, secret_name)
+);
+
+ALTER TABLE infrastructure_credentials ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies
+CREATE POLICY "infra_creds_select" ON infrastructure_credentials
+FOR SELECT USING ((SELECT check_resource_access(resource_id, resource_type, 'operator')));
+
+CREATE POLICY "infra_creds_insert" ON infrastructure_credentials
+FOR INSERT WITH CHECK ((SELECT check_resource_access(resource_id, resource_type, 'admin')));
+
+CREATE POLICY "infra_creds_update" ON infrastructure_credentials
+FOR UPDATE USING ((SELECT check_resource_access(resource_id, resource_type, 'admin')))
+WITH CHECK ((SELECT check_resource_access(resource_id, resource_type, 'admin')));
+
+CREATE POLICY "infra_creds_delete" ON infrastructure_credentials
+FOR DELETE USING ((SELECT check_resource_access(resource_id, resource_type, 'admin')));
+
+-- Audit logging
+CREATE TABLE infra_credential_access_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  credential_id uuid NOT NULL REFERENCES infrastructure_credentials(id),
+  accessed_by uuid NOT NULL REFERENCES profiles(id),
+  access_type text NOT NULL,
+  ip_address text,
+  user_agent text,
+  accessed_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE infra_credential_access_logs ENABLE ROW LEVEL SECURITY;
+
+-- Only super_admin or the person who accessed can see logs
+CREATE POLICY "infra_logs_select" ON infra_credential_access_logs
+FOR SELECT USING (is_super_admin() OR accessed_by = get_my_profile_id());
+
+CREATE POLICY "infra_logs_insert" ON infra_credential_access_logs
+FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+```
+
+### Migration 5: User Private Vault (Zero-Knowledge)
+
+```sql
+CREATE TABLE user_private_vault (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  encrypted_content text NOT NULL,
+  encryption_iv text NOT NULL,
+  content_type text DEFAULT 'note',
+  title text NOT NULL,
+  metadata jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE user_private_vault ENABLE ROW LEVEL SECURITY;
+
+-- THE ONLY POLICY - absolute owner isolation
+CREATE POLICY "private_vault_owner_only" ON user_private_vault
+FOR ALL USING (auth.uid() = owner_id)
+WITH CHECK (auth.uid() = owner_id);
+
+-- No other policies allowed!
+-- Super admin cannot access, service role respects RLS
+```
+
+---
+
+## Code Updates Required
+
+### Files to Update
+
+| File | Change Required |
+|------|-----------------|
+| `src/integrations/supabase/types.ts` | Auto-regenerated after migrations |
+| `src/types/supabase-models.ts` | Update Site, SiteMembership, SiteRole types |
+| `src/utils/seedData.ts` | Update references from branch to site |
+| `src/pages/Networks.tsx` | Update references from branch to site |
+| `src/hooks/useDatacenter.ts` | Add datacenter cascade logic |
+| `src/contexts/LanguageContext.tsx` | Update translations |
+
+### New Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/hooks/useHierarchy.ts` | Unified hierarchy navigation hook |
+| `src/hooks/useInfraCredentials.ts` | Infrastructure vault CRUD |
+| `src/hooks/usePrivateVault.ts` | Personal vault CRUD |
+| `src/components/hierarchy/HierarchyBreadcrumb.tsx` | Navigation breadcrumb |
+| `supabase/functions/infra-vault-encrypt/index.ts` | Server-side encryption |
+| `supabase/functions/infra-vault-decrypt/index.ts` | Server-side decryption |
+
+---
+
+## Verification Queries
+
+After implementation, run these verification queries:
+
+```sql
+-- V1: LTREE extension installed
+SELECT extname FROM pg_extension WHERE extname = 'ltree';
+
+-- V2: sites table exists (branches renamed)
+SELECT table_name FROM information_schema.tables 
+WHERE table_name = 'sites' AND table_schema = 'public';
+
+-- V3: clusters.datacenter_id is NOT NULL
+SELECT column_name, is_nullable FROM information_schema.columns 
+WHERE table_name = 'clusters' AND column_name = 'datacenter_id';
+
+-- V4: No is_admin() in any policy
+SELECT COUNT(*) as legacy_count FROM pg_policies 
+WHERE qual LIKE '%is_admin()%' OR with_check LIKE '%is_admin()%';
+
+-- V5: check_resource_access function exists
+SELECT proname FROM pg_proc 
+WHERE proname = 'check_resource_access' 
+AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public');
+
+-- V6: Infrastructure credentials table with RLS
+SELECT tablename FROM pg_tables WHERE tablename = 'infrastructure_credentials';
+
+-- V7: Private vault has ONLY owner policy (no super_admin bypass)
+SELECT policyname, qual FROM pg_policies 
+WHERE tablename = 'user_private_vault';
+```
+
+---
+
+## Security Test Matrix
+
+| # | Scenario | Expected Result |
+|---|----------|-----------------|
+| 1 | Site admin accesses child domain resource | ✅ Allowed |
+| 2 | Domain viewer accesses sibling domain | ❌ Denied |
+| 3 | Super admin accesses user_private_vault | ❌ Denied (owner only!) |
+| 4 | Operator accesses infra_credentials | ✅ Allowed (read only) |
+| 5 | Viewer attempts infra_credentials access | ❌ Denied |
+| 6 | Cross-site access attempt | ❌ Denied |
+| 7 | Service role reads user_private_vault | ❌ Denied (RLS enforced) |
+
+---
+
+## Implementation Order
+
+1. **Migration 1**: LTREE + Rename branches→sites (15 mins)
+2. **Migration 2**: Enforce clusters→datacenters (10 mins)  
+3. **Migration 3**: Unified security function (20 mins)
+4. **Migration 4**: Infrastructure credentials (10 mins)
+5. **Migration 5**: User private vault (5 mins)
+6. **Code Updates**: Update all TypeScript references (30 mins)
+7. **Verification**: Run all V1-V7 queries (5 mins)
+8. **RLS Cleanup**: Remove is_admin() from remaining 35 tables (60 mins)
+
+**Total Estimated Time: ~2.5 hours**
+
+---
+
+## Definition of Done
+
+- [ ] LTREE extension enabled
+- [ ] `branches` → `sites` rename complete
+- [ ] `clusters.datacenter_id` is NOT NULL
+- [ ] `check_resource_access()` function deployed
+- [ ] `infrastructure_credentials` table with RLS
+- [ ] `user_private_vault` with owner-only policy
+- [ ] All 35 legacy `is_admin()` policies removed
+- [ ] All verification queries pass
+- [ ] Security test matrix validated
+- [ ] Frontend code updated (no runtime errors)
+
+---
+
+## Awaiting Approval
+
+Ready to begin implementation on your approval. I will execute this in phases, providing verification evidence after each migration.
