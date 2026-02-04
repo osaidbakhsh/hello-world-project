@@ -7,6 +7,7 @@ type AppRole = Database['public']['Enums']['app_role'];
 interface UseUserRoleResult {
   role: AppRole | null;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   isLoading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
@@ -62,7 +63,8 @@ export const useUserRole = (userId: string | null): UseUserRoleResult => {
 
   return {
     role,
-    isAdmin: role === 'admin',
+    isAdmin: role === 'admin' || role === 'super_admin',
+    isSuperAdmin: role === 'super_admin',
     isLoading,
     error,
     refetch: fetchRole,
