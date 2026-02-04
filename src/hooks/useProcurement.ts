@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSite } from '@/contexts/SiteContext';
+import { useSiteDomains } from '@/hooks/useSiteDomains';
 
 export interface ProcurementRequest {
   id: string;
@@ -65,11 +67,16 @@ export interface ProcurementActivityLog {
   profiles?: { full_name: string };
 }
 
-// Fetch procurement requests
+// Fetch procurement requests - filtered by site
 export const useProcurementRequests = (domainId?: string, status?: string) => {
+  const { selectedSite } = useSite();
+  const { data: siteDomainIds = [] } = useSiteDomains();
+  
   return useQuery({
-    queryKey: ['procurement_requests', domainId, status],
+    queryKey: ['procurement_requests', selectedSite?.id, domainId, status],
     queryFn: async () => {
+      if (!selectedSite) return [];
+      
       let query = supabase
         .from('procurement_requests')
         .select('*, domains(name), profiles!procurement_requests_created_by_fkey(full_name, email)')
@@ -77,7 +84,10 @@ export const useProcurementRequests = (domainId?: string, status?: string) => {
 
       if (domainId) {
         query = query.eq('domain_id', domainId);
+      } else if (siteDomainIds.length > 0) {
+        query = query.in('domain_id', siteDomainIds);
       }
+      
       if (status && status !== 'all') {
         query = query.eq('status', status);
       }
@@ -86,6 +96,7 @@ export const useProcurementRequests = (domainId?: string, status?: string) => {
       if (error) throw error;
       return data as ProcurementRequest[];
     },
+    enabled: !!selectedSite,
   });
 };
 

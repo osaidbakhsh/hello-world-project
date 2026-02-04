@@ -88,10 +88,28 @@ export const SiteProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('hierarchy-selection');
     localStorage.removeItem('hierarchy-expanded');
     
-    // Invalidate queries that depend on site
-    queryClient.invalidateQueries({ queryKey: ['datacenters'] });
+    // Invalidate ALL site-dependent queries
+    queryClient.invalidateQueries({ queryKey: ['site-domains'] });
+    queryClient.invalidateQueries({ queryKey: ['site-profile-ids'] });
     queryClient.invalidateQueries({ queryKey: ['domains'] });
+    queryClient.invalidateQueries({ queryKey: ['datacenters'] });
     queryClient.invalidateQueries({ queryKey: ['clusters'] });
+    queryClient.invalidateQueries({ queryKey: ['cluster_nodes'] });
+    queryClient.invalidateQueries({ queryKey: ['vms'] });
+    queryClient.invalidateQueries({ queryKey: ['servers'] });
+    queryClient.invalidateQueries({ queryKey: ['networks'] });
+    queryClient.invalidateQueries({ queryKey: ['licenses'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['vacations'] });
+    queryClient.invalidateQueries({ queryKey: ['website_applications'] });
+    queryClient.invalidateQueries({ queryKey: ['audit_logs'] });
+    queryClient.invalidateQueries({ queryKey: ['procurement_requests'] });
+    queryClient.invalidateQueries({ queryKey: ['employee_reports'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['profiles'] });
+    queryClient.invalidateQueries({ queryKey: ['file-shares'] });
+    queryClient.invalidateQueries({ queryKey: ['visible-employees'] });
+    queryClient.invalidateQueries({ queryKey: ['vault-items'] });
   }, [queryClient]);
 
   const clearSelection = useCallback(() => {
