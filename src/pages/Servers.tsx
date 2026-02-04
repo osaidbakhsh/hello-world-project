@@ -218,6 +218,11 @@ const Servers: React.FC = () => {
       errors.push('Invalid IPv4 address format');
     }
     
+    // network_id is now required
+    if (!formData.network_id) {
+      errors.push('Network is required');
+    }
+    
     if (formData.notes && formData.notes.length > 2000) {
       errors.push('Notes must be less than 2000 characters');
     }
@@ -250,7 +255,7 @@ const Servers: React.FC = () => {
         owner: formData.owner,
         responsible_user: formData.responsible_user,
         notes: formData.notes,
-        network_id: formData.network_id || null,
+        network_id: formData.network_id, // Required - validated above
         status: formData.status,
         cpu: formData.cpu,
         ram: formData.ram,
