@@ -91,6 +91,92 @@ export type Database = {
           },
         ]
       }
+      branch_memberships: {
+        Row: {
+          branch_id: string
+          branch_role: Database["public"]["Enums"]["branch_role"]
+          created_at: string | null
+          id: string
+          profile_id: string
+        }
+        Insert: {
+          branch_id: string
+          branch_role?: Database["public"]["Enums"]["branch_role"]
+          created_at?: string | null
+          id?: string
+          profile_id: string
+        }
+        Update: {
+          branch_id?: string
+          branch_role?: Database["public"]["Enums"]["branch_role"]
+          created_at?: string | null
+          id?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_memberships_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_memberships_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      branches: {
+        Row: {
+          city: string | null
+          code: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          region: string | null
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          city?: string | null
+          code: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          region?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          city?: string | null
+          code?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          region?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       change_requests: {
         Row: {
           created_at: string | null
@@ -519,6 +605,7 @@ export type Database = {
       }
       domains: {
         Row: {
+          branch_id: string
           code: string | null
           created_at: string | null
           description: string | null
@@ -526,6 +613,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          branch_id: string
           code?: string | null
           created_at?: string | null
           description?: string | null
@@ -533,13 +621,22 @@ export type Database = {
           name: string
         }
         Update: {
+          branch_id?: string
           code?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_domains_branch"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_reports: {
         Row: {
@@ -3239,9 +3336,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_branch: { Args: { _branch_id: string }; Returns: boolean }
       can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
       can_edit_domain: { Args: { _domain_id: string }; Returns: boolean }
+      can_manage_branch: { Args: { _branch_id: string }; Returns: boolean }
       can_manage_domain: { Args: { _domain_id: string }; Returns: boolean }
       generate_procurement_request_number: {
         Args: { p_domain_id: string }
@@ -3264,6 +3363,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_branch_admin: { Args: { _branch_id: string }; Returns: boolean }
       is_domain_admin: { Args: { _domain_id: string }; Returns: boolean }
       is_employee_only: { Args: never; Returns: boolean }
       is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
@@ -3280,6 +3380,7 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "employee"
+      branch_role: "branch_admin" | "branch_operator" | "branch_viewer"
       vault_role: "vault_admin" | "vault_editor" | "vault_viewer"
     }
     CompositeTypes: {
@@ -3409,6 +3510,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin", "employee"],
+      branch_role: ["branch_admin", "branch_operator", "branch_viewer"],
       vault_role: ["vault_admin", "vault_editor", "vault_viewer"],
     },
   },

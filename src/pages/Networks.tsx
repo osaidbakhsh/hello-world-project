@@ -92,9 +92,24 @@ const Networks: React.FC = () => {
         if (error) throw error;
         toast({ title: t('common.success'), description: t('networks.domainUpdated') });
       } else {
+        // Get default branch for new domains
+        const { data: defaultBranch } = await supabase
+          .from('branches')
+          .select('id')
+          .eq('code', 'DEFAULT')
+          .single();
+        
+        if (!defaultBranch?.id) {
+          throw new Error('Default branch not found');
+        }
+
         const { error } = await supabase
           .from('domains')
-          .insert({ name: domainForm.name, description: domainForm.description });
+          .insert({ 
+            name: domainForm.name, 
+            description: domainForm.description,
+            branch_id: defaultBranch.id
+          });
         
         if (error) throw error;
         toast({ title: t('common.success'), description: t('networks.domainAdded') });
