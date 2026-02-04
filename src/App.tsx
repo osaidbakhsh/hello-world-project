@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { HierarchyProvider } from "@/contexts/HierarchyContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Layout from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -40,6 +41,7 @@ import VerificationChecklist from "./pages/VerificationChecklist";
 import Procurement from "./pages/Procurement";
 import ProcurementCreate from "./pages/ProcurementCreate";
 import ProcurementDetail from "./pages/ProcurementDetail";
+import ResourceDetail from "./pages/ResourceDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,9 +51,10 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
+          <HierarchyProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
             <BrowserRouter>
             <Routes>
               {/* Public routes */}
@@ -96,12 +99,14 @@ const App = () => (
                 <Route path="/procurement/new" element={<ProcurementCreate />} />
                 <Route path="/procurement/:id" element={<ProcurementDetail />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/resource/:level/:id" element={<ResourceDetail />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />
             </Routes>
             </BrowserRouter>
-          </TooltipProvider>
+            </TooltipProvider>
+          </HierarchyProvider>
         </AuthProvider>
       </LanguageProvider>
     </QueryClientProvider>
