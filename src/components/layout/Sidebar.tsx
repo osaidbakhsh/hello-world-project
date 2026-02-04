@@ -80,6 +80,11 @@ const allMenuItems: MenuItem[] = [{
   icon: Lock,
   label: 'nav.vault'
 }, {
+  id: 'privateVault',
+  path: '/private-vault',
+  icon: Shield,
+  label: 'nav.privateVault'
+}, {
   id: 'itTools',
   path: '/it-tools',
   icon: Wrench,

@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StatCard from '@/components/dashboard/StatCard';
 import WebAppsWidget from '@/components/dashboard/WebAppsWidget';
 import ExpiryWidget from '@/components/dashboard/ExpiryWidget';
+import SecurityDashboardWidget from '@/components/dashboard/SecurityDashboardWidget';
 import {
   Server,
   Users,
@@ -155,6 +156,9 @@ const Dashboard: React.FC = () => {
 
       {/* Expiry Center Widget */}
       <ExpiryWidget />
+
+      {/* Security Dashboard Widget */}
+      {isAdmin && <SecurityDashboardWidget />}
 
       {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
