@@ -1,168 +1,94 @@
 
-# Rename "Branch" to "Site" & Finalize Site CRUD
+# Fix Site Switcher: Rename "Branch" to "Site" & Enable Site Creation
 
-## Summary
-This plan cleans up legacy "branch" terminology in the codebase by renaming all Branch-related types to Site-based naming, ensuring consistency across the application. The Site CRUD functionality is already fully implemented.
+## Issues Identified
 
----
+### Issue 1: `isAdmin` Check Doesn't Include `super_admin`
+The `useUserRole` hook only checks for `role === 'admin'`, but the current user has role `'super_admin'`. This means:
+- The "Manage Sites" button is hidden
+- The user can't access site management
 
-## Current State Analysis
+**Location**: `src/hooks/useUserRole.ts` line 65
 
-### Already Implemented (No Changes Needed)
-The Site CRUD system is fully functional:
-- `src/contexts/SiteContext.tsx` - Global site selection state
-- `src/hooks/useSites.ts` - CRUD operations (create, read, update, delete)
-- `src/components/layout/SiteSwitcher.tsx` - Header dropdown
-- `src/components/sites/SiteManagementDialog.tsx` - Admin management dialog
-- `src/components/sites/SiteForm.tsx` - Create/edit form
+```typescript
+// Current (broken)
+isAdmin: role === 'admin',
 
-### Legacy Code to Clean Up
-The file `src/types/supabase-models.ts` contains outdated "Branch" terminology that should be renamed to "Site":
-- `BranchRole` type
-- `Branch` interface
-- `BranchMembership` interface
-- `Domain.branch_id` field
+// Should be
+isAdmin: role === 'admin' || role === 'super_admin',
+```
+
+### Issue 2: Database Has "Default Branch" Name
+The existing site in the database still has the old name "Default Branch" instead of a proper site name.
+
+**Current data**: `name: "Default Branch", code: "DEFAULT"`
+
+**Fix**: Run a database update to rename the site.
+
+### Issue 3: Add `isSuperAdmin` Flag for Clarity
+The hook should also expose `isSuperAdmin` for cases where only super admins can perform actions (like creating new sites).
 
 ---
 
 ## Implementation Tasks
 
-### Task 1: Update TypeScript Model Types
+### Task 1: Update `useUserRole` Hook
+**File**: `src/hooks/useUserRole.ts`
 
-**File**: `src/types/supabase-models.ts`
-
-**Changes**:
-
-| Current Name | New Name |
-|-------------|----------|
-| `BranchRole` | `SiteRole` |
-| `Branch` | `Site` |
-| `BranchMembership` | `SiteMembership` |
-| `Domain.branch_id` | `Domain.site_id` |
-
-**Updated Type Definitions**:
+Add super_admin to the admin check and expose a new `isSuperAdmin` flag:
 
 ```typescript
-// Before
-export type BranchRole = 'branch_admin' | 'branch_operator' | 'branch_viewer';
-
-export interface Branch {
-  id: string;
-  name: string;
-  code: string;
-  city: string | null;
-  region: string | null;
-  timezone: string;
-  notes: string | null;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
+interface UseUserRoleResult {
+  role: AppRole | null;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;  // NEW
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
 }
 
-export interface BranchMembership {
-  id: string;
-  branch_id: string;
-  profile_id: string;
-  branch_role: BranchRole;
-  created_at: string;
-}
-
-export interface Domain {
-  id: string;
-  name: string;
-  description: string | null;
-  code: string | null;
-  branch_id: string;  // ← Old name
-  created_at: string;
-}
+// In return statement:
+return {
+  role,
+  isAdmin: role === 'admin' || role === 'super_admin',  // FIXED
+  isSuperAdmin: role === 'super_admin',  // NEW
+  isLoading,
+  error,
+  refetch: fetchRole,
+};
 ```
 
-```typescript
-// After
-export type SiteRole = 'site_admin' | 'site_operator' | 'site_viewer';
+### Task 2: Update SiteSwitcher Component
+**File**: `src/components/layout/SiteSwitcher.tsx`
 
-export interface Site {
-  id: string;
-  name: string;
-  code: string;
-  city: string | null;
-  region: string | null;
-  timezone: string;
-  notes: string | null;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
+The component already uses `isAdmin` correctly - once the hook is fixed, it will work. No changes needed to this file.
 
-export interface SiteMembership {
-  id: string;
-  site_id: string;
-  profile_id: string;
-  site_role: SiteRole;
-  created_at: string;
-}
-
-export interface Domain {
-  id: string;
-  name: string;
-  description: string | null;
-  code: string | null;
-  site_id: string;  // ← Updated name
-  created_at: string;
-}
-```
-
----
-
-### Task 2: Database Enum Cleanup (Optional)
-
-The database has both `branch_role` and `site_role` enums. For complete cleanup, a migration should rename the enum:
+### Task 3: Update Database Site Name
+Rename "Default Branch" to a proper site name via migration:
 
 ```sql
--- Rename the enum type
-ALTER TYPE branch_role RENAME TO site_role_legacy;
-
--- Or if you want to keep site_role as the canonical enum, 
--- just drop branch_role if unused
-DROP TYPE IF EXISTS branch_role;
+UPDATE sites 
+SET name = 'Main Site', code = 'MAIN'
+WHERE name = 'Default Branch';
 ```
 
-However, since the Supabase types file is auto-generated, this is a database-level change that would require careful migration planning.
-
 ---
 
-### Task 3: Verify No Code Dependencies
-
-Search confirms no active code imports or uses the `Branch`, `BranchRole`, or `BranchMembership` types from `supabase-models.ts`. The only reference to "Branch" in other files is the `GitBranch` icon from Lucide (unrelated).
-
----
-
-## File Change Summary
+## File Changes Summary
 
 | File | Action | Changes |
 |------|--------|---------|
-| `src/types/supabase-models.ts` | Update | Rename Branch types to Site types |
-
----
-
-## No Changes Required
-
-The following files are already correctly using "Site" terminology:
-- `src/contexts/SiteContext.tsx`
-- `src/hooks/useSites.ts`
-- `src/components/layout/SiteSwitcher.tsx`
-- `src/components/sites/SiteManagementDialog.tsx`
-- `src/components/sites/SiteForm.tsx`
+| `src/hooks/useUserRole.ts` | Update | Fix `isAdmin` to include `super_admin`, add `isSuperAdmin` flag |
+| Database migration | Create | Rename "Default Branch" to "Main Site" |
 
 ---
 
 ## Testing Checklist
 
 After implementation:
-- [ ] TypeScript compilation passes with no errors
-- [ ] Site Switcher dropdown works correctly
-- [ ] Can create new sites via "Manage Sites" dialog
-- [ ] Can edit existing sites
-- [ ] Can delete sites (with dependency check)
-- [ ] Site selection persists across page refreshes
-- [ ] Changing sites clears hierarchy selection
+- [ ] User can see "Manage Sites" button in Site Switcher dropdown
+- [ ] User can open Site Management dialog
+- [ ] User can create new sites
+- [ ] User can edit existing sites
+- [ ] User can delete sites (if no dependencies)
+- [ ] Site name shows as "Main Site" instead of "Default Branch"
