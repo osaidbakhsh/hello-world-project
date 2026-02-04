@@ -622,7 +622,38 @@ WHERE tablename = 'user_private_vault';
 - `can_access_server()`, `can_edit_server()` - Server-level access
 
 **Remaining Work (Next Phases):**
-- Phase 2: JWT Custom Claims with domain_ids injection
+- ✅ Phase 2: JWT Custom Claims with domain_ids injection - COMPLETE
 - Phase 3: Vault encryption edge functions
 - Phase 4: Hierarchical Navigation UI
 - Phase 5: Real-time NOC Dashboard
+
+---
+
+## Phase 2 Completion Summary
+
+**Executed Migration:**
+- ✅ `custom_access_token_hook(event jsonb)` - Injects `app_role`, `profile_id`, `domain_ids[]`, `site_ids[]`, `is_super_admin` into JWT tokens
+
+**Helper Functions Created:**
+- `get_my_claims()` - Returns current user's claims as JSONB for Edge Functions
+- `user_can_access_domain(_domain_id)` - Quick domain access check
+- `user_can_access_site(_site_id)` - Quick site access check
+
+**Security Measures:**
+- Hook only executable by `supabase_auth_admin`
+- Revoked from `PUBLIC`, `anon`, and `authenticated` roles
+- Claims are read from secure `user_roles` table (not profiles)
+
+**Usage in Edge Functions:**
+```typescript
+// Extract claims from JWT
+const { data } = await supabase.auth.getClaims(token);
+const { domain_ids, site_ids, is_super_admin, app_role } = data.claims;
+
+// Check if user has access to specific domain
+if (!is_super_admin && !domain_ids.includes(targetDomainId)) {
+  return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+}
+```
+
+**Note:** The hook needs to be enabled in Supabase dashboard under Authentication > Hooks > Custom Access Token. The function `custom_access_token_hook` is already created and ready.
