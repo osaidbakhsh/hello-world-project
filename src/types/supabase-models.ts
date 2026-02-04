@@ -18,11 +18,35 @@ export interface Profile {
   updated_at: string;
 }
 
+export type BranchRole = 'branch_admin' | 'branch_operator' | 'branch_viewer';
+
+export interface Branch {
+  id: string;
+  name: string;
+  code: string;
+  city: string | null;
+  region: string | null;
+  timezone: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BranchMembership {
+  id: string;
+  branch_id: string;
+  profile_id: string;
+  branch_role: BranchRole;
+  created_at: string;
+}
+
 export interface Domain {
   id: string;
   name: string;
   description: string | null;
   code: string | null;
+  branch_id: string;
   created_at: string;
 }
 

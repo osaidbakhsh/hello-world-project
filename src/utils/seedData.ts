@@ -1058,10 +1058,24 @@ export async function seedAllData(): Promise<SeedResult> {
       scanAgents: 0,
     };
 
-    // 1. Create Domains (only the 3 professional domains)
+    // 1. Get or create default branch for new domains
+    const { data: defaultBranch } = await supabase
+      .from('branches')
+      .select('id')
+      .eq('code', 'DEFAULT')
+      .single();
+    
+    const defaultBranchId = defaultBranch?.id;
+    if (!defaultBranchId) {
+      throw new Error('Default branch not found. Please run database migrations first.');
+    }
+
+    // 2. Create Domains (only the 3 professional domains)
     const { data: existingDomains } = await supabase.from('domains').select('name, id');
     const existingDomainNames = existingDomains?.map(d => d.name) || [];
-    const newDomains = professionalDomains.filter(d => !existingDomainNames.includes(d.name));
+    const newDomains = professionalDomains
+      .filter(d => !existingDomainNames.includes(d.name))
+      .map(d => ({ ...d, branch_id: defaultBranchId }));
     
     if (newDomains.length > 0) {
       const { data: createdDomains, error: domainError } = await supabase
