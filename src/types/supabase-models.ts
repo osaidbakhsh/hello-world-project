@@ -18,9 +18,9 @@ export interface Profile {
   updated_at: string;
 }
 
-export type BranchRole = 'branch_admin' | 'branch_operator' | 'branch_viewer';
+export type SiteRole = 'site_admin' | 'site_operator' | 'site_viewer';
 
-export interface Branch {
+export interface Site {
   id: string;
   name: string;
   code: string;
@@ -33,11 +33,11 @@ export interface Branch {
   updated_at: string;
 }
 
-export interface BranchMembership {
+export interface SiteMembership {
   id: string;
-  branch_id: string;
+  site_id: string;
   profile_id: string;
-  branch_role: BranchRole;
+  site_role: SiteRole;
   created_at: string;
 }
 
@@ -46,7 +46,7 @@ export interface Domain {
   name: string;
   description: string | null;
   code: string | null;
-  branch_id: string;
+  site_id: string;
   created_at: string;
 }
 
