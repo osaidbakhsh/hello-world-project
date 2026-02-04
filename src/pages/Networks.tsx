@@ -34,6 +34,7 @@ interface DomainForm {
 interface NetworkForm {
   name: string;
   domain_id: string;
+  cluster_id: string;
   subnet: string;
   gateway: string;
   dns_servers: string;
@@ -61,6 +62,7 @@ const Networks: React.FC = () => {
   const [networkForm, setNetworkForm] = useState<NetworkForm>({
     name: '',
     domain_id: '',
+    cluster_id: '',
     subnet: '',
     gateway: '',
     dns_servers: '',
@@ -207,11 +209,41 @@ const Networks: React.FC = () => {
         if (error) throw error;
         toast({ title: t('common.success'), description: t('networks.networkUpdated') });
       } else {
+        // Get DEFAULT-CLUSTER for the selected domain
+        const { data: defaultCluster, error: clusterError } = await supabase
+          .from('clusters')
+          .select('id')
+          .eq('domain_id', networkForm.domain_id)
+          .eq('name', 'DEFAULT-CLUSTER')
+          .maybeSingle();
+
+        if (clusterError) throw clusterError;
+        
+        let clusterId = defaultCluster?.id;
+        
+        // If no DEFAULT-CLUSTER exists, create one
+        if (!clusterId) {
+          const { data: newCluster, error: createError } = await supabase
+            .from('clusters')
+            .insert({
+              domain_id: networkForm.domain_id,
+              name: 'DEFAULT-CLUSTER',
+              cluster_type: 'other',
+              notes: 'Auto-created for network'
+            })
+            .select('id')
+            .single();
+          
+          if (createError) throw createError;
+          clusterId = newCluster.id;
+        }
+
         const { error } = await supabase
           .from('networks')
           .insert({
             name: networkForm.name,
             domain_id: networkForm.domain_id,
+            cluster_id: clusterId,
             subnet: networkForm.subnet || null,
             gateway: networkForm.gateway || null,
             dns_servers: dnsServers,
@@ -235,6 +267,7 @@ const Networks: React.FC = () => {
     setNetworkForm({
       name: network.name,
       domain_id: network.domain_id,
+      cluster_id: network.cluster_id || '',
       subnet: network.subnet || '',
       gateway: network.gateway || '',
       dns_servers: network.dns_servers?.join(', ') || '',
@@ -259,6 +292,7 @@ const Networks: React.FC = () => {
     setNetworkForm({
       name: '',
       domain_id: '',
+      cluster_id: '',
       subnet: '',
       gateway: '',
       dns_servers: '',

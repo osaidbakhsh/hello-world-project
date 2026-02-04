@@ -1387,6 +1387,7 @@ export type Database = {
       }
       networks: {
         Row: {
+          cluster_id: string
           created_at: string | null
           description: string | null
           dns_servers: string[] | null
@@ -1397,6 +1398,7 @@ export type Database = {
           subnet: string | null
         }
         Insert: {
+          cluster_id: string
           created_at?: string | null
           description?: string | null
           dns_servers?: string[] | null
@@ -1407,6 +1409,7 @@ export type Database = {
           subnet?: string | null
         }
         Update: {
+          cluster_id?: string
           created_at?: string | null
           description?: string | null
           dns_servers?: string[] | null
@@ -1417,6 +1420,13 @@ export type Database = {
           subnet?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_networks_cluster"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "clusters"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "networks_domain_id_fkey"
             columns: ["domain_id"]
@@ -3340,6 +3350,7 @@ export type Database = {
       can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
       can_edit_domain: { Args: { _domain_id: string }; Returns: boolean }
+      can_edit_network: { Args: { _network_id: string }; Returns: boolean }
       can_manage_branch: { Args: { _branch_id: string }; Returns: boolean }
       can_manage_domain: { Args: { _domain_id: string }; Returns: boolean }
       generate_procurement_request_number: {

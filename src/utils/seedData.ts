@@ -1091,19 +1091,60 @@ export async function seedAllData(): Promise<SeedResult> {
     const { data: allDomains } = await supabase.from('domains').select('*');
     const domainMap = new Map(allDomains?.map(d => [d.name, d.id]) || []);
 
-    // 2. Create Networks
+    // 2. Create Networks - first get or create DEFAULT-CLUSTER for each domain
     const { data: existingNetworks } = await supabase.from('networks').select('name, id');
     const existingNetworkNames = existingNetworks?.map(n => n.name) || [];
+    
+    // Get or create DEFAULT-CLUSTERs for domains that will have networks
+    const domainIdsWithNewNetworks = new Set(
+      professionalNetworks
+        .filter(n => !existingNetworkNames.includes(n.name))
+        .map(n => domainMap.get(n.domainName))
+        .filter(Boolean)
+    );
+
+    // Create DEFAULT-CLUSTERs for domains that need them
+    for (const domainId of domainIdsWithNewNetworks) {
+      const { data: existingCluster } = await supabase
+        .from('clusters')
+        .select('id')
+        .eq('domain_id', domainId)
+        .eq('name', 'DEFAULT-CLUSTER')
+        .maybeSingle();
+
+      if (!existingCluster) {
+        await supabase
+          .from('clusters')
+          .insert({
+            domain_id: domainId,
+            name: 'DEFAULT-CLUSTER',
+            cluster_type: 'other',
+            notes: 'Auto-created for seed networks'
+          });
+      }
+    }
+
+    // Get all DEFAULT-CLUSTERs for mapping
+    const { data: defaultClusters } = await supabase
+      .from('clusters')
+      .select('id, domain_id')
+      .eq('name', 'DEFAULT-CLUSTER');
+    const clusterByDomainMap = new Map(defaultClusters?.map(c => [c.domain_id, c.id]) || []);
+
     const newNetworks = professionalNetworks
       .filter(n => !existingNetworkNames.includes(n.name))
-      .map(network => ({
-        name: network.name,
-        subnet: network.subnet,
-        gateway: network.gateway,
-        dns_servers: network.dns_servers,
-        domain_id: domainMap.get(network.domainName),
-      }))
-      .filter(n => n.domain_id);
+      .map(network => {
+        const domainId = domainMap.get(network.domainName);
+        return {
+          name: network.name,
+          subnet: network.subnet,
+          gateway: network.gateway,
+          dns_servers: network.dns_servers,
+          domain_id: domainId,
+          cluster_id: clusterByDomainMap.get(domainId),
+        };
+      })
+      .filter(n => n.domain_id && n.cluster_id);
 
     if (newNetworks.length > 0) {
       const { data: createdNetworks, error: networkError } = await supabase

@@ -53,6 +53,7 @@ export interface Domain {
 export interface Network {
   id: string;
   domain_id: string;
+  cluster_id: string;
   name: string;
   subnet: string | null;
   gateway: string | null;
