@@ -1046,6 +1046,82 @@ export type Database = {
           },
         ]
       }
+      infrastructure_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_type: string
+          created_at: string
+          domain_id: string
+          id: string
+          message: string
+          new_status: string | null
+          previous_status: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resource_id: string
+          resource_name: string
+          resource_type: string
+          severity: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type: string
+          created_at?: string
+          domain_id: string
+          id?: string
+          message: string
+          new_status?: string | null
+          previous_status?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resource_id: string
+          resource_name: string
+          resource_type: string
+          severity: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type?: string
+          created_at?: string
+          domain_id?: string
+          id?: string
+          message?: string
+          new_status?: string | null
+          previous_status?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resource_id?: string
+          resource_name?: string
+          resource_type?: string
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infrastructure_alerts_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "infrastructure_alerts_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "infrastructure_alerts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       infrastructure_credentials: {
         Row: {
           created_at: string | null

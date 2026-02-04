@@ -42,6 +42,7 @@ import Procurement from "./pages/Procurement";
 import ProcurementCreate from "./pages/ProcurementCreate";
 import ProcurementDetail from "./pages/ProcurementDetail";
 import ResourceDetail from "./pages/ResourceDetail";
+import NOCDashboard from "./pages/NOCDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -100,6 +101,7 @@ const App = () => (
                 <Route path="/procurement/:id" element={<ProcurementDetail />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/resource/:level/:id" element={<ResourceDetail />} />
+                <Route path="/noc" element={<NOCDashboard />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />

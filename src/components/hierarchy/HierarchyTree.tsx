@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useHierarchy, HierarchyNode, HierarchyLevel } from '@/contexts/HierarchyContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -205,13 +206,36 @@ const HierarchyTree: React.FC = () => {
   const { fetchChildren } = useHierarchy();
   const [sites, setSites] = useState<HierarchyNode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     fetchChildren(null, 'site').then(data => {
       setSites(data);
       setIsLoading(false);
     });
-  }, [fetchChildren]);
+  }, [fetchChildren, refreshTrigger]);
+
+  // Subscribe to real-time status changes for VMs and Nodes
+  useEffect(() => {
+    const serverChannel = supabase
+      .channel('tree-servers-realtime')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'servers' }, () => {
+        setRefreshTrigger(prev => prev + 1);
+      })
+      .subscribe();
+
+    const nodeChannel = supabase
+      .channel('tree-nodes-realtime')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cluster_nodes' }, () => {
+        setRefreshTrigger(prev => prev + 1);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(serverChannel);
+      supabase.removeChannel(nodeChannel);
+    };
+  }, []);
 
   if (isLoading) {
     return (
