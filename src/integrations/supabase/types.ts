@@ -3539,10 +3539,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       generate_procurement_request_number: {
         Args: { p_domain_id: string }
         Returns: string
       }
+      get_my_claims: { Args: never; Returns: Json }
       get_my_profile_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
@@ -3576,6 +3578,8 @@ export type Database = {
       }
       owns_vault_item: { Args: { _vault_item_id: string }; Returns: boolean }
       text2ltree: { Args: { "": string }; Returns: unknown }
+      user_can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
+      user_can_access_site: { Args: { _site_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "employee"
