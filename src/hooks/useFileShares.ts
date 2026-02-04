@@ -1,13 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useSite } from '@/contexts/SiteContext';
+import { useSiteDomains } from '@/hooks/useSiteDomains';
 import type { FileShare, ScanSnapshot, FileshareScan, FileShareFormData } from '@/types/fileshares';
 
 export function useFileShares(domainId?: string) {
+  const { selectedSite } = useSite();
+  const { data: siteDomainIds = [] } = useSiteDomains();
   const [data, setData] = useState<FileShare[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
+    if (!selectedSite) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       let query = (supabase as any)
@@ -21,6 +31,8 @@ export function useFileShares(domainId?: string) {
 
       if (domainId) {
         query = query.eq('domain_id', domainId);
+      } else if (siteDomainIds.length > 0) {
+        query = query.in('domain_id', siteDomainIds);
       }
 
       const { data: shares, error: fetchError } = await query;
@@ -49,7 +61,7 @@ export function useFileShares(domainId?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [domainId]);
+  }, [domainId, selectedSite?.id, siteDomainIds]);
 
   useEffect(() => {
     fetch();

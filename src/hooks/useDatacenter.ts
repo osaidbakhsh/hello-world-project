@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSite } from '@/contexts/SiteContext';
+import { useSiteDomains } from '@/hooks/useSiteDomains';
 import type { 
   Datacenter, 
   Cluster, 
@@ -9,14 +11,19 @@ import type {
   DatacenterStats 
 } from '@/types/datacenter';
 
-// Datacenters
+// Datacenters - filtered by site
 export const useDatacenters = (domainId?: string) => {
+  const { selectedSite } = useSite();
+  
   return useQuery({
-    queryKey: ['datacenters', domainId],
+    queryKey: ['datacenters', selectedSite?.id, domainId],
     queryFn: async () => {
+      if (!selectedSite) return [];
+      
       let query = supabase
         .from('datacenters')
         .select('*, domains(name)')
+        .eq('site_id', selectedSite.id)
         .order('name');
       
       if (domainId) {
@@ -27,14 +34,20 @@ export const useDatacenters = (domainId?: string) => {
       if (error) throw error;
       return data as Datacenter[];
     },
+    enabled: !!selectedSite,
   });
 };
 
-// Clusters
+// Clusters - filtered by site domains
 export const useClusters = (domainId?: string) => {
+  const { selectedSite } = useSite();
+  const { data: siteDomainIds = [] } = useSiteDomains();
+  
   return useQuery({
-    queryKey: ['clusters', domainId],
+    queryKey: ['clusters', selectedSite?.id, domainId],
     queryFn: async () => {
+      if (!selectedSite) return [];
+      
       let query = supabase
         .from('clusters')
         .select('*, datacenters(*), domains(name)')
@@ -42,20 +55,28 @@ export const useClusters = (domainId?: string) => {
       
       if (domainId) {
         query = query.eq('domain_id', domainId);
+      } else if (siteDomainIds.length > 0) {
+        query = query.in('domain_id', siteDomainIds);
       }
       
       const { data, error } = await query;
       if (error) throw error;
       return data as Cluster[];
     },
+    enabled: !!selectedSite,
   });
 };
 
-// Cluster Nodes
+// Cluster Nodes - filtered by site domains
 export const useClusterNodes = (domainId?: string, clusterId?: string) => {
+  const { selectedSite } = useSite();
+  const { data: siteDomainIds = [] } = useSiteDomains();
+  
   return useQuery({
-    queryKey: ['cluster_nodes', domainId, clusterId],
+    queryKey: ['cluster_nodes', selectedSite?.id, domainId, clusterId],
     queryFn: async () => {
+      if (!selectedSite) return [];
+      
       let query = supabase
         .from('cluster_nodes')
         .select('*, clusters(*)')
@@ -63,6 +84,8 @@ export const useClusterNodes = (domainId?: string, clusterId?: string) => {
       
       if (domainId) {
         query = query.eq('domain_id', domainId);
+      } else if (siteDomainIds.length > 0) {
+        query = query.in('domain_id', siteDomainIds);
       }
       if (clusterId) {
         query = query.eq('cluster_id', clusterId);
@@ -72,14 +95,20 @@ export const useClusterNodes = (domainId?: string, clusterId?: string) => {
       if (error) throw error;
       return data as ClusterNode[];
     },
+    enabled: !!selectedSite,
   });
 };
 
-// VMs
+// VMs - filtered by site domains
 export const useVMs = (domainId?: string, clusterId?: string) => {
+  const { selectedSite } = useSite();
+  const { data: siteDomainIds = [] } = useSiteDomains();
+  
   return useQuery({
-    queryKey: ['vms', domainId, clusterId],
+    queryKey: ['vms', selectedSite?.id, domainId, clusterId],
     queryFn: async () => {
+      if (!selectedSite) return [];
+      
       let query = supabase
         .from('vms')
         .select('*, clusters(*), cluster_nodes(*)')
@@ -87,6 +116,8 @@ export const useVMs = (domainId?: string, clusterId?: string) => {
       
       if (domainId) {
         query = query.eq('domain_id', domainId);
+      } else if (siteDomainIds.length > 0) {
+        query = query.in('domain_id', siteDomainIds);
       }
       if (clusterId) {
         query = query.eq('cluster_id', clusterId);
@@ -96,6 +127,7 @@ export const useVMs = (domainId?: string, clusterId?: string) => {
       if (error) throw error;
       return data as VM[];
     },
+    enabled: !!selectedSite,
   });
 };
 
