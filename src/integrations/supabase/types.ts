@@ -91,92 +91,6 @@ export type Database = {
           },
         ]
       }
-      branch_memberships: {
-        Row: {
-          branch_id: string
-          branch_role: Database["public"]["Enums"]["branch_role"]
-          created_at: string | null
-          id: string
-          profile_id: string
-        }
-        Insert: {
-          branch_id: string
-          branch_role?: Database["public"]["Enums"]["branch_role"]
-          created_at?: string | null
-          id?: string
-          profile_id: string
-        }
-        Update: {
-          branch_id?: string
-          branch_role?: Database["public"]["Enums"]["branch_role"]
-          created_at?: string | null
-          id?: string
-          profile_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "branch_memberships_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "branches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "branch_memberships_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      branches: {
-        Row: {
-          city: string | null
-          code: string
-          created_at: string | null
-          created_by: string | null
-          id: string
-          name: string
-          notes: string | null
-          region: string | null
-          timezone: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          city?: string | null
-          code: string
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          name: string
-          notes?: string | null
-          region?: string | null
-          timezone?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          city?: string | null
-          code?: string
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          name?: string
-          notes?: string | null
-          region?: string | null
-          timezone?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "branches_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       change_requests: {
         Row: {
           created_at: string | null
@@ -327,8 +241,9 @@ export type Database = {
           cluster_type: string | null
           created_at: string | null
           created_by: string | null
-          datacenter_id: string | null
+          datacenter_id: string
           domain_id: string
+          hierarchy_path: unknown
           hypervisor_version: string | null
           id: string
           name: string
@@ -344,8 +259,9 @@ export type Database = {
           cluster_type?: string | null
           created_at?: string | null
           created_by?: string | null
-          datacenter_id?: string | null
+          datacenter_id: string
           domain_id: string
+          hierarchy_path?: unknown
           hypervisor_version?: string | null
           id?: string
           name: string
@@ -361,8 +277,9 @@ export type Database = {
           cluster_type?: string | null
           created_at?: string | null
           created_by?: string | null
-          datacenter_id?: string | null
+          datacenter_id?: string
           domain_id?: string
+          hierarchy_path?: unknown
           hypervisor_version?: string | null
           id?: string
           name?: string
@@ -499,6 +416,7 @@ export type Database = {
           domain_id: string
           emergency_contact: string | null
           floor_space_sqm: number | null
+          hierarchy_path: unknown
           id: string
           location: string | null
           name: string
@@ -517,6 +435,7 @@ export type Database = {
           domain_id: string
           emergency_contact?: string | null
           floor_space_sqm?: number | null
+          hierarchy_path?: unknown
           id?: string
           location?: string | null
           name: string
@@ -535,6 +454,7 @@ export type Database = {
           domain_id?: string
           emergency_contact?: string | null
           floor_space_sqm?: number | null
+          hierarchy_path?: unknown
           id?: string
           location?: string | null
           name?: string
@@ -605,35 +525,38 @@ export type Database = {
       }
       domains: {
         Row: {
-          branch_id: string
           code: string | null
           created_at: string | null
           description: string | null
+          hierarchy_path: unknown
           id: string
           name: string
+          site_id: string
         }
         Insert: {
-          branch_id: string
           code?: string | null
           created_at?: string | null
           description?: string | null
+          hierarchy_path?: unknown
           id?: string
           name: string
+          site_id: string
         }
         Update: {
-          branch_id?: string
           code?: string | null
           created_at?: string | null
           description?: string | null
+          hierarchy_path?: unknown
           id?: string
           name?: string
+          site_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "fk_domains_branch"
-            columns: ["branch_id"]
+            columns: ["site_id"]
             isOneToOne: false
-            referencedRelation: "branches"
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -1015,6 +938,57 @@ export type Database = {
           },
         ]
       }
+      infra_credential_access_logs: {
+        Row: {
+          access_type: string
+          accessed_at: string | null
+          accessed_by: string
+          credential_id: string
+          id: string
+          ip_address: string | null
+          resource_id: string | null
+          resource_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          access_type: string
+          accessed_at?: string | null
+          accessed_by: string
+          credential_id: string
+          id?: string
+          ip_address?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          access_type?: string
+          accessed_at?: string | null
+          accessed_by?: string
+          credential_id?: string
+          id?: string
+          ip_address?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infra_credential_access_logs_accessed_by_fkey"
+            columns: ["accessed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "infra_credential_access_logs_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "infrastructure_credentials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       infra_snapshots: {
         Row: {
           captured_at: string | null
@@ -1068,6 +1042,53 @@ export type Database = {
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      infrastructure_credentials: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          encrypted_value: string
+          encryption_iv: string
+          encryption_tag: string | null
+          id: string
+          resource_id: string
+          resource_type: string
+          secret_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          encrypted_value: string
+          encryption_iv: string
+          encryption_tag?: string | null
+          id?: string
+          resource_id: string
+          resource_type: string
+          secret_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          encrypted_value?: string
+          encryption_iv?: string
+          encryption_tag?: string | null
+          id?: string
+          resource_id?: string
+          resource_type?: string
+          secret_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infrastructure_credentials_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2454,6 +2475,95 @@ export type Database = {
           },
         ]
       }
+      site_memberships: {
+        Row: {
+          created_at: string | null
+          id: string
+          profile_id: string
+          site_id: string
+          site_role: Database["public"]["Enums"]["site_role"] | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          profile_id: string
+          site_id: string
+          site_role?: Database["public"]["Enums"]["site_role"] | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          profile_id?: string
+          site_id?: string
+          site_role?: Database["public"]["Enums"]["site_role"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_memberships_branch_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_memberships_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sites: {
+        Row: {
+          city: string | null
+          code: string
+          created_at: string | null
+          created_by: string | null
+          hierarchy_path: unknown
+          id: string
+          name: string
+          notes: string | null
+          region: string | null
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          city?: string | null
+          code: string
+          created_at?: string | null
+          created_by?: string | null
+          hierarchy_path?: unknown
+          id?: string
+          name: string
+          notes?: string | null
+          region?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          city?: string | null
+          code?: string
+          created_at?: string | null
+          created_by?: string | null
+          hierarchy_path?: unknown
+          id?: string
+          name?: string
+          notes?: string | null
+          region?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_health_checks: {
         Row: {
           check_type: string
@@ -2741,6 +2851,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_private_vault: {
+        Row: {
+          content_type: string | null
+          created_at: string | null
+          encrypted_content: string
+          encryption_iv: string
+          encryption_tag: string | null
+          id: string
+          metadata: Json | null
+          owner_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string | null
+          encrypted_content: string
+          encryption_iv: string
+          encryption_tag?: string | null
+          id?: string
+          metadata?: Json | null
+          owner_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string | null
+          encrypted_content?: string
+          encryption_iv?: string
+          encryption_tag?: string | null
+          id?: string
+          metadata?: Json | null
+          owner_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -3353,19 +3502,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      can_access_branch: { Args: { _branch_id: string }; Returns: boolean }
+      can_access_cluster: { Args: { _cluster_id: string }; Returns: boolean }
+      can_access_datacenter: { Args: { _dc_id: string }; Returns: boolean }
       can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
       can_access_node: { Args: { _node_id: string }; Returns: boolean }
       can_access_server: { Args: { _server_id: string }; Returns: boolean }
+      can_access_site: { Args: { _site_id: string }; Returns: boolean }
       can_access_vm: { Args: { _vm_id: string }; Returns: boolean }
+      can_admin_resource: {
+        Args: { _resource_id: string; _resource_type: string }
+        Returns: boolean
+      }
+      can_edit_cluster: { Args: { _cluster_id: string }; Returns: boolean }
+      can_edit_datacenter: { Args: { _dc_id: string }; Returns: boolean }
       can_edit_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_edit_network: { Args: { _network_id: string }; Returns: boolean }
       can_edit_node: { Args: { _node_id: string }; Returns: boolean }
+      can_edit_resource: {
+        Args: { _resource_id: string; _resource_type: string }
+        Returns: boolean
+      }
       can_edit_server: { Args: { _server_id: string }; Returns: boolean }
       can_edit_vm: { Args: { _vm_id: string }; Returns: boolean }
-      can_manage_branch: { Args: { _branch_id: string }; Returns: boolean }
       can_manage_domain: { Args: { _domain_id: string }; Returns: boolean }
+      can_manage_site: { Args: { _site_id: string }; Returns: boolean }
+      can_view_resource: {
+        Args: { _resource_id: string; _resource_type: string }
+        Returns: boolean
+      }
+      check_resource_access: {
+        Args: {
+          _required_role: string
+          _resource_id: string
+          _resource_type: string
+        }
+        Returns: boolean
+      }
       generate_procurement_request_number: {
         Args: { p_domain_id: string }
         Returns: string
@@ -3388,6 +3561,7 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_branch_admin: { Args: { _branch_id: string }; Returns: boolean }
+      is_datacenter_admin: { Args: { _dc_id: string }; Returns: boolean }
       is_domain_admin: { Args: { _domain_id: string }; Returns: boolean }
       is_employee_only: { Args: never; Returns: boolean }
       is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
@@ -3401,10 +3575,12 @@ export type Database = {
         }[]
       }
       owns_vault_item: { Args: { _vault_item_id: string }; Returns: boolean }
+      text2ltree: { Args: { "": string }; Returns: unknown }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "employee"
       branch_role: "branch_admin" | "branch_operator" | "branch_viewer"
+      site_role: "site_admin" | "site_operator" | "site_viewer"
       vault_role: "vault_admin" | "vault_editor" | "vault_viewer"
     }
     CompositeTypes: {
@@ -3535,6 +3711,7 @@ export const Constants = {
     Enums: {
       app_role: ["super_admin", "admin", "employee"],
       branch_role: ["branch_admin", "branch_operator", "branch_viewer"],
+      site_role: ["site_admin", "site_operator", "site_viewer"],
       vault_role: ["vault_admin", "vault_editor", "vault_viewer"],
     },
   },
