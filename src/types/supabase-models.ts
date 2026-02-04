@@ -64,7 +64,7 @@ export interface Network {
 
 export interface Server {
   id: string;
-  network_id: string | null;
+  network_id: string; // Required - linked to networks table
   name: string;
   ip_address: string | null;
   operating_system: string | null;

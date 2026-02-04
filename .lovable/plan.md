@@ -147,13 +147,79 @@ The linter detected a pre-existing warning unrelated to Phase 1 & 2:
 
 ---
 
-## Next: Phase 3 - Servers Under Networks
+## Phase 3: Servers Under Networks ✅
 
-Phase 3 will:
-1. Verify servers.network_id exists and is properly linked
-2. Update server RLS to use network→cluster→domain chain
-3. Create `can_access_server` and `can_edit_server` functions
-4. Remove any `is_admin()` references in server policies
-5. Handle NULL network_id edge cases (super_admin only access)
+### Pre-Implementation Corrections Applied
 
-**Awaiting approval to proceed with Phase 3.**
+| Issue | Original Plan | Corrected Approach | Status |
+|-------|---------------|-------------------|--------|
+| NULL network_id | 45 servers had NULL | Created DEFAULT-NETWORK per domain, assigned all | ✅ Applied |
+| is_admin in policies | Legacy policies used is_admin | Replaced with can_access_server/can_edit_server | ✅ Applied |
+
+### Verification Query Results
+
+#### V1: servers.network_id is NOT NULL ✅
+```
+column_name | is_nullable
+------------|------------
+network_id  | NO
+```
+
+#### V2: All servers have network_id (count of NULL must be 0) ✅
+```
+null_network_count: 0
+```
+
+#### V3: DEFAULT-NETWORK exists for each domain ✅
+```
+name             | cluster_name     | domain_name
+-----------------|------------------|------------
+DEFAULT-NETWORK  | DEFAULT-CLUSTER  | at.com
+DEFAULT-NETWORK  | DEFAULT-CLUSTER  | is.com
+DEFAULT-NETWORK  | DEFAULT-CLUSTER  | os.com
+```
+
+#### V4: Server RLS policies no longer use is_admin ✅
+```
+policyname      | cmd    | uses_new_functions
+----------------|--------|-------------------
+servers_select  | SELECT | ✅ can_access_server(id)
+servers_insert  | INSERT | ✅ can_edit_domain via network chain
+servers_update  | UPDATE | ✅ can_edit_server(id)
+servers_delete  | DELETE | ✅ is_domain_admin via network chain
+```
+
+#### V5: Security functions have correct search_path ✅
+```
+proname           | prosecdef | proconfig
+------------------|-----------|------------------------
+can_access_server | true      | [search_path=public]
+can_edit_server   | true      | [search_path=public]
+```
+
+### Code Updates ✅
+- `src/pages/Servers.tsx` - network_id validation enforced (required field)
+- `src/types/supabase-models.ts` - Server interface updated: `network_id: string` (not nullable)
+
+### Definition of Done ✅
+- [x] servers.network_id is NOT NULL
+- [x] DEFAULT-NETWORK created for each domain (under DEFAULT-CLUSTER)
+- [x] All 45 orphan servers assigned to DEFAULT-NETWORK
+- [x] FK fk_servers_network created
+- [x] Index idx_servers_network created
+- [x] can_access_server and can_edit_server functions created
+- [x] Server RLS policies updated to use network→cluster→domain chain
+- [x] Old server policies (is_admin based) removed
+- [x] Frontend code updated to require network_id
+
+---
+
+## Next: Phase 4 - VMs Under Clusters
+
+Phase 4 will:
+1. Verify cluster_vms table structure
+2. Update VM RLS to use cluster→domain chain
+3. Create `can_access_vm` and `can_edit_vm` functions
+4. Remove any `is_admin()` references in VM policies
+
+**Awaiting approval to proceed with Phase 4.**

@@ -2334,7 +2334,7 @@ export type Database = {
           last_restore_test: string | null
           model: string | null
           name: string
-          network_id: string | null
+          network_id: string
           notes: string | null
           operating_system: string | null
           owner: string | null
@@ -2373,7 +2373,7 @@ export type Database = {
           last_restore_test?: string | null
           model?: string | null
           name: string
-          network_id?: string | null
+          network_id: string
           notes?: string | null
           operating_system?: string | null
           owner?: string | null
@@ -2412,7 +2412,7 @@ export type Database = {
           last_restore_test?: string | null
           model?: string | null
           name?: string
-          network_id?: string | null
+          network_id?: string
           notes?: string | null
           operating_system?: string | null
           owner?: string | null
@@ -2431,6 +2431,13 @@ export type Database = {
           warranty_end?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_servers_network"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "networks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "servers_created_by_fkey"
             columns: ["created_by"]
@@ -3349,8 +3356,10 @@ export type Database = {
       can_access_branch: { Args: { _branch_id: string }; Returns: boolean }
       can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_access_network: { Args: { _network_id: string }; Returns: boolean }
+      can_access_server: { Args: { _server_id: string }; Returns: boolean }
       can_edit_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_edit_network: { Args: { _network_id: string }; Returns: boolean }
+      can_edit_server: { Args: { _server_id: string }; Returns: boolean }
       can_manage_branch: { Args: { _branch_id: string }; Returns: boolean }
       can_manage_domain: { Args: { _domain_id: string }; Returns: boolean }
       generate_procurement_request_number: {
