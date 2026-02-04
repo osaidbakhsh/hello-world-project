@@ -26,6 +26,7 @@ import NetworkScan from "./pages/NetworkScan";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Vault from "./pages/Vault";
+import PrivateVault from "./pages/PrivateVault";
 import ITTools from "./pages/ITTools";
 import OnCallSchedule from "./pages/OnCallSchedule";
 import MaintenanceWindows from "./pages/MaintenanceWindows";
@@ -80,6 +81,7 @@ const App = () => (
                 <Route path="/web-apps" element={<WebApps />} />
                 <Route path="/network-scan" element={<NetworkScan />} />
                 <Route path="/vault" element={<Vault />} />
+                <Route path="/private-vault" element={<PrivateVault />} />
                 <Route path="/it-tools" element={<ITTools />} />
                 <Route path="/on-call" element={<OnCallSchedule />} />
                 <Route path="/maintenance" element={<MaintenanceWindows />} />

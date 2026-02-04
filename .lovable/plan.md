@@ -623,7 +623,7 @@ WHERE tablename = 'user_private_vault';
 
 **Remaining Work (Next Phases):**
 - ✅ Phase 2: JWT Custom Claims with domain_ids injection - COMPLETE
-- Phase 3: Vault encryption edge functions
+- ✅ Phase 3: Vault encryption edge functions & UI - COMPLETE
 - Phase 4: Hierarchical Navigation UI
 - Phase 5: Real-time NOC Dashboard
 
@@ -657,3 +657,28 @@ if (!is_super_admin && !domain_ids.includes(targetDomainId)) {
 ```
 
 **Note:** The hook needs to be enabled in Supabase dashboard under Authentication > Hooks > Custom Access Token. The function `custom_access_token_hook` is already created and ready.
+
+---
+
+## Phase 3 Completion Summary
+
+**Edge Functions Created:**
+- ✅ `infra-vault-encrypt` - Server-side AES-256-GCM encryption for infrastructure credentials
+- ✅ `infra-vault-decrypt` - Server-side decryption with automatic audit logging
+
+**React Hooks Created:**
+- ✅ `useInfraCredentials` - CRUD operations for infrastructure_credentials with reveal-on-demand
+- ✅ `usePrivateVault` - Client-side encryption with PBKDF2 key derivation and zero-knowledge storage
+
+**UI Components Created:**
+- ✅ `InfraVaultTab` - Reusable vault tab for Nodes/VMs/Servers with add/reveal/delete functionality
+- ✅ `PrivateVault` - Dedicated page with master passphrase unlock and client-side encryption
+- ✅ `SecurityDashboardWidget` - Dashboard widget showing vault stats and recent access logs
+
+**Routes Added:**
+- `/private-vault` - Employee Private Vault (Zero-Admin Access)
+
+**Security Features:**
+- Infrastructure Vault: Server-side encryption, operator/admin RLS, audit logs per reveal
+- Private Vault: Client-side PBKDF2 + AES-256-GCM, `auth.uid() = owner_id` policy blocks Super Admin
+- All secrets stored as hex-encoded ciphertext, never plaintext
