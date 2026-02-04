@@ -1,203 +1,374 @@
 
-# خطة إصلاح مُولّد البيانات التجريبية
+# Phase 1 Implementation - Branch Hierarchy Foundation
+
+## Pre-Implementation Corrections Applied
+
+Based on your feedback, I'm implementing these corrections:
+
+| Issue | Original Plan | Corrected Approach |
+|-------|---------------|-------------------|
+| Fixed UUID | Hard-coded `00000000-...` | Use `code='DEFAULT'` as singleton key, SELECT id for backfill |
+| can_access_branch | Direct domain_memberships query | Use `can_access_domain(d.id)` for consistency |
+| update_updated_at_column | Assumed exists | ✅ Verified exists in database |
 
 ---
 
-## 1. تشخيص السبب الجذري
+## Phase 1 Migration SQL
 
-### المشكلة المكتشفة:
+### Migration 1: Create Branch Infrastructure
 
-| الحقل | القيمة المُستخدمة في الكود | القيم المسموحة في قاعدة البيانات |
-|-------|---------------------------|--------------------------------|
-| `cluster_type` | `'hyper-v'` (مع شَرطة) | `['nutanix', 'vmware', 'hyperv', 'other']` |
-| `rf_level` | `'RF2'` (صحيح) | `['RF2', 'RF3']` فقط |
+```sql
+-- ============================================================
+-- PHASE 1: BRANCH HIERARCHY FOUNDATION
+-- ============================================================
+-- Corrections applied:
+-- 1. No fixed UUID - use code='DEFAULT' as singleton key
+-- 2. can_access_branch uses can_access_domain for consistency
+-- 3. branch_role default is 'branch_viewer' (not 'viewer')
+-- ============================================================
 
-**السبب الجذري**: في ملف `src/utils/seedData.ts` السطر 449، الكود يستخدم `'hyper-v'` بينما قاعدة البيانات تتوقع `'hyperv'` بدون شَرطة.
+-- Step 1: Create branch_role enum (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'branch_role') THEN
+    CREATE TYPE branch_role AS ENUM ('branch_admin', 'branch_operator', 'branch_viewer');
+  END IF;
+END$$;
 
-### مواقع الملفات:
+-- Step 2: Create branches table
+CREATE TABLE IF NOT EXISTS branches (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  code text NOT NULL UNIQUE,
+  city text,
+  region text,
+  timezone text DEFAULT 'Asia/Riyadh',
+  notes text,
+  created_by uuid REFERENCES profiles(id),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 
-```
-src/pages/Settings.tsx          → واجهة المستخدم (أسطر 648-691)
-src/utils/seedData.ts           → منطق التوليد (1517 سطر)
-src/types/datacenter.ts         → تعريفات الأنواع
+-- Step 3: Add updated_at trigger for branches
+DROP TRIGGER IF EXISTS update_branches_updated_at ON branches;
+CREATE TRIGGER update_branches_updated_at
+  BEFORE UPDATE ON branches
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Step 4: Create branch_memberships table
+CREATE TABLE IF NOT EXISTS branch_memberships (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  profile_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  branch_role branch_role NOT NULL DEFAULT 'branch_viewer',
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(branch_id, profile_id)
+);
+
+-- Step 5: Create indexes
+CREATE INDEX IF NOT EXISTS idx_branch_memberships_branch ON branch_memberships(branch_id);
+CREATE INDEX IF NOT EXISTS idx_branch_memberships_profile ON branch_memberships(profile_id);
+
+-- Step 6: Enable RLS on both tables
+ALTER TABLE branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE branch_memberships ENABLE ROW LEVEL SECURITY;
+
+-- Step 7: Add branch_id to domains (nullable first)
+ALTER TABLE domains ADD COLUMN IF NOT EXISTS branch_id uuid;
+
+-- Step 8: Create default branch (idempotent using code as singleton key)
+INSERT INTO branches (name, code, notes)
+VALUES ('Default Branch', 'DEFAULT', 'Auto-created for existing domains')
+ON CONFLICT (code) DO NOTHING;
+
+-- Step 9: Backfill domains with default branch (using code lookup, NOT fixed UUID)
+UPDATE domains 
+SET branch_id = (SELECT id FROM branches WHERE code = 'DEFAULT')
+WHERE branch_id IS NULL;
+
+-- Step 10: Enforce NOT NULL on domains.branch_id
+ALTER TABLE domains ALTER COLUMN branch_id SET NOT NULL;
+
+-- Step 11: Add FK constraint (idempotent check)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints 
+    WHERE constraint_name = 'fk_domains_branch' AND table_name = 'domains'
+  ) THEN
+    ALTER TABLE domains ADD CONSTRAINT fk_domains_branch 
+      FOREIGN KEY (branch_id) REFERENCES branches(id);
+  END IF;
+END$$;
+
+-- Step 12: Add index on domains.branch_id
+CREATE INDEX IF NOT EXISTS idx_domains_branch ON domains(branch_id);
+
+-- ============================================================
+-- SECURITY FUNCTIONS (all with SET search_path = public)
+-- ============================================================
+
+-- can_access_branch: Uses can_access_domain for consistency
+CREATE OR REPLACE FUNCTION public.can_access_branch(_branch_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT is_super_admin()
+    -- Direct branch membership
+    OR EXISTS (
+      SELECT 1 FROM branch_memberships bm
+      JOIN profiles p ON p.id = bm.profile_id
+      WHERE p.user_id = auth.uid() AND bm.branch_id = _branch_id
+    )
+    -- Has access to any domain under this branch (uses can_access_domain for consistency)
+    OR EXISTS (
+      SELECT 1 FROM domains d
+      WHERE d.branch_id = _branch_id AND can_access_domain(d.id)
+    )
+$$;
+
+-- can_manage_branch: Branch admin or super_admin
+CREATE OR REPLACE FUNCTION public.can_manage_branch(_branch_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT is_super_admin()
+    OR EXISTS (
+      SELECT 1 FROM branch_memberships bm
+      JOIN profiles p ON p.id = bm.profile_id
+      WHERE p.user_id = auth.uid() 
+        AND bm.branch_id = _branch_id
+        AND bm.branch_role = 'branch_admin'
+    )
+$$;
+
+-- is_branch_admin: Same logic as can_manage_branch
+CREATE OR REPLACE FUNCTION public.is_branch_admin(_branch_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT is_super_admin()
+    OR EXISTS (
+      SELECT 1 FROM branch_memberships bm
+      JOIN profiles p ON p.id = bm.profile_id
+      WHERE p.user_id = auth.uid() 
+        AND bm.branch_id = _branch_id
+        AND bm.branch_role = 'branch_admin'
+    )
+$$;
+
+-- UPDATED can_access_domain: Add branch_admin inheritance
+CREATE OR REPLACE FUNCTION public.can_access_domain(_domain_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT is_super_admin()
+    -- Direct domain membership
+    OR EXISTS (
+      SELECT 1 FROM domain_memberships dm
+      JOIN profiles p ON p.id = dm.profile_id
+      WHERE p.user_id = auth.uid() AND dm.domain_id = _domain_id
+    )
+    -- Branch admin inherits access to all domains in their branch
+    OR EXISTS (
+      SELECT 1 FROM domains d
+      JOIN branch_memberships bm ON bm.branch_id = d.branch_id
+      JOIN profiles p ON p.id = bm.profile_id
+      WHERE d.id = _domain_id
+        AND p.user_id = auth.uid()
+        AND bm.branch_role = 'branch_admin'
+    )
+$$;
+
+-- UPDATED can_edit_domain: Add branch_admin inheritance
+CREATE OR REPLACE FUNCTION public.can_edit_domain(_domain_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT is_super_admin()
+    -- Direct domain membership with edit rights
+    OR EXISTS (
+      SELECT 1 FROM domain_memberships dm
+      JOIN profiles p ON p.id = dm.profile_id
+      WHERE p.user_id = auth.uid() 
+        AND dm.domain_id = _domain_id
+        AND dm.can_edit = true
+    )
+    -- Branch admin inherits edit access
+    OR EXISTS (
+      SELECT 1 FROM domains d
+      JOIN branch_memberships bm ON bm.branch_id = d.branch_id
+      JOIN profiles p ON p.id = bm.profile_id
+      WHERE d.id = _domain_id
+        AND p.user_id = auth.uid()
+        AND bm.branch_role = 'branch_admin'
+    )
+$$;
+
+-- ============================================================
+-- RLS POLICIES FOR branches
+-- ============================================================
+DROP POLICY IF EXISTS "branches_select" ON branches;
+DROP POLICY IF EXISTS "branches_insert" ON branches;
+DROP POLICY IF EXISTS "branches_update" ON branches;
+DROP POLICY IF EXISTS "branches_delete" ON branches;
+
+CREATE POLICY "branches_select" ON branches FOR SELECT
+USING (can_access_branch(id));
+
+CREATE POLICY "branches_insert" ON branches FOR INSERT
+WITH CHECK (is_super_admin());
+
+CREATE POLICY "branches_update" ON branches FOR UPDATE
+USING (can_manage_branch(id))
+WITH CHECK (can_manage_branch(id));
+
+CREATE POLICY "branches_delete" ON branches FOR DELETE
+USING (is_super_admin());
+
+-- ============================================================
+-- RLS POLICIES FOR branch_memberships
+-- ============================================================
+DROP POLICY IF EXISTS "branch_memberships_select" ON branch_memberships;
+DROP POLICY IF EXISTS "branch_memberships_insert" ON branch_memberships;
+DROP POLICY IF EXISTS "branch_memberships_update" ON branch_memberships;
+DROP POLICY IF EXISTS "branch_memberships_delete" ON branch_memberships;
+
+CREATE POLICY "branch_memberships_select" ON branch_memberships FOR SELECT
+USING (can_access_branch(branch_id) OR profile_id = get_my_profile_id());
+
+CREATE POLICY "branch_memberships_insert" ON branch_memberships FOR INSERT
+WITH CHECK (can_manage_branch(branch_id));
+
+CREATE POLICY "branch_memberships_update" ON branch_memberships FOR UPDATE
+USING (can_manage_branch(branch_id))
+WITH CHECK (can_manage_branch(branch_id));
+
+CREATE POLICY "branch_memberships_delete" ON branch_memberships FOR DELETE
+USING (can_manage_branch(branch_id));
+
+-- ============================================================
+-- UPDATE domains POLICIES (Remove is_admin, use is_super_admin)
+-- ============================================================
+DROP POLICY IF EXISTS "Admins can do all on domains" ON domains;
+DROP POLICY IF EXISTS "Users can view assigned domains" ON domains;
+DROP POLICY IF EXISTS "domains_select" ON domains;
+DROP POLICY IF EXISTS "domains_insert" ON domains;
+DROP POLICY IF EXISTS "domains_update" ON domains;
+DROP POLICY IF EXISTS "domains_delete" ON domains;
+
+CREATE POLICY "domains_select" ON domains FOR SELECT
+USING (is_super_admin() OR can_access_domain(id));
+
+CREATE POLICY "domains_insert" ON domains FOR INSERT
+WITH CHECK (is_super_admin() OR can_manage_branch(branch_id));
+
+CREATE POLICY "domains_update" ON domains FOR UPDATE
+USING (is_super_admin() OR can_manage_branch(branch_id))
+WITH CHECK (is_super_admin() OR can_manage_branch(branch_id));
+
+CREATE POLICY "domains_delete" ON domains FOR DELETE
+USING (is_super_admin());
+
+-- ============================================================
+-- UPDATE clusters POLICIES (Remove is_admin)
+-- ============================================================
+DROP POLICY IF EXISTS "Admins full access to clusters" ON clusters;
+DROP POLICY IF EXISTS "Domain members can view clusters" ON clusters;
+DROP POLICY IF EXISTS "clusters_select" ON clusters;
+DROP POLICY IF EXISTS "clusters_insert" ON clusters;
+DROP POLICY IF EXISTS "clusters_update" ON clusters;
+DROP POLICY IF EXISTS "clusters_delete" ON clusters;
+
+CREATE POLICY "clusters_select" ON clusters FOR SELECT
+USING (is_super_admin() OR can_access_domain(domain_id));
+
+CREATE POLICY "clusters_insert" ON clusters FOR INSERT
+WITH CHECK (is_super_admin() OR can_edit_domain(domain_id));
+
+CREATE POLICY "clusters_update" ON clusters FOR UPDATE
+USING (is_super_admin() OR can_edit_domain(domain_id))
+WITH CHECK (is_super_admin() OR can_edit_domain(domain_id));
+
+CREATE POLICY "clusters_delete" ON clusters FOR DELETE
+USING (is_super_admin() OR is_domain_admin(domain_id));
 ```
 
 ---
 
-## 2. التغييرات المطلوبة
+## Verification Queries (V1-V5)
 
-### أ) إصلاح `src/utils/seedData.ts`
+After migration, I will run these queries and provide outputs:
 
-1. **إضافة ثوابت مركزية للقيم المسموحة:**
+```sql
+-- V1: branch_role enum exists
+SELECT typname, enumlabel FROM pg_type t
+JOIN pg_enum e ON t.oid = e.enumtypid
+WHERE typname = 'branch_role'
+ORDER BY e.enumsortorder;
 
-```typescript
-// Database constraint mappings
-const ALLOWED_VALUES = {
-  cluster_type: ['nutanix', 'vmware', 'hyperv', 'other'] as const,
-  rf_level: ['RF2', 'RF3'] as const,
-  storage_type: ['all-flash', 'hybrid', 'hdd'] as const,
-  node_role: ['compute', 'storage', 'hybrid'] as const,
-  node_status: ['active', 'maintenance', 'decommissioned'] as const,
-} as const;
-```
+-- V2: Default branch exists with code='DEFAULT'
+SELECT id, name, code, created_at FROM branches WHERE code = 'DEFAULT';
 
-2. **تصحيح بيانات الكلستر:**
+-- V3: All domains have branch_id (count of NULL must be 0)
+SELECT COUNT(*) as null_branch_count FROM domains WHERE branch_id IS NULL;
 
-```typescript
-// قبل (خطأ)
-{ 
-  datacenterName: 'DC-DAMMAM-01', 
-  name: 'IS-HYPERV-SEC', 
-  cluster_type: 'hyper-v',  // ❌
-  ...
-}
+-- V4: No is_admin in domain/cluster policies
+SELECT tablename, policyname, qual, with_check 
+FROM pg_policies 
+WHERE tablename IN ('domains', 'clusters') 
+AND (qual LIKE '%is_admin%' OR with_check LIKE '%is_admin%');
 
-// بعد (صحيح)
-{ 
-  datacenterName: 'DC-DAMMAM-01', 
-  name: 'IS-HYPERV-SEC', 
-  cluster_type: 'hyperv',  // ✅
-  rf_level: null,  // VMware/Hyper-V لا يستخدم RF
-  ...
-}
-```
-
-3. **إضافة دالة التحقق قبل الإدراج:**
-
-```typescript
-function validateClusterData(cluster: any): string[] {
-  const errors: string[] = [];
-  
-  if (cluster.cluster_type && !ALLOWED_VALUES.cluster_type.includes(cluster.cluster_type)) {
-    errors.push(`Invalid cluster_type: '${cluster.cluster_type}'. Allowed: ${ALLOWED_VALUES.cluster_type.join(', ')}`);
-  }
-  
-  if (cluster.rf_level && !ALLOWED_VALUES.rf_level.includes(cluster.rf_level)) {
-    errors.push(`Invalid rf_level: '${cluster.rf_level}'. Allowed: ${ALLOWED_VALUES.rf_level.join(', ')}`);
-  }
-  
-  if (cluster.storage_type && !ALLOWED_VALUES.storage_type.includes(cluster.storage_type)) {
-    errors.push(`Invalid storage_type: '${cluster.storage_type}'. Allowed: ${ALLOWED_VALUES.storage_type.join(', ')}`);
-  }
-  
-  return errors;
-}
-```
-
-4. **تحسين رسائل الخطأ:**
-
-```typescript
-// بدلاً من:
-if (clusterError) throw new Error(`Failed to create clusters: ${clusterError.message}`);
-
-// استخدام:
-if (clusterError) {
-  const invalidCluster = newClusters.find(c => 
-    !ALLOWED_VALUES.cluster_type.includes(c.cluster_type as any)
-  );
-  throw new Error(
-    `Failed to create clusters: ${clusterError.message}\n` +
-    `Invalid data: ${JSON.stringify(invalidCluster, null, 2)}\n` +
-    `Allowed cluster_type: ${ALLOWED_VALUES.cluster_type.join(', ')}`
-  );
-}
-```
-
-### ب) تحسين `src/pages/Settings.tsx`
-
-1. **تحسين التسميات:**
-
-```typescript
-// تغيير النص من "البيانات التجريبية" إلى نص أوضح
-<CardTitle>
-  <Database className="w-5 h-5" />
-  {language === 'ar' ? 'البيانات التجريبية' : 'Demo Data Generator'}
-</CardTitle>
-<CardDescription>
-  {language === 'ar' 
-    ? 'إنشاء بيانات تجريبية للاختبار فقط. يمكن إعادة تعيينها لاحقاً.' 
-    : 'Creates demo data for testing only. Can be reset later.'}
-</CardDescription>
+-- V5: Security functions have correct search_path
+SELECT proname, prosecdef, proconfig 
+FROM pg_proc 
+WHERE proname IN ('can_access_branch', 'can_manage_branch', 'is_branch_admin', 'can_access_domain', 'can_edit_domain')
+AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public');
 ```
 
 ---
 
-## 3. تفاصيل الإصلاحات
+## RLS Leak Test Matrix Scenarios (1-4, 11-12)
 
-### جدول البيانات التجريبية المُصحّحة:
+After migration, I will test these scenarios:
 
-| اسم الكلستر | cluster_type | rf_level | storage_type |
-|-------------|--------------|----------|--------------|
-| OS-NUTANIX-PROD | `nutanix` ✅ | `RF2` ✅ | `hybrid` ✅ |
-| OS-NUTANIX-DR | `nutanix` ✅ | `RF2` ✅ | `all-flash` ✅ |
-| AT-VMWARE-PROD | `vmware` ✅ | `null` | `all-flash` ✅ |
-| IS-HYPERV-SEC | `hyperv` ✅ (كان `hyper-v`) | `null` | `hybrid` ✅ |
-
-### تسلسل إنشاء البيانات:
-
-```
-1. Domains (3)
-   ↓
-2. Networks (6 - 2 per domain)
-   ↓
-3. Servers (21)
-   ↓
-4. Datacenters (3 - 1 per domain)
-   ↓
-5. Clusters (4)
-   ↓
-6. Cluster Nodes (14)
-   ↓
-7. Maintenance Windows
-   ↓
-8. On-Call Schedules
-   ↓
-9. File Shares
-   ↓
-10. Vacations
-   ↓
-11. Licenses
-   ↓
-12. Tasks
-   ↓
-13. Web Applications
-   ↓
-14. Vault Items
-   ↓
-15. Scan Agents
-```
+| # | Scenario | Expected |
+|---|----------|----------|
+| 1 | Cross-branch domain access | 0 rows for non-member |
+| 2 | Cross-domain server access | 0 rows for non-member |
+| 3 | Branch admin domain inheritance | All domains in branch |
+| 4 | Cross-branch cluster access | 0 rows for non-member |
+| 11 | Super admin sees all | All rows |
+| 12 | Branch membership self-view | Own records only |
 
 ---
 
-## 4. الملفات المتأثرة
+## Definition of Done for Phase 1
 
-| الملف | التغيير |
-|-------|---------|
-| `src/utils/seedData.ts` | تصحيح `cluster_type: 'hyper-v'` → `'hyperv'` + إضافة validation + تحسين الأخطاء |
-| `src/pages/Settings.tsx` | تحسين الوصف والتسميات |
+- [ ] branch_role enum created
+- [ ] branches table created with RLS
+- [ ] branch_memberships table created with RLS
+- [ ] domains.branch_id is NOT NULL
+- [ ] Default branch created via code='DEFAULT' (not fixed UUID)
+- [ ] All 3 existing domains assigned to Default branch
+- [ ] Security functions created with SET search_path = public
+- [ ] can_access_domain updated with branch_admin inheritance
+- [ ] No is_admin() in domains/clusters policies
+- [ ] All verification queries pass
+- [ ] RLS test scenarios 1-4, 11-12 pass
 
 ---
 
-## 5. النتيجة المتوقعة بعد الإصلاح
+## Next Steps After Approval
 
-**عند الضغط على "إنشاء بيانات تجريبية":**
-
-- **Domains**: 3 (os.com, at.com, is.com)
-- **Networks**: 6
-- **Servers**: 21
-- **Datacenters**: 3
-- **Clusters**: 4
-- **Cluster Nodes**: 14
-- **Maintenance Windows**: 4
-- **On-Call Schedules**: 3
-- **File Shares**: 6
-- **Vacations**: (حسب المستخدم)
-- **Licenses**: 10
-- **Tasks**: 8
-- **Web Applications**: 10
-- **Vault Items**: 12
-- **Scan Agents**: 4
-
-**الحالة**: ✅ PASS
-
-**إعادة التعيين**: تحذف فقط البيانات المُنشأة بواسطة المستخدم الحالي (لا تمس بيانات المستخدمين الآخرين)
+1. Apply the migration
+2. Run all verification queries (V1-V5)
+3. Execute RLS leak test scenarios
+4. Provide evidence of results
+5. Proceed to Phase 2 only after Phase 1 is verified complete
