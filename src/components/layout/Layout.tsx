@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Sidebar from './Sidebar';
+import CommandPalette from '@/components/hierarchy/CommandPalette';
 
 const Layout: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -10,6 +11,9 @@ const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background" dir={dir}>
+      {/* Global Command Palette (Cmd+K / Ctrl+K) */}
+      <CommandPalette />
+      
       <Sidebar 
         collapsed={sidebarCollapsed} 
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
@@ -22,7 +26,7 @@ const Layout: React.FC = () => {
             : (sidebarCollapsed ? 'ml-16' : 'ml-64')
         )}
       >
-        <div className="p-6">
+        <div className="p-4">
           <Outlet />
         </div>
       </main>

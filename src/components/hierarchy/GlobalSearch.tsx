@@ -107,28 +107,29 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ collapsed = false }) => {
     );
   }
 
+  // Trigger command palette on click
+  const handleTriggerClick = () => {
+    // Dispatch keyboard event to trigger CommandPalette
+    const event = new KeyboardEvent('keydown', {
+      key: 'k',
+      metaKey: true,
+      bubbles: true
+    });
+    document.dispatchEvent(event);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button 
-          variant="outline" 
-          className="w-full justify-start gap-2 text-muted-foreground font-normal"
-        >
-          <Search className="w-4 h-4" />
-          <span>{language === 'ar' ? 'بحث...' : 'Search...'}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
-        <SearchContent
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchResults={searchResults}
-          isSearching={isSearching}
-          onSelect={handleSelect}
-          language={language}
-        />
-      </PopoverContent>
-    </Popover>
+    <Button 
+      variant="outline" 
+      className="w-full justify-start gap-2 text-muted-foreground font-normal bg-sidebar-accent/30 border-sidebar-border hover:bg-sidebar-accent"
+      onClick={handleTriggerClick}
+    >
+      <Search className="w-4 h-4" />
+      <span className="flex-1 text-start text-xs">{language === 'ar' ? 'بحث...' : 'Search...'}</span>
+      <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+        <span className="text-xs">⌘</span>K
+      </kbd>
+    </Button>
   );
 };
 
