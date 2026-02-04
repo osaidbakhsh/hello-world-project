@@ -685,30 +685,38 @@ if (!is_super_admin && !domain_ids.includes(targetDomainId)) {
 
 ---
 
-## Phase 4: Hierarchical Navigation UI ✅ COMPLETED
+## Phase 4: Hierarchical Navigation UI ✅ COMPLETED (Enhanced)
 
 **Context Created:**
 - ✅ `HierarchyContext` - Manages selection state, expanded nodes, search, and data fetching with localStorage persistence
 
 **Components Created:**
-- ✅ `HierarchyTree` - Recursive TreeView with lazy loading for 7-level hierarchy (Site → Domain → Datacenter → Cluster → Network → Node → VM)
+- ✅ `HierarchyTree` - Recursive TreeView with lazy loading for 7-level hierarchy (Site → Domain → Datacenter → Cluster → Network → Node → VM), now with health badges (green/red status indicators)
 - ✅ `HierarchyBreadcrumb` - Dynamic breadcrumb bar using hierarchy path with clickable segments
-- ✅ `GlobalSearch` - Cross-level search with results grouped by level, auto-expands tree to selected node
+- ✅ `GlobalSearch` - Cross-level search with Cmd+K keyboard shortcut trigger
+- ✅ `CommandPalette` - Full command palette (Cmd+K / Ctrl+K) with cross-table search showing full hierarchy paths
 
-**Pages Created:**
-- ✅ `ResourceDetail` - Unified resource detail page with level-specific stats and Vault tab integration
+**Pages Enhanced:**
+- ✅ `ResourceDetail` - Unified resource detail page with:
+  - Level-specific health overview widgets (Site/Domain/Cluster/Network aggregate health)
+  - Health percentage, total/healthy/warning/critical counts
+  - Compact enterprise UI design (reduced padding, dense grid layouts)
+  - Vault tab integration for Node and VM resources
 
 **Features:**
 - Lazy loading: Children fetched only when parent node is expanded
+- Health Badges: Live status indicators (green pulse for online, red for offline, yellow for warning)
 - Level-specific icons: MapPin (Site), Globe (Domain), Building2 (Datacenter), Server (Cluster), Network, Cpu (Node), Monitor (VM)
 - Realtime status for VMs using Supabase Realtime subscriptions
 - Persistent tree expansion and selection state via localStorage
-- Integrated search in sidebar with popover results
+- Command Palette with full path display (Site › Domain › Datacenter › Cluster › Network › VM)
+- Keyboard shortcut: ⌘K / Ctrl+K for instant search access
 
-**Routes Added:**
+**Routes:**
 - `/resource/:level/:id` - Dynamic resource detail page
 
 **Integration:**
+- Command Palette integrated into Layout (globally available)
 - Tree and search integrated into Sidebar under "Infrastructure" collapsible section
 - Breadcrumbs displayed on ResourceDetail page
 - InfraVaultTab shown for Node and VM resources

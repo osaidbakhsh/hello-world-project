@@ -5,6 +5,7 @@ import { useHierarchy, HierarchyNode, HierarchyLevel } from '@/contexts/Hierarch
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { 
   ChevronRight, 
   ChevronDown,
@@ -15,7 +16,8 @@ import {
   Network,
   Cpu,
   Monitor,
-  Loader2
+  Loader2,
+  Circle
 } from 'lucide-react';
 
 const levelIcons: Record<HierarchyLevel, React.ElementType> = {
@@ -48,6 +50,37 @@ const nextLevel: Record<HierarchyLevel, HierarchyLevel | null> = {
   vm: null,
 };
 
+// Health status indicator component
+const HealthBadge: React.FC<{ status?: string }> = ({ status }) => {
+  if (!status) return null;
+  
+  const isHealthy = status === 'online' || status === 'production' || status === 'active';
+  const isWarning = status === 'maintenance' || status === 'degraded' || status === 'warning';
+  const isError = status === 'offline' || status === 'stopped' || status === 'error';
+  
+  return (
+    <span className="relative flex h-2 w-2 shrink-0">
+      <span
+        className={cn(
+          'absolute inline-flex h-full w-full rounded-full opacity-75',
+          isHealthy && 'bg-success animate-ping',
+          isWarning && 'bg-warning',
+          isError && 'bg-destructive'
+        )}
+      />
+      <span
+        className={cn(
+          'relative inline-flex rounded-full h-2 w-2',
+          isHealthy && 'bg-success',
+          isWarning && 'bg-warning',
+          isError && 'bg-destructive',
+          !isHealthy && !isWarning && !isError && 'bg-muted-foreground'
+        )}
+      />
+    </span>
+  );
+};
+
 interface TreeNodeProps {
   node: HierarchyNode;
   depth: number;
@@ -64,6 +97,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, depth }) => {
   const Icon = levelIcons[node.level];
   const colorClass = levelColors[node.level];
   const childLevel = nextLevel[node.level];
+  const status = node.metadata?.status as string | undefined;
 
   // Lazy load children when expanded
   useEffect(() => {
@@ -98,45 +132,54 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, depth }) => {
       <Collapsible open={isExpanded}>
         <div
           className={cn(
-            'flex items-center gap-1.5 py-1.5 px-2 rounded-md cursor-pointer transition-colors',
-            'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-            'group'
+            'flex items-center gap-1.5 py-1 px-1.5 rounded cursor-pointer transition-all',
+            'hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground',
+            'group border-l-2 border-transparent hover:border-primary/50'
           )}
-          style={{ paddingInlineStart: `${depth * 12 + 8}px` }}
+          style={{ paddingInlineStart: `${depth * 12 + 4}px` }}
         >
           {hasChildren ? (
             <CollapsibleTrigger asChild onClick={handleToggle}>
-              <button className="p-0.5 hover:bg-muted rounded">
+              <button className="p-0.5 hover:bg-muted/50 rounded transition-colors">
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
                 ) : isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                 )}
               </button>
             </CollapsibleTrigger>
           ) : (
-            <span className="w-5" />
+            <span className="w-4" />
           )}
           
           <div 
-            className="flex items-center gap-2 flex-1 min-w-0"
+            className="flex items-center gap-1.5 flex-1 min-w-0"
             onClick={handleClick}
           >
-            <Icon className={cn('w-4 h-4 shrink-0', colorClass)} />
-            <span className="truncate text-sm text-sidebar-foreground group-hover:text-sidebar-accent-foreground">
+            <Icon className={cn('w-3.5 h-3.5 shrink-0', colorClass)} />
+            <span className="truncate text-xs font-medium text-sidebar-foreground group-hover:text-sidebar-accent-foreground">
               {node.name}
             </span>
+            {(node.level === 'node' || node.level === 'vm') && (
+              <HealthBadge status={status} />
+            )}
           </div>
+          
+          {node.childCount !== undefined && node.childCount > 0 && (
+            <Badge variant="secondary" className="h-4 px-1 text-[10px] bg-muted/50">
+              {node.childCount}
+            </Badge>
+          )}
         </div>
 
         {hasChildren && (
           <CollapsibleContent>
             {isLoading ? (
-              <div className="space-y-1 py-1" style={{ paddingInlineStart: `${(depth + 1) * 12 + 8}px` }}>
-                {[1, 2, 3].map(i => (
-                  <Skeleton key={i} className="h-6 w-3/4" />
+              <div className="space-y-0.5 py-0.5" style={{ paddingInlineStart: `${(depth + 1) * 12 + 4}px` }}>
+                {[1, 2].map(i => (
+                  <Skeleton key={i} className="h-5 w-3/4" />
                 ))}
               </div>
             ) : children.length > 0 ? (
@@ -145,10 +188,10 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, depth }) => {
               ))
             ) : hasLoaded ? (
               <div 
-                className="text-xs text-muted-foreground py-1 italic"
-                style={{ paddingInlineStart: `${(depth + 1) * 12 + 24}px` }}
+                className="text-[10px] text-muted-foreground py-0.5 italic"
+                style={{ paddingInlineStart: `${(depth + 1) * 12 + 20}px` }}
               >
-                No items
+                Empty
               </div>
             ) : null}
           </CollapsibleContent>
@@ -172,19 +215,18 @@ const HierarchyTree: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="p-3 space-y-2">
-        <Skeleton className="h-6 w-full" />
-        <Skeleton className="h-6 w-4/5" />
-        <Skeleton className="h-6 w-3/4" />
-        <Skeleton className="h-6 w-4/5" />
+      <div className="p-2 space-y-1">
+        <Skeleton className="h-5 w-full" />
+        <Skeleton className="h-5 w-4/5" />
+        <Skeleton className="h-5 w-3/4" />
       </div>
     );
   }
 
   if (sites.length === 0) {
     return (
-      <div className="p-4 text-center text-muted-foreground text-sm">
-        <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+      <div className="p-3 text-center text-muted-foreground text-xs">
+        <MapPin className="w-6 h-6 mx-auto mb-1.5 opacity-50" />
         <p>No sites configured</p>
       </div>
     );
@@ -192,7 +234,7 @@ const HierarchyTree: React.FC = () => {
 
   return (
     <ScrollArea className="h-full">
-      <div className="py-2">
+      <div className="py-1">
         {sites.map(site => (
           <TreeNode key={site.id} node={site} depth={0} />
         ))}
