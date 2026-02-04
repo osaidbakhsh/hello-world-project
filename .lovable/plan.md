@@ -720,3 +720,60 @@ if (!is_super_admin && !domain_ids.includes(targetDomainId)) {
 - Tree and search integrated into Sidebar under "Infrastructure" collapsible section
 - Breadcrumbs displayed on ResourceDetail page
 - InfraVaultTab shown for Node and VM resources
+
+---
+
+## Phase 5: NOC Dashboard & Real-time Operations Engine ✅ COMPLETED
+
+**Database Changes:**
+- ✅ Enabled Supabase Realtime on `servers`, `cluster_nodes`, `clusters` tables
+- ✅ Created `infrastructure_alerts` table for tracking real-time status changes
+- ✅ Added proper RLS policies for domain-scoped alert visibility
+
+**Hooks Created:**
+- ✅ `useRealtimeHealth` - Comprehensive real-time health monitoring hook with:
+  - Global health scoring across all resources
+  - Per-site and per-domain health aggregation
+  - Real-time Supabase channel subscriptions for servers, nodes, and alerts
+  - Health calculation based on thresholds (>10% warning, >30% critical)
+  - Alert acknowledge/resolve actions
+
+**Components Created:**
+- ✅ `HealthDonutChart` - Interactive donut chart showing health percentages with status breakdown (healthy/warning/critical)
+- ✅ `AlertFeed` - Real-time scrolling alert feed with severity badges, time stamps, and acknowledge/resolve actions
+- ✅ `ResourceHeatmap` - Grid visualization of resource utilization with:
+  - Domain filtering
+  - Metric type switching (Status/CPU/RAM)
+  - Color-coded cells with tooltips
+  - Separate sections for Nodes and VMs
+- ✅ `CriticalAlertModal` - Automated popup for critical alerts with:
+  - Alert details and severity indicators
+  - Quick actions (Contact Admin, Trigger Recovery)
+  - Acknowledge/skip navigation for multiple alerts
+
+**Pages Created:**
+- ✅ `NOCDashboard` - Central Network Operations Center page with:
+  - Live status indicator with animated ping
+  - Quick stats (Total VMs, Physical Nodes, VMs Online, Critical Alerts)
+  - Tabbed health views (Global Overview, By Site, By Domain)
+  - Real-time alert feed sidebar
+  - Resource heatmap with filtering
+  - Alert mute toggle and fullscreen mode
+
+**Features:**
+- Real-time Supabase subscriptions with proper cleanup on unmount
+- Aggregated health scoring: 100% = healthy, >10% offline = warning, >30% offline = critical
+- Health colors mapped throughout TreeView, breadcrumbs, and dashboard widgets
+- Critical alert auto-popup with escalation options
+- Domain and metric filtering for heatmap visualization
+- Recharts integration for donut chart visualizations
+
+**Routes:**
+- `/noc` - NOC Dashboard page
+
+**Translation Keys:**
+- `nav.noc` - NOC Dashboard (Arabic: مركز العمليات)
+
+**Sidebar Integration:**
+- Added NOC link with Radio icon under datacenter in sidebar navigation
+- Admin-only access control

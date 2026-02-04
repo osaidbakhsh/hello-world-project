@@ -5,7 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppName, useAppSettings } from '@/hooks/useSupabaseData';
 import { useTheme } from 'next-themes';
-import { LayoutDashboard, Server, Users, KeyRound, ListTodo, Network, FileBarChart, Settings, Globe, ChevronLeft, ChevronRight, Calendar, FileSpreadsheet, Wifi, LogOut, User, Shield, History, Sun, Moon, Lock, Wrench, Building2, Phone, Clock, FolderKanban, Bot, ShoppingCart, FolderTree } from 'lucide-react';
+import { LayoutDashboard, Server, Users, KeyRound, ListTodo, Network, FileBarChart, Settings, Globe, ChevronLeft, ChevronRight, Calendar, FileSpreadsheet, Wifi, LogOut, User, Shield, History, Sun, Moon, Lock, Wrench, Building2, Phone, Clock, FolderKanban, Bot, ShoppingCart, FolderTree, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,6 +44,12 @@ const allMenuItems: MenuItem[] = [{
   path: '/datacenter',
   icon: Server,
   label: 'nav.datacenter',
+  adminOnly: true
+}, {
+  id: 'noc',
+  path: '/noc',
+  icon: Radio,
+  label: 'nav.noc',
   adminOnly: true
 }, {
   id: 'servers',
