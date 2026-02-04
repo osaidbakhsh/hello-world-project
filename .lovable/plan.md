@@ -777,3 +777,34 @@ if (!is_super_admin && !domain_ids.includes(targetDomainId)) {
 **Sidebar Integration:**
 - Added NOC link with Radio icon under datacenter in sidebar navigation
 - Admin-only access control
+
+### Phase 5 Enhancement (February 2026)
+
+**Additional Hooks:**
+- ✅ `useCriticalAlertToasts` - Toast-based critical notification system with:
+  - Sonner toast integration for critical/warning alerts
+  - Persistent toasts for critical events (duration: Infinity)
+  - Quick action buttons (Acknowledge, Contact Admin)
+  - Automatic cleanup on component unmount
+  - Alert deduplication to prevent duplicate toasts
+
+**Additional Components:**
+- ✅ `HighRiskResources` - Grid widget showing Critical/Warning resources:
+  - Severity-sorted list (critical first)
+  - Status badges with icons
+  - Direct navigation to resource detail
+  - Count badges for critical/warning totals
+  - Scrollable list with empty state handling
+
+**Breadcrumb Enhancements:**
+- ✅ Health indicators on breadcrumb segments:
+  - Pulsing dot for critical status
+  - Color-coded health badges (green/yellow/red)
+  - Tooltips with status descriptions
+  - Works with `showHealth` prop toggle
+
+**NOC Dashboard Updates:**
+- ✅ Integrated `useCriticalAlertToasts` for persistent toast notifications
+- ✅ Added `HighRiskResources` widget below Resource Heatmap
+- ✅ Updated color tokens to use semantic design system (info instead of cyan)
+- ✅ Memoized callbacks for better performance

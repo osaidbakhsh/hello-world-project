@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRealtimeHealth } from '@/hooks/useRealtimeHealth';
+import { useCriticalAlertToasts } from '@/hooks/useCriticalAlertToasts';
 import { useDomains } from '@/hooks/useSupabaseData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,7 @@ import HealthDonutChart from '@/components/noc/HealthDonutChart';
 import AlertFeed from '@/components/noc/AlertFeed';
 import ResourceHeatmap from '@/components/noc/ResourceHeatmap';
 import CriticalAlertModal from '@/components/noc/CriticalAlertModal';
+import HighRiskResources from '@/components/noc/HighRiskResources';
 import {
   Radio,
   Activity,
@@ -46,6 +48,21 @@ const NOCDashboard: React.FC = () => {
   const [alertsEnabled, setAlertsEnabled] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'sites' | 'domains'>('overview');
 
+  const handleContactAdmin = useCallback(() => {
+    toast.info('Contacting on-call administrator...', {
+      description: 'An escalation ticket has been created.'
+    });
+  }, []);
+
+  // Integrate toast-based critical alerts
+  useCriticalAlertToasts({
+    alerts: recentAlerts,
+    onAcknowledge: acknowledgeAlert,
+    onResolve: resolveAlert,
+    onContactAdmin: handleContactAdmin,
+    enabled: alertsEnabled
+  });
+
   // Stats for header
   const stats = useMemo(() => ({
     totalVMs: resources.filter(r => r.type === 'server').length,
@@ -53,12 +70,6 @@ const NOCDashboard: React.FC = () => {
     onlineVMs: resources.filter(r => r.type === 'server' && (r.status === 'online' || r.status === 'production' || r.status === 'active')).length,
     criticalAlerts: recentAlerts.filter(a => a.alertType === 'critical' && !a.acknowledged).length
   }), [resources, recentAlerts]);
-
-  const handleContactAdmin = () => {
-    toast.info('Contacting on-call administrator...', {
-      description: 'An escalation ticket has been created.'
-    });
-  };
 
   if (isLoading) {
     return (
@@ -171,8 +182,8 @@ const NOCDashboard: React.FC = () => {
         <Card className="bg-card/50">
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-cyan-500/10">
-                <Cpu className="w-5 h-5 text-cyan-500" />
+              <div className="p-2 rounded-lg bg-info/10">
+                <Cpu className="w-5 h-5 text-info" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.totalNodes}</p>
@@ -290,15 +301,17 @@ const NOCDashboard: React.FC = () => {
             metricType={metricType}
             onMetricChange={setMetricType}
           />
+          {/* High-Risk Resources */}
+          <HighRiskResources resources={resources} />
         </div>
 
         {/* Right Column - Alert Feed */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-4">
           <AlertFeed
             alerts={recentAlerts}
             onAcknowledge={acknowledgeAlert}
             onResolve={resolveAlert}
-            maxHeight="600px"
+            maxHeight="400px"
           />
         </div>
       </div>
