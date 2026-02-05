@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSite } from '@/contexts/SiteContext';
 import { useDomains, useNetworks as useSupabaseNetworks, useServers } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ interface NetworkForm {
 
 const Networks: React.FC = () => {
   const { t, dir } = useLanguage();
+  const { selectedSite } = useSite();
   const { data: domains, refetch: refetchDomains, isLoading: domainsLoading } = useDomains();
   const { data: networks, refetch: refetchNetworks } = useSupabaseNetworks();
   const { data: servers } = useServers();
@@ -94,26 +96,10 @@ const Networks: React.FC = () => {
         if (error) throw error;
         toast({ title: t('common.success'), description: t('networks.domainUpdated') });
       } else {
-        // Get default site (try DEFAULT code first, fallback to first available)
-        let { data: defaultSite } = await supabase
-          .from('sites')
-          .select('id')
-          .eq('code', 'DEFAULT')
-          .maybeSingle();
-
-        // If no DEFAULT site, use the first available site
-        if (!defaultSite) {
-          const { data: firstSite } = await supabase
-            .from('sites')
-            .select('id')
-            .order('created_at', { ascending: true })
-            .limit(1)
-            .single();
-          defaultSite = firstSite;
-        }
-
-        if (!defaultSite?.id) {
-          throw new Error('No sites found. Please create at least one site first.');
+        // Use the currently selected site from context
+        if (!selectedSite?.id) {
+          toast({ title: t('common.error'), description: 'Please select a site first', variant: 'destructive' });
+          return;
         }
 
         const { error } = await supabase
@@ -121,7 +107,7 @@ const Networks: React.FC = () => {
           .insert({ 
             name: domainForm.name, 
             description: domainForm.description,
-            site_id: defaultSite.id
+            site_id: selectedSite.id
           });
         
         if (error) throw error;

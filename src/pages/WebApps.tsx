@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSite } from '@/contexts/SiteContext';
 import { useWebsiteApplications, useDomains, WebsiteApplication } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -209,6 +210,13 @@ const WebApps: React.FC = () => {
   const [localApps, setLocalApps] = useState<WebsiteApplication[]>([]);
   const [hasOrderChanges, setHasOrderChanges] = useState(false);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  // Pre-select first domain when dialog opens
+  useEffect(() => {
+    if (isDialogOpen && !editingApp && domains.length > 0 && !formData.domain_id) {
+      setFormData(prev => ({ ...prev, domain_id: domains[0].id }));
+    }
+  }, [isDialogOpen, editingApp, domains, formData.domain_id]);
 
   // Sync local apps with fetched data
   useEffect(() => {

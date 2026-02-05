@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSite } from '@/contexts/SiteContext';
+import { useSiteDomains } from '@/hooks/useSiteDomains';
 import { useDomains, useServers, useProfiles, useVacations } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -75,6 +77,8 @@ interface Conflict {
 
 const MaintenanceWindows: React.FC = () => {
   const { t, language, dir } = useLanguage();
+  const { selectedSite } = useSite();
+  const { data: siteDomainIds = [] } = useSiteDomains();
   const { profile } = useAuth();
   const { data: domains } = useDomains();
   const { data: servers } = useServers();
@@ -101,17 +105,29 @@ const MaintenanceWindows: React.FC = () => {
     notes: '',
   });
 
+  // Pre-select first domain when dialog opens
+  useEffect(() => {
+    if (isAddDialogOpen && domains.length > 0 && !newWindow.domain_id) {
+      setNewWindow(prev => ({ ...prev, domain_id: domains[0].id }));
+    }
+  }, [isAddDialogOpen, domains, newWindow.domain_id]);
+
   // Fetch maintenance windows
   const { data: maintenanceWindows = [], isLoading } = useQuery({
-    queryKey: ['maintenance_windows'],
+    queryKey: ['maintenance_windows', selectedSite?.id],
     queryFn: async () => {
+      if (!selectedSite || siteDomainIds.length === 0) {
+        return [];
+      }
       const { data, error } = await supabase
         .from('maintenance_windows')
         .select('*')
+        .in('domain_id', siteDomainIds)
         .order('start_time', { ascending: true });
       if (error) throw error;
       return data as MaintenanceWindow[];
     },
+    enabled: !!selectedSite && siteDomainIds.length > 0,
   });
 
   // Fetch change requests
