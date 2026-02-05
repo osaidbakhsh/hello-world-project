@@ -23,7 +23,8 @@ export function useSiteDomains() {
       return data?.map(d => d.id) || [];
     },
     enabled: !!selectedSite,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 30 * 1000, // Cache for 30 seconds only - ensure fresh data on site switch
+    gcTime: 60 * 1000, // Keep in cache for 1 minute
   });
 }
 
@@ -48,6 +49,7 @@ export function useSiteProfileIds() {
       return [...new Set(memberships?.map(m => m.profile_id) || [])];
     },
     enabled: !!selectedSite && siteDomainIds.length > 0,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
+    gcTime: 60 * 1000,
   });
 }

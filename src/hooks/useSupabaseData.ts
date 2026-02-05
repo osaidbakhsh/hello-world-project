@@ -82,19 +82,30 @@ export function useDomains() {
 
 export function useNetworks(domainId?: string) {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
   const [data, setData] = useState<Network[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetch = useCallback(async () => {
+    // Wait for domains to load
+    if (!selectedSite || (domainsLoading && !domainId)) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       let query = supabase.from('networks').select('*');
       
       if (domainId) {
         query = query.eq('domain_id', domainId);
-      } else if (selectedSite && siteDomainIds.length > 0) {
+      } else if (siteDomainIds.length > 0) {
         query = query.in('domain_id', siteDomainIds);
+      } else {
+        setData([]);
+        setIsLoading(false);
+        return;
       }
       
       const { data: result, error } = await query.order('name');
@@ -106,7 +117,7 @@ export function useNetworks(domainId?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [domainId, selectedSite?.id, siteDomainIds]);
+  }, [domainId, selectedSite?.id, siteDomainIds, domainsLoading]);
 
   useEffect(() => {
     fetch();
@@ -118,20 +129,32 @@ export function useNetworks(domainId?: string) {
 // Server hooks - filtered by site
 export function useServers(networkId?: string) {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
   const [data, setData] = useState<Server[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetch = useCallback(async () => {
+    // Wait for domains to load before fetching servers
+    if (!selectedSite || (domainsLoading && !networkId)) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       let query = supabase.from('servers').select('*');
       
       if (networkId) {
         query = query.eq('network_id', networkId);
-      } else if (selectedSite && siteDomainIds.length > 0) {
+      } else if (siteDomainIds.length > 0) {
         // Filter by domain_id for servers in the site's domains
         query = query.in('domain_id', siteDomainIds);
+      } else {
+        // No domains for this site, return empty
+        setData([]);
+        setIsLoading(false);
+        return;
       }
       
       const { data: result, error } = await query.order('created_at', { ascending: false });
@@ -143,7 +166,7 @@ export function useServers(networkId?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [networkId, selectedSite?.id, siteDomainIds]);
+  }, [networkId, selectedSite?.id, siteDomainIds, domainsLoading]);
 
   useEffect(() => {
     fetch();
