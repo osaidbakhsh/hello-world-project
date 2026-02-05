@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSite } from '@/contexts/SiteContext';
+import { useSiteDomains } from '@/hooks/useSiteDomains';
 import { useDomains, useProfiles } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -62,6 +64,8 @@ interface EscalationRule {
 
 const OnCallSchedule: React.FC = () => {
   const { t, language, dir } = useLanguage();
+  const { selectedSite } = useSite();
+  const { data: siteDomainIds = [] } = useSiteDomains();
   const { data: domains } = useDomains();
   const { data: profiles } = useProfiles();
   const queryClient = useQueryClient();
@@ -81,17 +85,29 @@ const OnCallSchedule: React.FC = () => {
     team_members: [] as string[],
   });
 
+  // Pre-select first domain when dialog opens
+  useEffect(() => {
+    if (isAddDialogOpen && domains.length > 0 && !newSchedule.domain_id) {
+      setNewSchedule(prev => ({ ...prev, domain_id: domains[0].id }));
+    }
+  }, [isAddDialogOpen, domains, newSchedule.domain_id]);
+
   // Fetch schedules
   const { data: schedules = [], isLoading } = useQuery({
-    queryKey: ['on_call_schedules'],
+    queryKey: ['on_call_schedules', selectedSite?.id],
     queryFn: async () => {
+      if (!selectedSite || siteDomainIds.length === 0) {
+        return [];
+      }
       const { data, error } = await supabase
         .from('on_call_schedules')
         .select('*')
+        .in('domain_id', siteDomainIds)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as OnCallSchedule[];
     },
+    enabled: !!selectedSite && siteDomainIds.length > 0,
   });
 
   // Fetch assignments

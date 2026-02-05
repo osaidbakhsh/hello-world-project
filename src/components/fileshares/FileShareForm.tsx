@@ -44,6 +44,13 @@ const FileShareForm: React.FC<FileShareFormProps> = ({ editId, onSuccess, onCanc
   });
   const [excludePatternsText, setExcludePatternsText] = useState('');
 
+  // Pre-select first domain when form loads for new shares
+  useEffect(() => {
+    if (!editId && domains.length > 0 && !formData.domain_id) {
+      setFormData(prev => ({ ...prev, domain_id: domains[0].id }));
+    }
+  }, [editId, domains, formData.domain_id]);
+
   // Load agents for selected domain
   const { data: agents } = useScanAgents(formData.domain_id || undefined);
 

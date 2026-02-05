@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSite } from '@/contexts/SiteContext';
 import { useLicenses, useDomains, useServers, useLicenseMutations } from '@/hooks/useSupabaseData';
 import type { License } from '@/types/supabase-models';
 import { Button } from '@/components/ui/button';
@@ -87,6 +88,13 @@ const Licenses: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('list');
   
   const [formData, setFormData] = useState<LicenseFormData>(initialFormData);
+
+  // Pre-select first domain when domains load or dialog opens
+  useEffect(() => {
+    if (isDialogOpen && !editingLicense && domains.length > 0 && !formData.domain_id) {
+      setFormData(prev => ({ ...prev, domain_id: domains[0].id }));
+    }
+  }, [isDialogOpen, editingLicense, domains, formData.domain_id]);
 
   const now = new Date();
   const thirtyDays = 30 * 24 * 60 * 60 * 1000;
