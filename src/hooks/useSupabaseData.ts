@@ -667,11 +667,18 @@ export function useDashboardStats(selectedDomainId?: string) {
 // Website Applications hooks - filtered by site (includes global apps with null domain_id)
 export function useWebsiteApplications(includeInactive = false) {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
   const [data, setData] = useState<WebsiteApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetch = useCallback(async () => {
+    // Wait for domains to load before fetching
+    if (!selectedSite || domainsLoading) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       let query = supabase
@@ -682,11 +689,14 @@ export function useWebsiteApplications(includeInactive = false) {
         query = query.eq('is_active', true);
       }
       
-      // Include global apps (null domain_id) + site-specific apps
-      if (selectedSite && siteDomainIds.length > 0) {
+      // Include global apps (null domain_id) + site-specific apps if domains exist
+      if (siteDomainIds.length > 0) {
         // Build OR filter for domain_id in siteDomainIds or domain_id is null
         const domainFilter = siteDomainIds.map(id => `domain_id.eq.${id}`).join(',');
         query = query.or(`domain_id.is.null,${domainFilter}`);
+      } else {
+        // No domains for this site, only show global apps
+        query = query.is('domain_id', null);
       }
       
       const { data: result, error } = await query.order('sort_order', { ascending: true });
@@ -698,7 +708,7 @@ export function useWebsiteApplications(includeInactive = false) {
     } finally {
       setIsLoading(false);
     }
-  }, [includeInactive, selectedSite?.id, siteDomainIds]);
+  }, [includeInactive, selectedSite?.id, siteDomainIds, domainsLoading]);
 
   useEffect(() => {
     fetch();
