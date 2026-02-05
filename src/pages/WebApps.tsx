@@ -212,10 +212,9 @@ const WebApps: React.FC = () => {
 
   // Sync local apps with fetched data
   useEffect(() => {
-    if (apps.length > 0) {
-      setLocalApps(apps);
-      setHasOrderChanges(false);
-    }
+    // Always sync, even when empty, so switching sites doesn't leave stale data
+    setLocalApps(apps);
+    setHasOrderChanges(false);
   }, [apps]);
 
   // For employees, filter apps by their domains
