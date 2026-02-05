@@ -180,12 +180,17 @@ export function useServers(networkId?: string) {
 // Task hooks - filtered by site via assigned_to profile membership
 export function useTasks() {
   const { selectedSite } = useSite();
-  const { data: siteProfileIds = [] } = useSiteProfileIds();
+  const { data: siteProfileIds = [], isLoading: profilesLoading } = useSiteProfileIds();
   const [data, setData] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
+    // Wait for site profile IDs to load before fetching
+    if (selectedSite && profilesLoading) {
+      return;
+    }
+    
     setIsLoading(true);
     try {
       let query = supabase.from('tasks').select('*').order('created_at', { ascending: false });
@@ -193,6 +198,11 @@ export function useTasks() {
       // Filter tasks by profiles in the selected site
       if (selectedSite && siteProfileIds.length > 0) {
         query = query.in('assigned_to', siteProfileIds);
+      } else if (selectedSite && siteProfileIds.length === 0 && !profilesLoading) {
+        // Site is selected but no profiles found - return empty
+        setData([]);
+        setIsLoading(false);
+        return;
       }
       
       const { data: result, error: fetchError } = await query;
@@ -205,7 +215,7 @@ export function useTasks() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSite?.id, siteProfileIds]);
+  }, [selectedSite?.id, siteProfileIds, profilesLoading]);
 
   useEffect(() => {
     fetch();
@@ -217,18 +227,28 @@ export function useTasks() {
 // Vacation hooks - filtered by site via profile membership
 export function useVacations() {
   const { selectedSite } = useSite();
-  const { data: siteProfileIds = [] } = useSiteProfileIds();
+  const { data: siteProfileIds = [], isLoading: profilesLoading } = useSiteProfileIds();
   const [data, setData] = useState<Vacation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
+    // Wait for site profile IDs to load before fetching
+    if (selectedSite && profilesLoading) {
+      return;
+    }
+    
     setIsLoading(true);
     try {
       let query = supabase.from('vacations').select('*').order('created_at', { ascending: false });
       
       if (selectedSite && siteProfileIds.length > 0) {
         query = query.in('profile_id', siteProfileIds);
+      } else if (selectedSite && siteProfileIds.length === 0 && !profilesLoading) {
+        // Site is selected but no profiles found - return empty
+        setData([]);
+        setIsLoading(false);
+        return;
       }
       
       const { data: result, error: fetchError } = await query;
@@ -241,7 +261,7 @@ export function useVacations() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSite?.id, siteProfileIds]);
+  }, [selectedSite?.id, siteProfileIds, profilesLoading]);
 
   useEffect(() => {
     fetch();
