@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSite } from '@/contexts/SiteContext';
+import { useSiteProfileIds } from '@/hooks/useSiteDomains';
 
 export interface VaultItem {
   id: string;
@@ -69,26 +71,38 @@ interface EncryptedSecrets {
 
 // My vault items (owner)
 export function useVaultItems() {
+  const { selectedSite } = useSite();
+  const { data: siteProfileIds = [] } = useSiteProfileIds();
+
   return useQuery({
-    queryKey: ['vault-items'],
+    queryKey: ['vault-items', selectedSite?.id, siteProfileIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('vault_items')
         .select('*')
         .order('created_at', { ascending: false });
 
+      // Filter by owners in the selected site
+      if (selectedSite && siteProfileIds.length > 0) {
+        query = query.in('owner_id', siteProfileIds);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as VaultItem[];
     },
+    enabled: !selectedSite || siteProfileIds.length > 0,
   });
 }
 
 // Items shared with me
 export function useVaultSharedWithMe() {
   const { profile } = useAuth();
-  
+  const { selectedSite } = useSite();
+  const { data: siteProfileIds = [] } = useSiteProfileIds();
+
   return useQuery({
-    queryKey: ['vault-shared-with-me', profile?.id],
+    queryKey: ['vault-shared-with-me', profile?.id, selectedSite?.id, siteProfileIds],
     queryFn: async () => {
       if (!profile?.id) return [];
       
@@ -104,11 +118,18 @@ export function useVaultSharedWithMe() {
 
       // Get the vault items
       const itemIds = permissions.map(p => p.vault_item_id);
-      const { data: items, error: itemsError } = await supabase
+      let itemsQuery = supabase
         .from('vault_items')
         .select('*')
         .in('id', itemIds)
         .neq('owner_id', profile.id); // Exclude my own items
+
+      // Filter by owners in the selected site
+      if (selectedSite && siteProfileIds.length > 0) {
+        itemsQuery = itemsQuery.in('owner_id', siteProfileIds);
+      }
+
+      const { data: items, error: itemsError } = await itemsQuery;
 
       if (itemsError) throw itemsError;
 
@@ -118,7 +139,7 @@ export function useVaultSharedWithMe() {
         _permission_level: permissions.find(p => p.vault_item_id === item.id)?.permission_level || 'view_metadata',
       }));
     },
-    enabled: !!profile?.id,
+    enabled: !!profile?.id && (!selectedSite || siteProfileIds.length > 0),
   });
 }
 

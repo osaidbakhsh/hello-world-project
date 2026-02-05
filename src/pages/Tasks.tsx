@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSite } from '@/contexts/SiteContext';
 import { useTasks, useServers, useProfiles, useDomainMemberships, useNetworks } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,6 +47,7 @@ import MyTasksWidget from '@/components/tasks/MyTasksWidget';
 const Tasks: React.FC = () => {
   const { t, dir, language } = useLanguage();
   const { profile, isAdmin } = useAuth();
+  const { selectedSite } = useSite();
   const { toast } = useToast();
   const { data: tasks, isLoading, refetch } = useTasks();
   const { data: servers } = useServers();
@@ -76,7 +78,7 @@ const Tasks: React.FC = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<any[]>([]);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     title: '',
@@ -87,6 +89,12 @@ const Tasks: React.FC = () => {
     frequency: 'once',
     due_date: '',
   });
+
+  // Reset filters when site changes
+  useEffect(() => {
+    setEmployeeFilter('all');
+    setDepartmentFilter('all');
+  }, [selectedSite?.id]);
 
   const now = new Date();
 

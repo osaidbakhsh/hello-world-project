@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSite } from '@/contexts/SiteContext';
 import { useVacations, useProfiles } from '@/hooks/useSupabaseData';
 import { useVacationBalance } from '@/hooks/useVacationBalance';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,7 +56,8 @@ const Vacations: React.FC = () => {
   const { data: profiles } = useProfiles();
   const { data: vacationBalance } = useVacationBalance();
   const { toast } = useToast();
-  
+  const { selectedSite } = useSite();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
@@ -73,6 +75,11 @@ const Vacations: React.FC = () => {
     status: 'pending',
     notes: '',
   });
+
+  // Reset employee filter when site changes
+  useEffect(() => {
+    setFilterEmployee('all');
+  }, [selectedSite?.id]);
 
   // Get profile info for each vacation
   const vacationsWithProfiles = useMemo(() => {
