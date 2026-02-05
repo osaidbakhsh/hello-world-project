@@ -41,12 +41,12 @@ export const useDatacenters = (domainId?: string) => {
 // Clusters - filtered by site domains
 export const useClusters = (domainId?: string) => {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
   
   return useQuery({
-    queryKey: ['clusters', selectedSite?.id, domainId],
+    queryKey: ['clusters', selectedSite?.id, domainId, siteDomainIds],
     queryFn: async () => {
-      if (!selectedSite) return [];
+      if (!selectedSite || (!domainId && siteDomainIds.length === 0)) return [];
       
       let query = supabase
         .from('clusters')
@@ -57,25 +57,27 @@ export const useClusters = (domainId?: string) => {
         query = query.eq('domain_id', domainId);
       } else if (siteDomainIds.length > 0) {
         query = query.in('domain_id', siteDomainIds);
+      } else {
+        return [];
       }
       
       const { data, error } = await query;
       if (error) throw error;
       return data as Cluster[];
     },
-    enabled: !!selectedSite,
+    enabled: !!selectedSite && !domainsLoading,
   });
 };
 
 // Cluster Nodes - filtered by site domains
 export const useClusterNodes = (domainId?: string, clusterId?: string) => {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
   
   return useQuery({
-    queryKey: ['cluster_nodes', selectedSite?.id, domainId, clusterId],
+    queryKey: ['cluster_nodes', selectedSite?.id, domainId, clusterId, siteDomainIds],
     queryFn: async () => {
-      if (!selectedSite) return [];
+      if (!selectedSite || (!domainId && siteDomainIds.length === 0)) return [];
       
       let query = supabase
         .from('cluster_nodes')
@@ -86,6 +88,8 @@ export const useClusterNodes = (domainId?: string, clusterId?: string) => {
         query = query.eq('domain_id', domainId);
       } else if (siteDomainIds.length > 0) {
         query = query.in('domain_id', siteDomainIds);
+      } else {
+        return [];
       }
       if (clusterId) {
         query = query.eq('cluster_id', clusterId);
@@ -95,19 +99,19 @@ export const useClusterNodes = (domainId?: string, clusterId?: string) => {
       if (error) throw error;
       return data as ClusterNode[];
     },
-    enabled: !!selectedSite,
+    enabled: !!selectedSite && !domainsLoading,
   });
 };
 
 // VMs - filtered by site domains
 export const useVMs = (domainId?: string, clusterId?: string) => {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
   
   return useQuery({
-    queryKey: ['vms', selectedSite?.id, domainId, clusterId],
+    queryKey: ['vms', selectedSite?.id, domainId, clusterId, siteDomainIds],
     queryFn: async () => {
-      if (!selectedSite) return [];
+      if (!selectedSite || (!domainId && siteDomainIds.length === 0)) return [];
       
       let query = supabase
         .from('vms')
@@ -118,6 +122,8 @@ export const useVMs = (domainId?: string, clusterId?: string) => {
         query = query.eq('domain_id', domainId);
       } else if (siteDomainIds.length > 0) {
         query = query.in('domain_id', siteDomainIds);
+      } else {
+        return [];
       }
       if (clusterId) {
         query = query.eq('cluster_id', clusterId);
@@ -127,7 +133,7 @@ export const useVMs = (domainId?: string, clusterId?: string) => {
       if (error) throw error;
       return data as VM[];
     },
-    enabled: !!selectedSite,
+    enabled: !!selectedSite && !domainsLoading,
   });
 };
 
