@@ -46,6 +46,18 @@ const Settings: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-select first domain when domains change (site switch)
+  React.useEffect(() => {
+    if (domains?.length) {
+      const isCurrentValid = domains.some(d => d.id === selectedDomainId);
+      if (!selectedDomainId || !isCurrentValid) {
+        setSelectedDomainId(domains[0].id);
+      }
+    } else {
+      setSelectedDomainId('');
+    }
+  }, [domains]);
+
   // Test states
   const [mailTestResult, setMailTestResult] = useState<TestResult | null>(null);
   const [isTestingMail, setIsTestingMail] = useState(false);

@@ -25,6 +25,21 @@ const ClusterForm: React.FC<Props> = ({ domainId, editingCluster, onClose }) => 
   const [selectedDomainId, setSelectedDomainId] = useState(editingCluster?.domain_id || domainId || '');
   const { data: datacenters } = useDatacenters(selectedDomainId);
 
+  // Sync selectedDomainId with prop and available domains when site changes
+  useEffect(() => {
+    if (!editingCluster) {
+      // For new clusters, sync with parent domainId if valid
+      if (domainId && domains?.some(d => d.id === domainId)) {
+        setSelectedDomainId(domainId);
+      } else if (domains?.length && !domains.some(d => d.id === selectedDomainId)) {
+        // Current selection invalid, select first
+        setSelectedDomainId(domains[0].id);
+      } else if (!domains?.length) {
+        setSelectedDomainId('');
+      }
+    }
+  }, [domainId, domains, editingCluster]);
+
   const [formData, setFormData] = useState({
     name: editingCluster?.name || '',
     datacenter_id: editingCluster?.datacenter_id || '',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useClusterNodes, useClusters, useCreateNode, useUpdateNode, useDeleteNode } from '@/hooks/useDatacenter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +49,16 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
   const [nodeToDelete, setNodeToDelete] = useState<ClusterNode | null>(null);
 
   const [formData, setFormData] = useState(defaultFormData);
+
+  // Auto-select first cluster when clusters change and current selection is invalid
+  useEffect(() => {
+    if (clusters?.length && formData.cluster_id) {
+      const clusterValid = clusters.some(c => c.id === formData.cluster_id);
+      if (!clusterValid) {
+        setFormData(prev => ({ ...prev, cluster_id: clusters[0].id }));
+      }
+    }
+  }, [clusters]);
 
   const filteredNodes = nodes?.filter((node) => {
     const matchesSearch = node.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -109,7 +119,10 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
   const closeForm = () => {
     setShowForm(false);
     setEditingNode(null);
-    setFormData(defaultFormData);
+    setFormData({
+      ...defaultFormData,
+      cluster_id: clusters?.[0]?.id || '',
+    });
   };
 
   if (isLoading) {
@@ -129,7 +142,13 @@ const NodeTable: React.FC<Props> = ({ domainId }) => {
           <Cpu className="w-5 h-5" />
           {t('datacenter.nodes')} ({filteredNodes?.length || 0})
         </CardTitle>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={() => {
+          setFormData({
+            ...defaultFormData,
+            cluster_id: clusters?.[0]?.id || '',
+          });
+          setShowForm(true);
+        }}>
           <Plus className="w-4 h-4 me-2" />
           {t('datacenter.addNode')}
         </Button>
