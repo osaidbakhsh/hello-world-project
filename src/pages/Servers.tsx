@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useServers, useNetworks, useDomains, useServerMutations, useProfiles } from '@/hooks/useSupabaseData';
@@ -123,6 +123,18 @@ const Servers: React.FC = () => {
   const { data: domains } = useDomains();
   const [selectedDomainId, setSelectedDomainId] = useState<string>('all');
   const { data: allNetworks, isLoading: networksLoading } = useNetworks();
+
+  // Auto-select 'all' or reset when domains change (site switch)
+  useEffect(() => {
+    if (domains?.length) {
+      const isCurrentValid = selectedDomainId === 'all' || domains.some(d => d.id === selectedDomainId);
+      if (!isCurrentValid) {
+        setSelectedDomainId('all');
+        setSelectedNetworkId('all');
+      }
+    }
+  }, [domains]);
+
   const { data: profiles } = useProfiles();
   const { createServer, updateServer, deleteServer } = useServerMutations(profile?.id);
   

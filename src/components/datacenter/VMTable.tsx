@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVMs, useClusters, useCreateVM, useUpdateVM, useDeleteVM } from '@/hooks/useDatacenter';
 import { useServers, useServerMutations } from '@/hooks/useSupabaseData';
@@ -54,6 +54,16 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
   const [editingVM, setEditingVM] = useState<VM | null>(null);
   const [vmToDelete, setVmToDelete] = useState<VM | null>(null);
   const [formData, setFormData] = useState(defaultFormData);
+
+  // Auto-select first cluster when clusters change and current selection is invalid
+  useEffect(() => {
+    if (clusters?.length && formData.cluster_id) {
+      const clusterValid = clusters.some(c => c.id === formData.cluster_id);
+      if (!clusterValid) {
+        setFormData(prev => ({ ...prev, cluster_id: clusters[0].id }));
+      }
+    }
+  }, [clusters]);
 
   // Filter servers - get all servers since servers don't have direct domain_id
   const domainServers = servers || [];
@@ -215,7 +225,10 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
   const closeForm = () => {
     setShowForm(false);
     setEditingVM(null);
-    setFormData(defaultFormData);
+    setFormData({
+      ...defaultFormData,
+      cluster_id: clusters?.[0]?.id || '',
+    });
   };
 
   if (isLoading) {
@@ -235,7 +248,13 @@ const VMTable: React.FC<Props> = ({ domainId }) => {
           <Monitor className="w-5 h-5" />
           {t('datacenter.vms')} ({filteredVMs?.length || 0})
         </CardTitle>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={() => {
+          setFormData({
+            ...defaultFormData,
+            cluster_id: clusters?.[0]?.id || '',
+          });
+          setShowForm(true);
+        }}>
           <Plus className="w-4 h-4 me-2" />
           {t('datacenter.addVM')}
         </Button>

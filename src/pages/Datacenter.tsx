@@ -41,12 +41,17 @@ const Datacenter: React.FC = () => {
   const { data: clusters } = useClusters(selectedDomainId || undefined);
   const stats = useDatacenterStats(selectedDomainId || undefined);
 
-  // Set first domain as default when loaded
+  // Auto-select first valid domain when domains change (site switch)
   React.useEffect(() => {
-    if (domains?.length && !selectedDomainId) {
-      setSelectedDomainId(domains[0].id);
+    if (domains?.length) {
+      const isCurrentValid = domains.some(d => d.id === selectedDomainId);
+      if (!selectedDomainId || !isCurrentValid) {
+        setSelectedDomainId(domains[0].id);
+      }
+    } else {
+      setSelectedDomainId('');
     }
-  }, [domains, selectedDomainId]);
+  }, [domains]);
 
   if (domainsLoading) {
     return (
