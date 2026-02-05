@@ -1,11 +1,14 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWebsiteApplications } from '@/hooks/useSupabaseData';
+import { useSite } from '@/contexts/SiteContext';
+import { useSiteDomains } from '@/hooks/useSiteDomains';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
 import { 
   Globe, 
   ExternalLink, 
@@ -35,11 +38,46 @@ const iconMap: Record<string, React.ElementType> = {
   layers: Layers,
 };
 
+interface WebsiteApplication {
+  id: string;
+  name: string;
+  url: string;
+  icon: string | null;
+  category: string | null;
+  description: string | null;
+  domain_id: string | null;
+  is_active: boolean;
+  sort_order: number | null;
+}
+
 const WebAppsWidget: React.FC = () => {
   const { t, dir } = useLanguage();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const { data: apps, isLoading } = useWebsiteApplications();
+  const { selectedSite } = useSite();
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
+
+  // Fetch site-only apps (apps where domain_id is in siteDomainIds)
+  const { data: apps = [], isLoading: appsLoading } = useQuery({
+    queryKey: ['dashboard-webapps', selectedSite?.id, siteDomainIds],
+    queryFn: async () => {
+      if (!selectedSite || siteDomainIds.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from('website_applications')
+        .select('*')
+        .eq('is_active', true)
+        .in('domain_id', siteDomainIds)
+        .order('sort_order', { ascending: true });
+      
+      if (error) throw error;
+      return (data as WebsiteApplication[]) || [];
+    },
+    enabled: !!selectedSite && siteDomainIds.length > 0 && !domainsLoading,
+    staleTime: 30 * 1000,
+  });
+
+  const isLoading = domainsLoading || appsLoading;
 
   const handleAppClick = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -49,6 +87,26 @@ const WebAppsWidget: React.FC = () => {
     if (!iconName) return Globe;
     return iconMap[iconName.toLowerCase()] || Globe;
   };
+
+  // Show "no site selected" state
+  if (!selectedSite) {
+    return (
+      <Card className="card-hover">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Globe className="w-5 h-5 text-primary" />
+            {t('webApps.title')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <Globe className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>{t('common.noSiteSelected') || 'Please select a site'}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const getCategoryColor = (category: string | null): string => {
     switch (category?.toLowerCase()) {
@@ -178,7 +236,7 @@ const WebAppsWidget: React.FC = () => {
               size="sm"
               onClick={() => navigate('/web-apps')}
             >
-              عرض الكل ({apps.length})
+              {t('common.viewAll')} ({apps.length})
             </Button>
           </div>
         )}
