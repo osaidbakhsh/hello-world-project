@@ -1058,16 +1058,27 @@ export async function seedAllData(): Promise<SeedResult> {
       scanAgents: 0,
     };
 
-    // 1. Get or create default site for new domains
-    const { data: defaultSite } = await supabase
+    // 1. Get default site (try DEFAULT code first, fallback to first available)
+    let { data: defaultSite } = await supabase
       .from('sites')
       .select('id')
       .eq('code', 'DEFAULT')
-      .single();
-    
+      .maybeSingle();
+
+    // If no DEFAULT site, use the first available site
+    if (!defaultSite) {
+      const { data: firstSite } = await supabase
+        .from('sites')
+        .select('id')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+      defaultSite = firstSite;
+    }
+
     const defaultSiteId = defaultSite?.id;
     if (!defaultSiteId) {
-      throw new Error('Default site not found. Please run database migrations first.');
+      throw new Error('No sites found. Please create at least one site first.');
     }
 
     // 2. Create Domains (only the 3 professional domains)

@@ -94,15 +94,26 @@ const Networks: React.FC = () => {
         if (error) throw error;
         toast({ title: t('common.success'), description: t('networks.domainUpdated') });
       } else {
-        // Get default site for new domains
-        const { data: defaultSite } = await supabase
+        // Get default site (try DEFAULT code first, fallback to first available)
+        let { data: defaultSite } = await supabase
           .from('sites')
           .select('id')
           .eq('code', 'DEFAULT')
-          .single();
-        
+          .maybeSingle();
+
+        // If no DEFAULT site, use the first available site
+        if (!defaultSite) {
+          const { data: firstSite } = await supabase
+            .from('sites')
+            .select('id')
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .single();
+          defaultSite = firstSite;
+        }
+
         if (!defaultSite?.id) {
-          throw new Error('Default site not found');
+          throw new Error('No sites found. Please create at least one site first.');
         }
 
         const { error } = await supabase
