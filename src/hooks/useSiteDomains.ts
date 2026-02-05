@@ -33,10 +33,11 @@ export function useSiteDomains() {
  */
 export function useSiteProfileIds() {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
 
   return useQuery({
-    queryKey: ['site-profile-ids', selectedSite?.id],
+    // Include siteDomainIds in query key to refetch when domains change
+    queryKey: ['site-profile-ids', selectedSite?.id, siteDomainIds],
     queryFn: async () => {
       if (!selectedSite || siteDomainIds.length === 0) return [];
       
@@ -48,7 +49,7 @@ export function useSiteProfileIds() {
       if (error) throw error;
       return [...new Set(memberships?.map(m => m.profile_id) || [])];
     },
-    enabled: !!selectedSite && siteDomainIds.length > 0,
+    enabled: !!selectedSite && siteDomainIds.length > 0 && !domainsLoading,
     staleTime: 30 * 1000,
     gcTime: 60 * 1000,
   });
