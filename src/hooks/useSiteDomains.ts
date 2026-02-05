@@ -30,6 +30,8 @@ export function useSiteDomains() {
 
 /**
  * Hook that returns profile IDs for employees belonging to the selected site's domains.
+ * Returns null if no domain memberships exist (fallback to show all data).
+ * Returns empty array if site has domains but no memberships (filter to nothing).
  */
 export function useSiteProfileIds() {
   const { selectedSite } = useSite();
@@ -39,7 +41,10 @@ export function useSiteProfileIds() {
     // Include siteDomainIds in query key to refetch when domains change
     queryKey: ['site-profile-ids', selectedSite?.id, siteDomainIds],
     queryFn: async () => {
-      if (!selectedSite || siteDomainIds.length === 0) return [];
+      if (!selectedSite) return null;
+      
+      // If no domains for this site, return null to indicate "show all"
+      if (siteDomainIds.length === 0) return null;
       
       const { data: memberships, error } = await supabase
         .from('domain_memberships')
@@ -47,9 +52,14 @@ export function useSiteProfileIds() {
         .in('domain_id', siteDomainIds);
       
       if (error) throw error;
-      return [...new Set(memberships?.map(m => m.profile_id) || [])];
+      
+      // If domains exist but no memberships, return null to show all
+      // This handles the case where domain_memberships table is empty
+      if (!memberships || memberships.length === 0) return null;
+      
+      return [...new Set(memberships.map(m => m.profile_id))];
     },
-    enabled: !!selectedSite && siteDomainIds.length > 0 && !domainsLoading,
+    enabled: !!selectedSite && !domainsLoading,
     staleTime: 30 * 1000,
     gcTime: 60 * 1000,
   });

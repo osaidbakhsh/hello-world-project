@@ -72,18 +72,19 @@ interface EncryptedSecrets {
 // My vault items (owner)
 export function useVaultItems() {
   const { selectedSite } = useSite();
-  const { data: siteProfileIds = [] } = useSiteProfileIds();
+  const { data: siteProfileIds, isLoading: profilesLoading } = useSiteProfileIds();
 
   return useQuery({
-    queryKey: ['vault-items', selectedSite?.id, siteProfileIds],
+    queryKey: ['vault-items', selectedSite?.id, siteProfileIds ?? 'all'],
     queryFn: async () => {
       let query = supabase
         .from('vault_items')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Filter by owners in the selected site
-      if (selectedSite && siteProfileIds.length > 0) {
+      // Filter by owners in the selected site (only if we have profile IDs)
+      // null = no memberships configured, show all
+      if (siteProfileIds && siteProfileIds.length > 0) {
         query = query.in('owner_id', siteProfileIds);
       }
 
@@ -91,7 +92,7 @@ export function useVaultItems() {
       if (error) throw error;
       return data as VaultItem[];
     },
-    enabled: !selectedSite || siteProfileIds.length > 0,
+    enabled: !profilesLoading,
   });
 }
 
@@ -99,10 +100,10 @@ export function useVaultItems() {
 export function useVaultSharedWithMe() {
   const { profile } = useAuth();
   const { selectedSite } = useSite();
-  const { data: siteProfileIds = [] } = useSiteProfileIds();
+  const { data: siteProfileIds, isLoading: profilesLoading } = useSiteProfileIds();
 
   return useQuery({
-    queryKey: ['vault-shared-with-me', profile?.id, selectedSite?.id, siteProfileIds],
+    queryKey: ['vault-shared-with-me', profile?.id, selectedSite?.id, siteProfileIds ?? 'all'],
     queryFn: async () => {
       if (!profile?.id) return [];
       
@@ -124,8 +125,8 @@ export function useVaultSharedWithMe() {
         .in('id', itemIds)
         .neq('owner_id', profile.id); // Exclude my own items
 
-      // Filter by owners in the selected site
-      if (selectedSite && siteProfileIds.length > 0) {
+      // Filter by owners in the selected site (only if we have profile IDs)
+      if (siteProfileIds && siteProfileIds.length > 0) {
         itemsQuery = itemsQuery.in('owner_id', siteProfileIds);
       }
 
@@ -139,7 +140,7 @@ export function useVaultSharedWithMe() {
         _permission_level: permissions.find(p => p.vault_item_id === item.id)?.permission_level || 'view_metadata',
       }));
     },
-    enabled: !!profile?.id && (!selectedSite || siteProfileIds.length > 0),
+    enabled: !!profile?.id && !profilesLoading,
   });
 }
 

@@ -180,14 +180,14 @@ export function useServers(networkId?: string) {
 // Task hooks - filtered by site via assigned_to profile membership
 export function useTasks() {
   const { selectedSite } = useSite();
-  const { data: siteProfileIds = [], isLoading: profilesLoading } = useSiteProfileIds();
+  const { data: siteProfileIds, isLoading: profilesLoading } = useSiteProfileIds();
   const [data, setData] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
     // Wait for site profile IDs to load before fetching
-    if (selectedSite && profilesLoading) {
+    if (profilesLoading) {
       return;
     }
     
@@ -195,15 +195,13 @@ export function useTasks() {
     try {
       let query = supabase.from('tasks').select('*').order('created_at', { ascending: false });
       
-      // Filter tasks by profiles in the selected site
-      if (selectedSite && siteProfileIds.length > 0) {
+      // Filter tasks by profiles in the selected site (only if we have profile IDs)
+      // null = no memberships configured, show all
+      // array with items = filter by those IDs
+      if (siteProfileIds && siteProfileIds.length > 0) {
         query = query.in('assigned_to', siteProfileIds);
-      } else if (selectedSite && siteProfileIds.length === 0 && !profilesLoading) {
-        // Site is selected but no profiles found - return empty
-        setData([]);
-        setIsLoading(false);
-        return;
       }
+      // If siteProfileIds is null, show all tasks (no site filtering)
       
       const { data: result, error: fetchError } = await query;
       if (fetchError) throw fetchError;
@@ -227,14 +225,14 @@ export function useTasks() {
 // Vacation hooks - filtered by site via profile membership
 export function useVacations() {
   const { selectedSite } = useSite();
-  const { data: siteProfileIds = [], isLoading: profilesLoading } = useSiteProfileIds();
+  const { data: siteProfileIds, isLoading: profilesLoading } = useSiteProfileIds();
   const [data, setData] = useState<Vacation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetch = useCallback(async () => {
     // Wait for site profile IDs to load before fetching
-    if (selectedSite && profilesLoading) {
+    if (profilesLoading) {
       return;
     }
     
@@ -242,14 +240,11 @@ export function useVacations() {
     try {
       let query = supabase.from('vacations').select('*').order('created_at', { ascending: false });
       
-      if (selectedSite && siteProfileIds.length > 0) {
+      // Filter vacations by profiles in the selected site (only if we have profile IDs)
+      if (siteProfileIds && siteProfileIds.length > 0) {
         query = query.in('profile_id', siteProfileIds);
-      } else if (selectedSite && siteProfileIds.length === 0 && !profilesLoading) {
-        // Site is selected but no profiles found - return empty
-        setData([]);
-        setIsLoading(false);
-        return;
       }
+      // If siteProfileIds is null, show all vacations (no site filtering)
       
       const { data: result, error: fetchError } = await query;
       if (fetchError) throw fetchError;
