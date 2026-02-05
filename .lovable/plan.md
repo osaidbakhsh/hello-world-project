@@ -1,202 +1,239 @@
 
-# Plan: Auto-Select First Domain When Switching Sites
+# Plan: Connect Vacations, Tasks, and Vault with Sites
 
-## Problem Analysis
+## Current State Analysis
 
-When switching sites in the global site selector, pages with domain dropdowns (Datacenter, Servers, Settings, etc.) don't automatically update the selected domain. The domain selector shows domains from the new site, but the `selectedDomainId` state retains the old value (from the previous site), causing:
+### What's Already Working ✓
 
-1. Empty/mismatched data display
-2. Forms potentially creating entities with wrong domain associations
-3. Confusing user experience
+| Feature | Data Fetching | Site Filtering | Notes |
+|---------|---------------|----------------|-------|
+| **Vacations** | `useVacations()` | ✓ Already filters by `siteProfileIds` | Data shows site-scoped vacations |
+| **Tasks** | `useTasks()` | ✓ Already filters by `siteProfileIds` | Data shows site-scoped tasks |
+| **Profiles** | `useProfiles()` | ✓ Already filters by `siteProfileIds` | Dropdowns show site employees |
+| **Vault Form** | Uses `useServers()`, `useNetworks()` | ✓ Already site-filtered | Server/network dropdowns are scoped |
+| **Vault Share** | Uses `useVisibleEmployees()` | ✓ Already site-filtered | Share dialog shows site employees |
 
-### Affected Pages/Components
+### What's NOT Working ✗
 
-| File | Domain Selector State | Issue |
-|------|----------------------|-------|
-| `src/pages/Datacenter.tsx` | `selectedDomainId` | Not reset on site switch |
-| `src/pages/Servers.tsx` | `selectedDomainId` | Not reset on site switch |
-| `src/pages/Settings.tsx` | `selectedDomainId` | Not reset on site switch |
-| `src/components/datacenter/ClusterForm.tsx` | `selectedDomainId` | Uses domains from props, not updated on site switch |
-| `src/components/datacenter/NodeTable.tsx` | Cluster selector | Should auto-select first cluster |
-| `src/components/datacenter/VMTable.tsx` | Cluster selector | Should auto-select first cluster |
+| Feature | Issue | Impact |
+|---------|-------|--------|
+| **Vault Items** | `useVaultItems()` has NO site filtering | Users see ALL vault items from ALL sites |
+| **Vault Shared With Me** | `useVaultSharedWithMe()` has NO site filtering | Users see shares from all sites |
+| **Vacations Page** | No auto-select for employee when dialog opens | Minor UX issue |
+| **Tasks Page** | No auto-select for employee when dialog opens | Minor UX issue |
+| **Employee Filters** | Don't reset when site changes | Shows stale selection from previous site |
 
 ---
 
-## Solution
+## Solution Overview
 
-Add a `useEffect` hook in each affected component that monitors the `domains` list (already filtered by site via `useDomains()`) and automatically selects the first available domain when:
-1. The domains list changes (site switch)
-2. The current `selectedDomainId` is not in the new domains list
+### 1. Fix Vault Site Scoping (Critical)
+
+The `vault_items` table doesn't have a direct `site_id` or `domain_id` column. However, vault items can be linked to:
+- `linked_server_id` → Server → Network → Domain → Site
+- `linked_network_id` → Network → Domain → Site  
+- `linked_application_id` → Web App → Domain → Site
+
+**Strategy A: Filter by Owner's Site Membership**
+Since vault items have an `owner_id`, filter vault items where the owner belongs to the selected site (via `domain_memberships`).
+
+**Strategy B: Filter by Linked Resources**
+Filter vault items that are linked to servers/networks/applications in the selected site.
+
+**Recommended: Use Strategy A** - Filter by owner's domain membership. This ensures:
+- Personal vault items follow the owner's site assignment
+- Simpler implementation without complex joins
+- Consistent with how Tasks and Vacations work
+
+### 2. Fix Filter State Reset
+
+When site changes, the employee filter dropdowns in Vacations and Tasks retain old values. Need to:
+- Reset `filterEmployee` to 'all' when site changes
+- Add `useEffect` to watch site changes
+
+### 3. Auto-Select First Employee in Forms (Nice to have)
+
+Pre-select current user in creation dialogs if available.
 
 ---
 
 ## Implementation Steps
 
-### Step 1: Fix Datacenter.tsx
+### Step 1: Update `useVaultItems()` Hook
 
-Add effect to reset domain selection when site changes:
+**File:** `src/hooks/useVaultData.ts`
 
-```typescript
-// Current:
-React.useEffect(() => {
-  if (domains?.length && !selectedDomainId) {
-    setSelectedDomainId(domains[0].id);
-  }
-}, [domains, selectedDomainId]);
-
-// Fixed - also reset when current selection is invalid:
-React.useEffect(() => {
-  if (domains?.length) {
-    const currentDomainValid = domains.some(d => d.id === selectedDomainId);
-    if (!selectedDomainId || !currentDomainValid) {
-      setSelectedDomainId(domains[0].id);
-    }
-  } else {
-    setSelectedDomainId('');
-  }
-}, [domains]);
-```
-
-### Step 2: Fix Servers.tsx
-
-Same pattern - auto-select first domain and reset network filter:
+Add site filtering to the main vault items query:
 
 ```typescript
-// Add effect after selectedDomainId state declaration
-useEffect(() => {
-  if (domains?.length) {
-    const currentDomainValid = domains.some(d => d.id === selectedDomainId);
-    if (selectedDomainId === 'all') {
-      // Keep "all" selection valid
-    } else if (!currentDomainValid) {
-      setSelectedDomainId('all');
-      setSelectedNetworkId('all');
-    }
-  }
-}, [domains]);
-```
+import { useSite } from '@/contexts/SiteContext';
+import { useSiteProfileIds } from '@/hooks/useSiteDomains';
 
-### Step 3: Fix Settings.tsx
+export function useVaultItems() {
+  const { selectedSite } = useSite();
+  const { data: siteProfileIds = [] } = useSiteProfileIds();
+  
+  return useQuery({
+    queryKey: ['vault-items', selectedSite?.id, siteProfileIds],
+    queryFn: async () => {
+      let query = supabase
+        .from('vault_items')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-Auto-select first domain for connection tests:
+      // Filter by owners in the selected site
+      if (selectedSite && siteProfileIds.length > 0) {
+        query = query.in('owner_id', siteProfileIds);
+      }
 
-```typescript
-useEffect(() => {
-  if (domains?.length) {
-    const currentDomainValid = domains.some(d => d.id === selectedDomainId);
-    if (!selectedDomainId || !currentDomainValid) {
-      setSelectedDomainId(domains[0].id);
-    }
-  } else {
-    setSelectedDomainId('');
-  }
-}, [domains]);
-```
-
-### Step 4: Fix ClusterForm.tsx
-
-The ClusterForm receives `domainId` as a prop but also has its own `selectedDomainId` state. Need to:
-1. Sync with the passed `domainId` prop when it changes
-2. Auto-select first domain if no valid selection
-
-```typescript
-// Update existing logic:
-const [selectedDomainId, setSelectedDomainId] = useState(
-  editingCluster?.domain_id || domainId || ''
-);
-
-// Add effect to handle prop changes:
-useEffect(() => {
-  if (!editingCluster) {
-    // For new clusters, sync with parent domainId
-    if (domainId && domains?.some(d => d.id === domainId)) {
-      setSelectedDomainId(domainId);
-    } else if (domains?.length && !domains.some(d => d.id === selectedDomainId)) {
-      // Current selection invalid, select first
-      setSelectedDomainId(domains[0].id);
-    }
-  }
-}, [domainId, domains, editingCluster]);
-```
-
-### Step 5: Fix NodeTable.tsx and VMTable.tsx
-
-These components need to auto-select the first cluster when clusters list changes:
-
-```typescript
-// In NodeTable.tsx (around cluster selector)
-useEffect(() => {
-  if (clusters?.length && formData.cluster_id) {
-    const clusterValid = clusters.some(c => c.id === formData.cluster_id);
-    if (!clusterValid) {
-      setFormData(prev => ({ ...prev, cluster_id: clusters[0].id }));
-    }
-  }
-}, [clusters]);
-
-// Also auto-fill when opening new form:
-const openForm = () => {
-  setFormData({
-    ...defaultFormData,
-    cluster_id: clusters?.[0]?.id || '',
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as VaultItem[];
+    },
+    enabled: !selectedSite || siteProfileIds.length > 0,
   });
-  setShowForm(true);
-};
+}
 ```
 
-### Step 6: Fix DatacenterForm.tsx
+### Step 2: Update `useVaultSharedWithMe()` Hook
 
-This form receives `domainId` as a required prop, so it should work correctly. However, we should verify the parent passes the correct domain.
+**File:** `src/hooks/useVaultData.ts`
+
+Filter shared items by the owner's site membership:
+
+```typescript
+export function useVaultSharedWithMe() {
+  const { profile } = useAuth();
+  const { selectedSite } = useSite();
+  const { data: siteProfileIds = [] } = useSiteProfileIds();
+  
+  return useQuery({
+    queryKey: ['vault-shared-with-me', profile?.id, selectedSite?.id],
+    queryFn: async () => {
+      // ... existing permission fetch logic ...
+      
+      // Additional filter: only show items where owner is in selected site
+      if (selectedSite && siteProfileIds.length > 0) {
+        const { data: items, error: itemsError } = await supabase
+          .from('vault_items')
+          .select('*')
+          .in('id', itemIds)
+          .neq('owner_id', profile.id)
+          .in('owner_id', siteProfileIds); // NEW: Filter by site
+          
+        // ...
+      }
+    },
+  });
+}
+```
+
+### Step 3: Add Cache Invalidation for Vault on Site Change
+
+**File:** `src/contexts/SiteContext.tsx`
+
+Add vault queries to the invalidation list:
+
+```typescript
+// In setSelectedSite callback
+queryClient.invalidateQueries({ queryKey: ['vault-items'] });
+queryClient.invalidateQueries({ queryKey: ['vault-shared-with-me'] });
+queryClient.invalidateQueries({ queryKey: ['vault-permissions'] });
+```
+
+### Step 4: Reset Filters on Site Change in Vacations Page
+
+**File:** `src/pages/Vacations.tsx`
+
+Add effect to reset employee filter when site changes:
+
+```typescript
+import { useSite } from '@/contexts/SiteContext';
+
+// In component:
+const { selectedSite } = useSite();
+
+// Reset employee filter when site changes
+useEffect(() => {
+  setFilterEmployee('all');
+}, [selectedSite?.id]);
+```
+
+### Step 5: Reset Filters on Site Change in Tasks Page
+
+**File:** `src/pages/Tasks.tsx`
+
+Add effect to reset employee filter when site changes:
+
+```typescript
+import { useSite } from '@/contexts/SiteContext';
+
+// In component:
+const { selectedSite } = useSite();
+
+// Reset employee/department filter when site changes
+useEffect(() => {
+  setEmployeeFilter('all');
+  setDepartmentFilter('all');
+}, [selectedSite?.id]);
+```
 
 ---
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `src/pages/Datacenter.tsx` | Update useEffect to reset domain on site switch |
-| `src/pages/Servers.tsx` | Add useEffect to reset domain/network filters |
-| `src/pages/Settings.tsx` | Add useEffect to auto-select first domain |
-| `src/components/datacenter/ClusterForm.tsx` | Sync selectedDomainId with prop and domains list |
-| `src/components/datacenter/NodeTable.tsx` | Auto-select first cluster in form |
-| `src/components/datacenter/VMTable.tsx` | Auto-select first cluster in form |
+| File | Changes |
+|------|---------|
+| `src/hooks/useVaultData.ts` | Add site filtering to `useVaultItems()` and `useVaultSharedWithMe()` |
+| `src/contexts/SiteContext.tsx` | Add vault query invalidation on site change |
+| `src/pages/Vacations.tsx` | Reset employee filter on site change |
+| `src/pages/Tasks.tsx` | Reset employee/department filters on site change |
 
 ---
 
-## Key Pattern
+## Technical Details
 
-Each component should implement this pattern:
+### Vault Site Filtering Logic
 
-```typescript
-import { useDomains } from '@/hooks/useSupabaseData';
-
-// Inside component:
-const { data: domains } = useDomains();
-const [selectedDomainId, setSelectedDomainId] = useState<string>('');
-
-// Auto-select first domain when domains change (site switch)
-useEffect(() => {
-  if (domains?.length) {
-    const isCurrentValid = domains.some(d => d.id === selectedDomainId);
-    if (!selectedDomainId || !isCurrentValid) {
-      setSelectedDomainId(domains[0].id);
-    }
-  } else {
-    setSelectedDomainId('');
-  }
-}, [domains]); // Only depend on domains, not selectedDomainId
+```text
+Site (selected in header)
+  └── Domain (site_id = selectedSite.id)
+        └── DomainMembership (domain_id)
+              └── Profile (profile_id) ← siteProfileIds
+                    └── VaultItem (owner_id IN siteProfileIds) ← NEW FILTER
 ```
+
+### Data Flow After Fix
+
+```text
+1. User selects "Site 2" in header
+2. SiteContext triggers query invalidation
+3. useSiteProfileIds() fetches profile IDs for Site 2
+4. useVaultItems() filters: owner_id IN [site2ProfileIds]
+5. Only vault items owned by Site 2 employees are shown
+6. VaultShareDialog shows only Site 2 employees for sharing
+```
+
+---
+
+## Edge Cases Handled
+
+| Scenario | Behavior |
+|----------|----------|
+| Vault item linked to Server in different site | Still shows if owner is in current site |
+| Admin with access to multiple sites | Sees vault items based on currently selected site |
+| Shared vault item from user in different site | Hidden when viewing that site |
+| No employees in site | Empty vault list with appropriate message |
 
 ---
 
 ## Verification Checklist
 
-After implementation:
-
-| Test | Expected Result |
-|------|-----------------|
-| Switch site in header while on Datacenter page | Domain dropdown updates to first domain of new site |
-| Switch site while on Servers page | Domain filter resets, shows servers from new site |
-| Open Cluster form after site switch | Domain is pre-selected to current site's domain |
-| Open Node form after site switch | Cluster is pre-selected to first available cluster |
-| Switch site on Settings page | Domain for connection tests updates |
+| Test | Expected |
+|------|----------|
+| Switch to Site 2, view Vault | Only Site 2 owners' vault items visible |
+| Switch to Site 2, view "Shared with me" | Only shares from Site 2 owners visible |
+| Switch site on Vacations page | Employee filter resets to "All" |
+| Switch site on Tasks page | Employee/department filters reset |
+| Open vacation form in Site 2 | Employee dropdown shows Site 2 employees only |
+| Share vault item in Site 2 | Employee picker shows Site 2 employees only |
