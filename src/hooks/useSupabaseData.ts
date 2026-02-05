@@ -129,13 +129,14 @@ export function useNetworks(domainId?: string) {
 // Server hooks - filtered by site
 export function useServers(networkId?: string) {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
+  const { data: siteDomainIds = [] } = useSiteDomains();
+  const { data: siteNetworks = [], isLoading: networksLoading } = useNetworks();
   const [data, setData] = useState<Server[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetch = useCallback(async () => {
-    // Wait for domains to load before fetching servers
-    if (!selectedSite || (domainsLoading && !networkId)) {
+    // Wait for networks to load before fetching servers
+    if (!selectedSite || (networksLoading && !networkId)) {
       setData([]);
       setIsLoading(false);
       return;
@@ -147,11 +148,12 @@ export function useServers(networkId?: string) {
       
       if (networkId) {
         query = query.eq('network_id', networkId);
-      } else if (siteDomainIds.length > 0) {
-        // Filter by domain_id for servers in the site's domains
-        query = query.in('domain_id', siteDomainIds);
+      } else if (siteNetworks.length > 0) {
+        // Filter by network_id for servers in the site's networks
+        const siteNetworkIds = siteNetworks.map(n => n.id);
+        query = query.in('network_id', siteNetworkIds);
       } else {
-        // No domains for this site, return empty
+        // No networks for this site, return empty
         setData([]);
         setIsLoading(false);
         return;
@@ -166,7 +168,7 @@ export function useServers(networkId?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [networkId, selectedSite?.id, siteDomainIds, domainsLoading]);
+  }, [networkId, selectedSite?.id, siteNetworks, networksLoading]);
 
   useEffect(() => {
     fetch();
