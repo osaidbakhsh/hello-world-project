@@ -519,8 +519,8 @@ export function useAppSettings() {
 export function useDashboardStats(selectedDomainId?: string) {
   const { isAdmin } = useAuth();
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
-  const { data: siteProfileIds = [] } = useSiteProfileIds();
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
+  const { data: siteProfileIds = [], isLoading: profilesLoading } = useSiteProfileIds();
   
   const [stats, setStats] = useState({
     totalServers: 0,
@@ -537,6 +537,11 @@ export function useDashboardStats(selectedDomainId?: string) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetch = useCallback(async () => {
+    // Wait for site domains and profiles to load before fetching stats
+    if (selectedSite && (domainsLoading || profilesLoading)) {
+      return; // Keep isLoading true until dependencies are ready
+    }
+
     setIsLoading(true);
     try {
       // Use site domain IDs or selected domain ID
@@ -655,7 +660,7 @@ export function useDashboardStats(selectedDomainId?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDomainId, selectedSite?.id, siteDomainIds, siteProfileIds]);
+  }, [selectedDomainId, selectedSite?.id, siteDomainIds, siteProfileIds, domainsLoading, profilesLoading]);
 
   useEffect(() => {
     fetch();
