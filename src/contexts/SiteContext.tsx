@@ -113,6 +113,9 @@ export const SiteProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     queryClient.invalidateQueries({ queryKey: ['maintenance_windows'] });
     queryClient.invalidateQueries({ queryKey: ['on_call_schedules'] });
     queryClient.invalidateQueries({ queryKey: ['website_applications'] });
+    queryClient.invalidateQueries({ queryKey: ['vault-items'] });
+    queryClient.invalidateQueries({ queryKey: ['vault-shared-with-me'] });
+    queryClient.invalidateQueries({ queryKey: ['vault-permissions'] });
   }, [queryClient]);
 
   const clearSelection = useCallback(() => {
