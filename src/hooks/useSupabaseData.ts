@@ -862,48 +862,112 @@ export async function logAuditAction(
   }
 }
 
-// CRUD operations for Servers
+// CRUD operations for Servers (using transactional RPCs)
 export function useServerMutations(profileId?: string) {
   const createServer = async (serverData: Record<string, any>) => {
     try {
-      const { data, error } = await supabase
-        .from('servers')
-        .insert(serverData as any)
-        .select()
-        .single();
-      if (error) throw error;
-      await logAuditAction(profileId, 'create', 'servers', data.id, undefined, serverData);
-      return { data, error: null };
+      // Use transactional RPC instead of direct insert
+      const { upsertPhysicalServer } = await import('@/services/resourceService');
+      const resourceId = await upsertPhysicalServer({
+        network_id: serverData.network_id,
+        name: serverData.name,
+        hostname: serverData.name, // Use name as hostname if not provided
+        ip_address: serverData.ip_address,
+        operating_system: serverData.operating_system,
+        status: serverData.status || 'active',
+        criticality: serverData.criticality,
+        environment: serverData.environment,
+        owner: serverData.owner,
+        responsible_user: serverData.responsible_user,
+        cpu: serverData.cpu,
+        ram: serverData.ram,
+        disk_space: serverData.disk_space,
+        vendor: serverData.vendor,
+        model: serverData.model,
+        serial_number: serverData.serial_number,
+        warranty_end: serverData.warranty_end,
+        eol_date: serverData.eol_date,
+        eos_date: serverData.eos_date,
+        purchase_date: serverData.purchase_date,
+        is_backed_up_by_veeam: serverData.is_backed_up_by_veeam,
+        backup_frequency: serverData.backup_frequency,
+        backup_job_name: serverData.backup_job_name,
+        beneficiary_department: serverData.beneficiary_department,
+        primary_application: serverData.primary_application,
+        business_owner: serverData.business_owner,
+        contract_id: serverData.contract_id,
+        support_level: serverData.support_level,
+        server_role: serverData.server_role,
+        rpo_hours: serverData.rpo_hours,
+        rto_hours: serverData.rto_hours,
+        last_restore_test: serverData.last_restore_test,
+        notes: serverData.notes,
+      });
+      await logAuditAction(profileId, 'create', 'servers', resourceId, undefined, serverData);
+      return { data: { id: resourceId, resource_id: resourceId }, error: null };
     } catch (e) {
+      console.error('Error creating server via RPC:', e);
       return { data: null, error: e as Error };
     }
   };
 
   const updateServer = async (id: string, serverData: Record<string, any>) => {
     try {
-      const { data: old } = await supabase.from('servers').select('*').eq('id', id).single();
-      const { data, error } = await supabase
-        .from('servers')
-        .update({ ...serverData, updated_at: new Date().toISOString() } as any)
-        .eq('id', id)
-        .select()
-        .single();
-      if (error) throw error;
-      await logAuditAction(profileId, 'update', 'servers', id, old, serverData);
-      return { data, error: null };
+      // Determine if id is a resource_id or server_id
+      // For now, assume it's a resource_id (from server_inventory_view)
+      const { upsertPhysicalServer } = await import('@/services/resourceService');
+      const resourceId = await upsertPhysicalServer({
+        resource_id: id, // Pass as resource_id for update
+        network_id: serverData.network_id,
+        name: serverData.name,
+        hostname: serverData.name,
+        ip_address: serverData.ip_address,
+        operating_system: serverData.operating_system,
+        status: serverData.status,
+        criticality: serverData.criticality,
+        environment: serverData.environment,
+        owner: serverData.owner,
+        responsible_user: serverData.responsible_user,
+        cpu: serverData.cpu,
+        ram: serverData.ram,
+        disk_space: serverData.disk_space,
+        vendor: serverData.vendor,
+        model: serverData.model,
+        serial_number: serverData.serial_number,
+        warranty_end: serverData.warranty_end,
+        eol_date: serverData.eol_date,
+        eos_date: serverData.eos_date,
+        purchase_date: serverData.purchase_date,
+        is_backed_up_by_veeam: serverData.is_backed_up_by_veeam,
+        backup_frequency: serverData.backup_frequency,
+        backup_job_name: serverData.backup_job_name,
+        beneficiary_department: serverData.beneficiary_department,
+        primary_application: serverData.primary_application,
+        business_owner: serverData.business_owner,
+        contract_id: serverData.contract_id,
+        support_level: serverData.support_level,
+        server_role: serverData.server_role,
+        rpo_hours: serverData.rpo_hours,
+        rto_hours: serverData.rto_hours,
+        last_restore_test: serverData.last_restore_test,
+        notes: serverData.notes,
+      });
+      await logAuditAction(profileId, 'update', 'servers', resourceId);
+      return { data: { id: resourceId }, error: null };
     } catch (e) {
+      console.error('Error updating server via RPC:', e);
       return { data: null, error: e as Error };
     }
   };
 
   const deleteServer = async (id: string) => {
     try {
-      const { data: old } = await supabase.from('servers').select('*').eq('id', id).single();
-      const { error } = await supabase.from('servers').delete().eq('id', id);
-      if (error) throw error;
-      await logAuditAction(profileId, 'delete', 'servers', id, old, undefined);
+      const { deletePhysicalServer } = await import('@/services/resourceService');
+      await deletePhysicalServer(id);
+      await logAuditAction(profileId, 'delete', 'servers', id);
       return { error: null };
     } catch (e) {
+      console.error('Error deleting server via RPC:', e);
       return { error: e as Error };
     }
   };

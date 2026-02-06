@@ -797,6 +797,13 @@ export type Database = {
             foreignKeyName: "cluster_nodes_server_ref_id_fkey"
             columns: ["server_ref_id"]
             isOneToOne: false
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "cluster_nodes_server_ref_id_fkey"
+            columns: ["server_ref_id"]
+            isOneToOne: false
             referencedRelation: "servers"
             referencedColumns: ["id"]
           },
@@ -3260,6 +3267,20 @@ export type Database = {
             referencedRelation: "resources"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "resource_server_details_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: true
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_server_details_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: true
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["resource_id"]
+          },
         ]
       }
       resource_vm_details: {
@@ -3312,6 +3333,20 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "resources"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_vm_details_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: true
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_vm_details_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: true
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["resource_id"]
           },
         ]
       }
@@ -4017,6 +4052,20 @@ export type Database = {
             referencedRelation: "resources"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "servers_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servers_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["resource_id"]
+          },
         ]
       }
       site_memberships: {
@@ -4363,6 +4412,13 @@ export type Database = {
             foreignKeyName: "tasks_linked_server_id_fkey"
             columns: ["linked_server_id"]
             isOneToOne: false
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "tasks_linked_server_id_fkey"
+            columns: ["linked_server_id"]
+            isOneToOne: false
             referencedRelation: "servers"
             referencedColumns: ["id"]
           },
@@ -4386,6 +4442,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["server_id"]
           },
           {
             foreignKeyName: "tasks_server_id_fkey"
@@ -4757,6 +4820,13 @@ export type Database = {
             foreignKeyName: "vault_items_linked_server_id_fkey"
             columns: ["linked_server_id"]
             isOneToOne: false
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "vault_items_linked_server_id_fkey"
+            columns: ["linked_server_id"]
+            isOneToOne: false
             referencedRelation: "servers"
             referencedColumns: ["id"]
           },
@@ -5059,6 +5129,13 @@ export type Database = {
             foreignKeyName: "vms_server_ref_id_fkey"
             columns: ["server_ref_id"]
             isOneToOne: false
+            referencedRelation: "server_inventory_view"
+            referencedColumns: ["server_id"]
+          },
+          {
+            foreignKeyName: "vms_server_ref_id_fkey"
+            columns: ["server_ref_id"]
+            isOneToOne: false
             referencedRelation: "servers"
             referencedColumns: ["id"]
           },
@@ -5164,6 +5241,87 @@ export type Database = {
       }
     }
     Views: {
+      server_inventory_view: {
+        Row: {
+          backup_frequency: string | null
+          backup_job_name: string | null
+          backup_policy: string | null
+          beneficiary_department: string | null
+          business_owner: string | null
+          contract_id: string | null
+          cpu: string | null
+          created_at: string | null
+          created_by: string | null
+          criticality: string | null
+          disk_space: string | null
+          domain_id: string | null
+          domain_name: string | null
+          environment: string | null
+          eol_date: string | null
+          eos_date: string | null
+          hostname: string | null
+          id: string | null
+          ip_address: string | null
+          is_backed_up: boolean | null
+          is_backed_up_by_veeam: boolean | null
+          last_restore_test: string | null
+          model: string | null
+          name: string | null
+          network_id: string | null
+          network_name: string | null
+          notes: string | null
+          operating_system: string | null
+          owner: string | null
+          primary_application: string | null
+          purchase_date: string | null
+          ram: string | null
+          resource_id: string | null
+          responsible_user: string | null
+          rpo_hours: number | null
+          rto_hours: number | null
+          serial_number: string | null
+          server_id: string | null
+          server_role: string[] | null
+          site_id: string | null
+          site_name: string | null
+          status: string | null
+          support_level: string | null
+          tags: string[] | null
+          updated_at: string | null
+          vendor: string | null
+          warranty_end: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_servers_network"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servers_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "networks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_my_role_assignments: {
         Row: {
           capabilities: Json | null
@@ -5250,6 +5408,11 @@ export type Database = {
         }[]
       }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      delete_physical_server: {
+        Args: { p_resource_id: string }
+        Returns: undefined
+      }
+      delete_vm: { Args: { p_resource_id: string }; Returns: undefined }
       generate_procurement_request_number: {
         Args: { p_domain_id: string }
         Returns: string
@@ -5343,6 +5506,81 @@ export type Database = {
       }
       owns_vault_item: { Args: { _vault_item_id: string }; Returns: boolean }
       text2ltree: { Args: { "": string }; Returns: unknown }
+      upsert_physical_server: {
+        Args: {
+          p_backup_frequency?: string
+          p_backup_job_name?: string
+          p_backup_policy?: string
+          p_beneficiary_department?: string
+          p_business_owner?: string
+          p_contract_id?: string
+          p_cpu?: string
+          p_criticality?: string
+          p_disk_space?: string
+          p_domain_id?: string
+          p_environment?: string
+          p_eol_date?: string
+          p_eos_date?: string
+          p_hostname?: string
+          p_ip_address?: string
+          p_is_backed_up?: boolean
+          p_is_backed_up_by_veeam?: boolean
+          p_last_restore_test?: string
+          p_model?: string
+          p_name?: string
+          p_network_id?: string
+          p_notes?: string
+          p_operating_system?: string
+          p_owner?: string
+          p_primary_application?: string
+          p_purchase_date?: string
+          p_ram?: string
+          p_resource_id?: string
+          p_responsible_user?: string
+          p_rpo_hours?: number
+          p_rto_hours?: number
+          p_serial_number?: string
+          p_server_role?: string[]
+          p_site_id?: string
+          p_status?: string
+          p_support_level?: string
+          p_tags?: string[]
+          p_vendor?: string
+          p_warranty_end?: string
+        }
+        Returns: string
+      }
+      upsert_vm: {
+        Args: {
+          p_cluster_id?: string
+          p_cpu_cores?: number
+          p_criticality?: string
+          p_domain_id?: string
+          p_environment?: string
+          p_hostname?: string
+          p_hypervisor_host?: string
+          p_hypervisor_type?: string
+          p_is_template?: boolean
+          p_name?: string
+          p_network_id?: string
+          p_notes?: string
+          p_os?: string
+          p_owner_team?: string
+          p_primary_ip?: string
+          p_ram_gb?: number
+          p_resource_id?: string
+          p_site_id?: string
+          p_snapshot_count?: number
+          p_status?: string
+          p_storage_gb?: number
+          p_tags?: string[]
+          p_template_name?: string
+          p_tools_status?: string
+          p_tools_version?: string
+          p_vm_id?: string
+        }
+        Returns: string
+      }
       user_can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
       user_can_access_site: { Args: { _site_id: string }; Returns: boolean }
     }
