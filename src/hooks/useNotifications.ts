@@ -101,8 +101,9 @@ export function useNotifications(filters: NotificationFilters = {}) {
 
 export function useUnreadNotificationCount() {
   const { selectedSite } = useSite();
+  const queryClient = useQueryClient();
   
-  return useQuery({
+  const query = useQuery({
     queryKey: ['notifications-unread-count', selectedSite?.id],
     queryFn: async () => {
       let query = supabase
@@ -118,8 +119,35 @@ export function useUnreadNotificationCount() {
       if (error) throw error;
       return count || 0;
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    // Remove aggressive polling - rely on realtime subscription instead
+    staleTime: 60 * 1000, // 1 minute stale time
+    gcTime: 5 * 60 * 1000, // 5 minutes cache
   });
+
+  // Subscribe to realtime for immediate updates (instead of polling)
+  useEffect(() => {
+    const channel = supabase
+      .channel('notifications-count-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events for count updates
+          schema: 'public',
+          table: 'notifications',
+        },
+        () => {
+          // Debounce the invalidation to prevent rapid re-fetches
+          queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  return query;
 }
 
 export function useMarkNotificationRead() {

@@ -383,6 +383,18 @@ const translations: Record<Language, Record<string, string>> = {
     'maintenance.conflictsDetected': 'تم اكتشاف تعارضات!',
     'maintenance.conflictWith': 'تعارض مع',
     'maintenance.responsibleOnVacation': 'المسؤول في إجازة',
+    'maintenance.assignedTo': 'مسند إلى',
+    'maintenance.completionNotes': 'ملاحظات الإنجاز',
+    'maintenance.completionNotesPlaceholder': 'أدخل ملاحظات عند إتمام الصيانة...',
+    'maintenance.selectAssignee': 'اختر الموظف المسؤول',
+    'maintenance.timeline': 'المخطط الزمني',
+    'maintenance.eventCreated': 'تم الإنشاء',
+    'maintenance.eventStarted': 'بدأت',
+    'maintenance.eventCompleted': 'اكتملت',
+    'maintenance.eventCancelled': 'ألغيت',
+    'maintenance.eventUpdated': 'تم التحديث',
+    'maintenance.markCompleted': 'وضع علامة مكتمل',
+    'maintenance.start': 'بدء',
     
     // Lifecycle Center
     'lifecycle.title': 'مركز دورة الحياة',
@@ -1098,6 +1110,12 @@ const translations: Record<Language, Record<string, string>> = {
     'common.requiredFields': 'يرجى تعبئة الحقول المطلوبة',
     'common.confirmDelete': 'تأكيد الحذف',
     'common.deleteConfirmMessage': 'هل أنت متأكد من الحذف؟ لا يمكن التراجع عن هذا الإجراء.',
+    'common.username': 'اسم المستخدم',
+    'common.password': 'كلمة المرور',
+    'common.testConnection': 'اختبار الاتصال',
+    'common.testing': 'جاري الاختبار...',
+    'common.connectionSuccess': 'الاتصال ناجح',
+    'common.connectionFailed': 'فشل الاتصال',
 
     // Permissions Page
     'permissions.title': 'إدارة الموظفين والصلاحيات',
@@ -2155,6 +2173,18 @@ const translations: Record<Language, Record<string, string>> = {
     'maintenance.conflictsDetected': 'Conflicts Detected!',
     'maintenance.conflictWith': 'Conflict with',
     'maintenance.responsibleOnVacation': 'Responsible person on vacation',
+    'maintenance.assignedTo': 'Assigned To',
+    'maintenance.completionNotes': 'Completion Notes',
+    'maintenance.completionNotesPlaceholder': 'Enter notes upon completion...',
+    'maintenance.selectAssignee': 'Select Assignee',
+    'maintenance.timeline': 'Timeline',
+    'maintenance.eventCreated': 'Created',
+    'maintenance.eventStarted': 'Started',
+    'maintenance.eventCompleted': 'Completed',
+    'maintenance.eventCancelled': 'Cancelled',
+    'maintenance.eventUpdated': 'Updated',
+    'maintenance.markCompleted': 'Mark Completed',
+    'maintenance.start': 'Start',
     
     // Lifecycle Center
     'lifecycle.title': 'Lifecycle Center',
@@ -2854,6 +2884,12 @@ const translations: Record<Language, Record<string, string>> = {
     'common.requiredFields': 'Please fill required fields',
     'common.confirmDelete': 'Confirm Delete',
     'common.deleteConfirmMessage': 'Are you sure? This action cannot be undone.',
+    'common.username': 'Username',
+    'common.password': 'Password',
+    'common.testConnection': 'Test Connection',
+    'common.testing': 'Testing...',
+    'common.connectionSuccess': 'Connection successful',
+    'common.connectionFailed': 'Connection failed',
 
     // Permissions Page
     'permissions.title': 'Employee & Permissions Management',
