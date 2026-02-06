@@ -304,33 +304,151 @@ Deno.serve(async (req) => {
       .update({
         status: 'ONLINE',
         last_seen_at: new Date().toISOString(),
+        offline_since: null,
       })
       .eq('id', agent.id);
 
-    // Check for anomalies and create notifications
-    const anomalies: string[] = [];
-    
-    if ((payload.dcs?.down || 0) > 0) {
-      anomalies.push(`${payload.dcs.down} Domain Controller(s) down`);
-    }
-    if ((payload.users?.locked || 0) > 10) {
-      anomalies.push(`${payload.users.locked} user accounts locked`);
-    }
-    if ((payload.password?.expired || 0) > 50) {
-      anomalies.push(`${payload.password.expired} passwords expired`);
-    }
+    // Get previous snapshot for comparison (anomaly detection)
+    const { data: prevSnapshot } = await supabaseAdmin
+      .from('ad_snapshots')
+      .select('*')
+      .eq('domain_id', domainId)
+      .lt('captured_at', capturedAt)
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (anomalies.length > 0) {
-      // Create notification for anomalies
+    // Get thresholds from integration config
+    const thresholds = (integration as any).config_json?.thresholds || {
+      lockoutSpikeAbs: 10,
+      lockoutSpikePct: 50,
+      pwdExpiredThreshold: 50,
+      pwdExpiring7dThreshold: 100,
+      stale90dThreshold: 100,
+    };
+
+    // Helper function to create deduplicated notifications
+    async function createDedupedNotification(
+      code: string,
+      severity: 'info' | 'warning' | 'critical',
+      title: string,
+      message: string
+    ) {
+      const dedupKey = `${code}:${domainId}`;
+      const dedupWindowMinutes = severity === 'critical' ? 30 : 60;
+      
+      // Check dedup
+      const { data: existing } = await supabaseAdmin
+        .from('notification_dedup')
+        .select('last_sent_at')
+        .eq('dedup_key', dedupKey)
+        .maybeSingle();
+
+      const now = new Date();
+      if (existing) {
+        const lastSent = new Date(existing.last_sent_at);
+        const minutesSinceLast = (now.getTime() - lastSent.getTime()) / (1000 * 60);
+        if (minutesSinceLast < dedupWindowMinutes) {
+          return false;
+        }
+        await supabaseAdmin
+          .from('notification_dedup')
+          .update({ last_sent_at: now.toISOString() })
+          .eq('dedup_key', dedupKey);
+      } else {
+        await supabaseAdmin
+          .from('notification_dedup')
+          .insert({ dedup_key: dedupKey, last_sent_at: now.toISOString() });
+      }
+
       await supabaseAdmin
         .from('notifications')
         .insert({
-          title: 'AD Health Alert',
-          message: `Domain ${payload.domainFqdn}: ${anomalies.join(', ')}`,
-          type: 'warning',
-          related_id: domainId,
-          link: `/domain-summary?domain=${domainId}`,
+          site_id: siteId,
+          domain_id: domainId,
+          severity,
+          title,
+          message,
+          entity_type: 'ad_snapshot',
+          entity_id: domainId,
+          code,
+          type: severity === 'critical' ? 'alert' : 'warning',
+          link: `/ad-overview/${domainId}`,
+          is_read: false,
         });
+      return true;
+    }
+
+    // Check for anomalies
+    const anomalies: { code: string; severity: 'warning' | 'critical'; title: string; message: string }[] = [];
+    
+    // DC down - critical
+    if ((payload.dcs?.down || 0) > 0) {
+      anomalies.push({
+        code: 'AD_DC_DOWN',
+        severity: 'critical',
+        title: 'Domain Controller Down',
+        message: `${payload.dcs.down} Domain Controller(s) down in ${payload.domainFqdn}`,
+      });
+    }
+
+    // Lockout spike detection
+    const currentLocked = payload.users?.locked || 0;
+    const prevLocked = prevSnapshot?.users_locked || 0;
+    const lockoutIncrease = currentLocked - prevLocked;
+    const lockoutPctIncrease = prevLocked > 0 ? (lockoutIncrease / prevLocked) * 100 : 0;
+    
+    if (lockoutIncrease > thresholds.lockoutSpikeAbs || lockoutPctIncrease > thresholds.lockoutSpikePct) {
+      anomalies.push({
+        code: 'AD_LOCKOUT_SPIKE',
+        severity: lockoutIncrease > thresholds.lockoutSpikeAbs * 2 ? 'critical' : 'warning',
+        title: 'Account Lockout Spike',
+        message: `${currentLocked} accounts locked (${lockoutIncrease > 0 ? '+' : ''}${lockoutIncrease} since last sync) in ${payload.domainFqdn}`,
+      });
+    }
+
+    // Password expired threshold
+    if ((payload.password?.expired || 0) > thresholds.pwdExpiredThreshold) {
+      anomalies.push({
+        code: 'AD_PWD_EXPIRED',
+        severity: 'warning',
+        title: 'Passwords Expired Alert',
+        message: `${payload.password.expired} passwords expired in ${payload.domainFqdn}`,
+      });
+    }
+
+    // Password expiring soon
+    if ((payload.password?.expiringIn7d || 0) > thresholds.pwdExpiring7dThreshold) {
+      anomalies.push({
+        code: 'AD_PWD_EXPIRING',
+        severity: 'warning',
+        title: 'Passwords Expiring Soon',
+        message: `${payload.password.expiringIn7d} passwords expiring in 7 days in ${payload.domainFqdn}`,
+      });
+    }
+
+    // Stale computers
+    if ((payload.computers?.stale90d || 0) > thresholds.stale90dThreshold) {
+      anomalies.push({
+        code: 'AD_STALE_COMPUTERS',
+        severity: 'warning',
+        title: 'Stale Computers Alert',
+        message: `${payload.computers.stale90d} computers inactive for 90+ days in ${payload.domainFqdn}`,
+      });
+    }
+
+    // Create notifications for anomalies
+    const notificationsCreated: string[] = [];
+    for (const anomaly of anomalies) {
+      const created = await createDedupedNotification(
+        anomaly.code,
+        anomaly.severity,
+        anomaly.title,
+        anomaly.message
+      );
+      if (created) {
+        notificationsCreated.push(anomaly.code);
+      }
     }
 
     return new Response(
@@ -339,7 +457,8 @@ Deno.serve(async (req) => {
         integration_id: integration.id,
         run_id: run?.id,
         captured_at: capturedAt,
-        anomalies: anomalies.length > 0 ? anomalies : undefined,
+        anomalies: anomalies.length > 0 ? anomalies.map(a => a.message) : undefined,
+        notifications_created: notificationsCreated.length > 0 ? notificationsCreated : undefined,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

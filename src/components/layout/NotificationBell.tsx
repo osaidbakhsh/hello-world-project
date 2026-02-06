@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSite } from '@/contexts/SiteContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, Check, CheckCheck, Trash2, AlertTriangle, Calendar, FileText, Shield, ExternalLink } from 'lucide-react';
+import { Bell, Check, CheckCheck, Trash2, AlertTriangle, AlertCircle, Info, ExternalLink, Bot, Server, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -21,6 +21,9 @@ interface Notification {
   title: string;
   message: string | null;
   type: string;
+  severity: string;
+  entity_type: string | null;
+  code: string | null;
   is_read: boolean;
   link: string | null;
   created_at: string;
@@ -28,7 +31,7 @@ interface Notification {
 
 const NotificationBell: React.FC = () => {
   const { t, language, dir } = useLanguage();
-  const { profile } = useAuth();
+  const { selectedSite } = useSite();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -38,14 +41,14 @@ const NotificationBell: React.FC = () => {
 
   // Fetch notifications
   const fetchNotifications = async () => {
-    if (!profile?.id) return;
+    if (!selectedSite?.id) return;
     
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', profile.id)
+        .or(`site_id.eq.${selectedSite.id},site_id.is.null`)
         .order('created_at', { ascending: false })
         .limit(20);
       
@@ -60,7 +63,7 @@ const NotificationBell: React.FC = () => {
 
   // Initial fetch and subscribe to realtime
   useEffect(() => {
-    if (profile?.id) {
+    if (selectedSite?.id) {
       fetchNotifications();
       
       // Subscribe to new notifications
@@ -72,10 +75,13 @@ const NotificationBell: React.FC = () => {
             event: 'INSERT',
             schema: 'public',
             table: 'notifications',
-            filter: `user_id=eq.${profile.id}`,
           },
           (payload) => {
-            setNotifications(prev => [payload.new as Notification, ...prev]);
+            // Check if notification is relevant to current site
+            const newNotif = payload.new as any;
+            if (!newNotif.site_id || newNotif.site_id === selectedSite.id) {
+              setNotifications(prev => [newNotif as Notification, ...prev]);
+            }
           }
         )
         .subscribe();
@@ -84,7 +90,7 @@ const NotificationBell: React.FC = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [profile?.id]);
+  }, [selectedSite?.id]);
 
   // Mark as read
   const markAsRead = async (notificationId: string) => {
@@ -104,11 +110,12 @@ const NotificationBell: React.FC = () => {
 
   // Mark all as read
   const markAllAsRead = async () => {
+    if (!selectedSite?.id) return;
     try {
       await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', profile?.id)
+        .or(`site_id.eq.${selectedSite.id},site_id.is.null`)
         .eq('is_read', false);
       
       setNotifications(prev =>
@@ -144,19 +151,32 @@ const NotificationBell: React.FC = () => {
     }
   };
 
-  // Get icon based on type
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'task':
-        return <FileText className="w-4 h-4 text-primary" />;
-      case 'vacation':
-        return <Calendar className="w-4 h-4 text-info" />;
-      case 'license':
-        return <Shield className="w-4 h-4 text-warning" />;
+  // Get icon based on type/severity/entity
+  const getTypeIcon = (notification: Notification) => {
+    // By entity type first
+    if (notification.entity_type === 'agent') {
+      return <Bot className="w-4 h-4 text-muted-foreground" />;
+    }
+    if (notification.entity_type === 'domain_integration' || notification.entity_type === 'ad_snapshot') {
+      return <Server className="w-4 h-4 text-muted-foreground" />;
+    }
+    
+    // By severity
+    if (notification.severity === 'critical') {
+      return <AlertCircle className="w-4 h-4 text-destructive" />;
+    }
+    if (notification.severity === 'warning') {
+      return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+    }
+    
+    // By type fallback
+    switch (notification.type) {
       case 'alert':
         return <AlertTriangle className="w-4 h-4 text-destructive" />;
+      case 'license':
+        return <Shield className="w-4 h-4 text-amber-500" />;
       default:
-        return <Bell className="w-4 h-4 text-muted-foreground" />;
+        return <Info className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -227,7 +247,7 @@ const NotificationBell: React.FC = () => {
                 >
                   <div className="flex gap-3">
                     <div className="flex-shrink-0 mt-0.5">
-                      {getTypeIcon(notification.type)}
+                      {getTypeIcon(notification)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={cn(
