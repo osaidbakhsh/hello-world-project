@@ -455,9 +455,147 @@ export type Database = {
         }
         Relationships: []
       }
+      approval_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          message: string | null
+          metadata: Json | null
+          request_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          request_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "approval_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_requests: {
+        Row: {
+          action_type: string
+          approver_role: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_notes: string | null
+          domain_id: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          request_data: Json | null
+          requested_by: string
+          requester_notes: string | null
+          scope_id: string
+          scope_type: string
+          site_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          approver_role?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          domain_id?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          request_data?: Json | null
+          requested_by: string
+          requester_notes?: string | null
+          scope_id: string
+          scope_type: string
+          site_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          approver_role?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          domain_id?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          request_data?: Json | null
+          requested_by?: string
+          requester_notes?: string | null
+          scope_id?: string
+          scope_type?: string
+          site_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
+          approval_request_id: string | null
           created_at: string
           entity_name: string | null
           id: string
@@ -465,6 +603,8 @@ export type Database = {
           new_data: Json | null
           old_data: Json | null
           record_id: string | null
+          scope_id: string | null
+          scope_type: string | null
           table_name: string | null
           user_agent: string | null
           user_email: string | null
@@ -473,6 +613,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          approval_request_id?: string | null
           created_at?: string
           entity_name?: string | null
           id?: string
@@ -480,6 +621,8 @@ export type Database = {
           new_data?: Json | null
           old_data?: Json | null
           record_id?: string | null
+          scope_id?: string | null
+          scope_type?: string | null
           table_name?: string | null
           user_agent?: string | null
           user_email?: string | null
@@ -488,6 +631,7 @@ export type Database = {
         }
         Update: {
           action?: string
+          approval_request_id?: string | null
           created_at?: string
           entity_name?: string | null
           id?: string
@@ -495,6 +639,8 @@ export type Database = {
           new_data?: Json | null
           old_data?: Json | null
           record_id?: string | null
+          scope_id?: string | null
+          scope_type?: string | null
           table_name?: string | null
           user_agent?: string | null
           user_email?: string | null
