@@ -1553,6 +1553,75 @@ export type Database = {
           },
         ]
       }
+      networks_v2: {
+        Row: {
+          cidr: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          dns_servers: string[] | null
+          gateway: string | null
+          id: string
+          is_management: boolean | null
+          name: string
+          scope_id: string | null
+          scope_type: Database["public"]["Enums"]["network_scope_type"]
+          site_id: string
+          tags: string[] | null
+          updated_at: string
+          vlan_id: number | null
+        }
+        Insert: {
+          cidr?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          dns_servers?: string[] | null
+          gateway?: string | null
+          id?: string
+          is_management?: boolean | null
+          name: string
+          scope_id?: string | null
+          scope_type?: Database["public"]["Enums"]["network_scope_type"]
+          site_id: string
+          tags?: string[] | null
+          updated_at?: string
+          vlan_id?: number | null
+        }
+        Update: {
+          cidr?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          dns_servers?: string[] | null
+          gateway?: string | null
+          id?: string
+          is_management?: boolean | null
+          name?: string
+          scope_id?: string | null
+          scope_type?: Database["public"]["Enums"]["network_scope_type"]
+          site_id?: string
+          tags?: string[] | null
+          updated_at?: string
+          vlan_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "networks_v2_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "networks_v2_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -2190,6 +2259,316 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_server_details: {
+        Row: {
+          bios_version: string | null
+          created_at: string
+          datacenter_id: string | null
+          firmware_version: string | null
+          id: string
+          ilo_ip: string | null
+          ilo_type: string | null
+          power_supply_count: number | null
+          rack_location: string | null
+          rack_unit: number | null
+          resource_id: string
+          updated_at: string
+        }
+        Insert: {
+          bios_version?: string | null
+          created_at?: string
+          datacenter_id?: string | null
+          firmware_version?: string | null
+          id?: string
+          ilo_ip?: string | null
+          ilo_type?: string | null
+          power_supply_count?: number | null
+          rack_location?: string | null
+          rack_unit?: number | null
+          resource_id: string
+          updated_at?: string
+        }
+        Update: {
+          bios_version?: string | null
+          created_at?: string
+          datacenter_id?: string | null
+          firmware_version?: string | null
+          id?: string
+          ilo_ip?: string | null
+          ilo_type?: string | null
+          power_supply_count?: number | null
+          rack_location?: string | null
+          rack_unit?: number | null
+          resource_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_server_details_datacenter_id_fkey"
+            columns: ["datacenter_id"]
+            isOneToOne: false
+            referencedRelation: "datacenters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_server_details_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: true
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_vm_details: {
+        Row: {
+          created_at: string
+          hypervisor_host: string | null
+          hypervisor_type: string | null
+          id: string
+          is_template: boolean | null
+          resource_id: string
+          snapshot_count: number | null
+          template_name: string | null
+          tools_status: string | null
+          tools_version: string | null
+          updated_at: string
+          vm_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          hypervisor_host?: string | null
+          hypervisor_type?: string | null
+          id?: string
+          is_template?: boolean | null
+          resource_id: string
+          snapshot_count?: number | null
+          template_name?: string | null
+          tools_status?: string | null
+          tools_version?: string | null
+          updated_at?: string
+          vm_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          hypervisor_host?: string | null
+          hypervisor_type?: string | null
+          id?: string
+          is_template?: boolean | null
+          resource_id?: string
+          snapshot_count?: number | null
+          template_name?: string | null
+          tools_status?: string | null
+          tools_version?: string | null
+          updated_at?: string
+          vm_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_vm_details_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: true
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resources: {
+        Row: {
+          application: string | null
+          asset_tag: string | null
+          backup_policy: string | null
+          cluster_id: string | null
+          commissioned_at: string | null
+          cost_center: string | null
+          cpu_cores: number | null
+          created_at: string
+          created_by: string | null
+          criticality: Database["public"]["Enums"]["criticality_level"] | null
+          custom_fields: Json | null
+          department: string | null
+          domain_id: string | null
+          environment: string | null
+          eol_date: string | null
+          eos_date: string | null
+          fqdn: string | null
+          health_score: number | null
+          hostname: string | null
+          id: string
+          is_backed_up: boolean | null
+          last_backup_at: string | null
+          last_health_check: string | null
+          last_seen_at: string | null
+          mac_address: string | null
+          model: string | null
+          name: string
+          network_id: string | null
+          notes: string | null
+          os: string | null
+          os_version: string | null
+          owner_team: string | null
+          owner_user_id: string | null
+          primary_ip: string | null
+          ram_gb: number | null
+          resource_type: Database["public"]["Enums"]["resource_type"]
+          responsible_user_id: string | null
+          secondary_ips: string[] | null
+          serial_number: string | null
+          site_id: string
+          status: Database["public"]["Enums"]["resource_status"]
+          storage_gb: number | null
+          tags: string[] | null
+          updated_at: string
+          vendor: string | null
+          warranty_end: string | null
+        }
+        Insert: {
+          application?: string | null
+          asset_tag?: string | null
+          backup_policy?: string | null
+          cluster_id?: string | null
+          commissioned_at?: string | null
+          cost_center?: string | null
+          cpu_cores?: number | null
+          created_at?: string
+          created_by?: string | null
+          criticality?: Database["public"]["Enums"]["criticality_level"] | null
+          custom_fields?: Json | null
+          department?: string | null
+          domain_id?: string | null
+          environment?: string | null
+          eol_date?: string | null
+          eos_date?: string | null
+          fqdn?: string | null
+          health_score?: number | null
+          hostname?: string | null
+          id?: string
+          is_backed_up?: boolean | null
+          last_backup_at?: string | null
+          last_health_check?: string | null
+          last_seen_at?: string | null
+          mac_address?: string | null
+          model?: string | null
+          name: string
+          network_id?: string | null
+          notes?: string | null
+          os?: string | null
+          os_version?: string | null
+          owner_team?: string | null
+          owner_user_id?: string | null
+          primary_ip?: string | null
+          ram_gb?: number | null
+          resource_type: Database["public"]["Enums"]["resource_type"]
+          responsible_user_id?: string | null
+          secondary_ips?: string[] | null
+          serial_number?: string | null
+          site_id: string
+          status?: Database["public"]["Enums"]["resource_status"]
+          storage_gb?: number | null
+          tags?: string[] | null
+          updated_at?: string
+          vendor?: string | null
+          warranty_end?: string | null
+        }
+        Update: {
+          application?: string | null
+          asset_tag?: string | null
+          backup_policy?: string | null
+          cluster_id?: string | null
+          commissioned_at?: string | null
+          cost_center?: string | null
+          cpu_cores?: number | null
+          created_at?: string
+          created_by?: string | null
+          criticality?: Database["public"]["Enums"]["criticality_level"] | null
+          custom_fields?: Json | null
+          department?: string | null
+          domain_id?: string | null
+          environment?: string | null
+          eol_date?: string | null
+          eos_date?: string | null
+          fqdn?: string | null
+          health_score?: number | null
+          hostname?: string | null
+          id?: string
+          is_backed_up?: boolean | null
+          last_backup_at?: string | null
+          last_health_check?: string | null
+          last_seen_at?: string | null
+          mac_address?: string | null
+          model?: string | null
+          name?: string
+          network_id?: string | null
+          notes?: string | null
+          os?: string | null
+          os_version?: string | null
+          owner_team?: string | null
+          owner_user_id?: string | null
+          primary_ip?: string | null
+          ram_gb?: number | null
+          resource_type?: Database["public"]["Enums"]["resource_type"]
+          responsible_user_id?: string | null
+          secondary_ips?: string[] | null
+          serial_number?: string | null
+          site_id?: string
+          status?: Database["public"]["Enums"]["resource_status"]
+          storage_gb?: number | null
+          tags?: string[] | null
+          updated_at?: string
+          vendor?: string | null
+          warranty_end?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resources_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "networks_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_responsible_user_id_fkey"
+            columns: ["responsible_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -3652,6 +4031,28 @@ export type Database = {
       }
       get_my_claims: { Args: never; Returns: Json }
       get_my_profile_id: { Args: never; Returns: string }
+      get_resources_with_details: {
+        Args: { p_site_id?: string }
+        Returns: {
+          cluster_id: string
+          criticality: Database["public"]["Enums"]["criticality_level"]
+          domain_id: string
+          hostname: string
+          id: string
+          last_seen_at: string
+          name: string
+          os: string
+          owner_team: string
+          primary_ip: string
+          resource_type: Database["public"]["Enums"]["resource_type"]
+          server_ilo_ip: string
+          server_rack_location: string
+          site_id: string
+          status: Database["public"]["Enums"]["resource_status"]
+          vm_hypervisor_host: string
+          vm_hypervisor_type: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -3690,6 +4091,22 @@ export type Database = {
     Enums: {
       app_role: "super_admin" | "admin" | "employee"
       branch_role: "branch_admin" | "branch_operator" | "branch_viewer"
+      criticality_level: "critical" | "high" | "medium" | "low"
+      network_scope_type: "site" | "cluster"
+      resource_status:
+        | "online"
+        | "offline"
+        | "maintenance"
+        | "degraded"
+        | "unknown"
+        | "decommissioned"
+      resource_type:
+        | "vm"
+        | "physical_server"
+        | "appliance"
+        | "service"
+        | "container"
+        | "database"
       site_role: "site_admin" | "site_operator" | "site_viewer"
       vault_role: "vault_admin" | "vault_editor" | "vault_viewer"
     }
@@ -3821,6 +4238,24 @@ export const Constants = {
     Enums: {
       app_role: ["super_admin", "admin", "employee"],
       branch_role: ["branch_admin", "branch_operator", "branch_viewer"],
+      criticality_level: ["critical", "high", "medium", "low"],
+      network_scope_type: ["site", "cluster"],
+      resource_status: [
+        "online",
+        "offline",
+        "maintenance",
+        "degraded",
+        "unknown",
+        "decommissioned",
+      ],
+      resource_type: [
+        "vm",
+        "physical_server",
+        "appliance",
+        "service",
+        "container",
+        "database",
+      ],
       site_role: ["site_admin", "site_operator", "site_viewer"],
       vault_role: ["vault_admin", "vault_editor", "vault_viewer"],
     },
