@@ -52,6 +52,12 @@ const allMenuItems: MenuItem[] = [{
   label: 'nav.noc',
   adminOnly: true
 }, {
+  id: 'resources',
+  path: '/resources',
+  icon: Server,
+  label: 'nav.resources',
+  adminOnly: true
+}, {
   id: 'servers',
   path: '/servers',
   icon: Server,

@@ -12,6 +12,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Layout from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import DomainSummary from "./pages/DomainSummary";
+import Resources from "./pages/Resources";
 import Servers from "./pages/Servers";
 import Employees from "./pages/Employees";
 import EmployeePermissions from "./pages/EmployeePermissions";
@@ -74,6 +75,7 @@ const App = () => (
               }>
               <Route path="/" element={<Dashboard />} />
                 <Route path="/domain-summary" element={<DomainSummary />} />
+                <Route path="/resources" element={<Resources />} />
                 <Route path="/servers" element={<Servers />} />
                 <Route path="/employees" element={<Employees />} />
                 <Route path="/employee-permissions" element={<EmployeePermissions />} />
