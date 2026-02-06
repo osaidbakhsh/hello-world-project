@@ -1,6 +1,7 @@
 // ============================================================
 // VIRTUALIZATION PREVIEW PAGE
 // Shows discovered resources in staging before sync
+// HARDENING: Preview clearly marked as non-destructive, Sync requires confirmation
 // ============================================================
 
 import React, { useState } from 'react';
@@ -22,6 +23,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import NoAccess from '@/components/common/NoAccess';
 import {
   ArrowLeft,
@@ -37,6 +47,7 @@ import {
   Plus,
   Minus,
   Edit,
+  Info,
 } from 'lucide-react';
 import type { DiscoveredResource, DiscoveredResourceType, DiffAction } from '@/types/virtualization';
 
@@ -64,6 +75,7 @@ const VirtualizationPreview: React.FC = () => {
   const canManageResources = hasPermission(PERMISSION_KEYS.INVENTORY_RESOURCES_MANAGE);
 
   const [selectedType, setSelectedType] = useState<DiscoveredResourceType | 'all'>('all');
+  const [showSyncConfirmation, setShowSyncConfirmation] = useState(false);
 
   const { data: integration, isLoading: loadingIntegration } = useVirtualizationIntegration(id);
   const { data: syncRuns, isLoading: loadingRuns } = useSyncRuns(id, 5);
@@ -109,6 +121,12 @@ const VirtualizationPreview: React.FC = () => {
   };
 
   const handleRunSync = async () => {
+    // HARDENING: Show confirmation before sync
+    setShowSyncConfirmation(true);
+  };
+
+  const handleConfirmSync = async () => {
+    setShowSyncConfirmation(false);
     await runSyncMutation.mutateAsync(integration.id);
   };
 
@@ -341,6 +359,32 @@ const VirtualizationPreview: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* HARDENING: Sync Confirmation Dialog */}
+      <AlertDialog open={showSyncConfirmation} onOpenChange={setShowSyncConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('virtualization.confirmSync')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('virtualization.confirmSyncDescription')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-4">
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="font-medium">{t('virtualization.resourcesCreate')}</span>
+              <Badge>{diffSummary.create}</Badge>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="font-medium">{t('virtualization.resourcesUpdate')}</span>
+              <Badge variant="outline">{diffSummary.update}</Badge>
+            </div>
+          </div>
+          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmSync}>
+            {t('virtualization.confirmApply')}
+          </AlertDialogAction>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

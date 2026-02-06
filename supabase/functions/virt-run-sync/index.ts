@@ -1,6 +1,7 @@
 // Edge function: virt-run-sync
 // Syncs discovered resources to production tables
-// Requires both integrations.manage AND inventory.resources.manage
+// SECURITY: Requires integrations.manage AND inventory.resources.manage
+// HARDENING: Site isolation, idempotent UPSERT (no duplicates), enhanced stats, sanitized errors
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -19,12 +20,31 @@ interface SyncStats {
   networks_discovered: number;
   resources_created: number;
   resources_updated: number;
+  resources_skipped: number;
+  duration_ms: number;
+}
+
+// Sanitize error messages
+function sanitizeError(error: any): string {
+  const msg = error?.message || 'Unknown error';
+  if (msg.includes('password') || msg.includes('credential') || msg.includes('token')) {
+    return 'Authentication failed';
+  }
+  if (msg.includes('unique') || msg.includes('UNIQUE')) {
+    return 'Duplicate resource detected during sync';
+  }
+  if (msg.includes('Unauthorized') || msg.includes('401') || msg.includes('403')) {
+    return 'Insufficient permissions';
+  }
+  return 'Sync failed due to an internal error';
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const syncStartTime = Date.now();
 
   try {
     const authHeader = req.headers.get('Authorization');
@@ -64,7 +84,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Fetch integration
+    // SECURITY: Load integration with user client (RLS enforces site access)
     const { data: integration, error: intError } = await supabaseUser
       .from('virtualization_integrations')
       .select('*')
@@ -77,6 +97,9 @@ Deno.serve(async (req: Request) => {
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // SECURITY: Ensure site_id is derived from integration record (prevent cross-site writes)
+    const siteId = integration.site_id;
 
     // Check mode - must be 'sync' to apply changes
     if (integration.mode !== 'sync') {
@@ -134,6 +157,8 @@ Deno.serve(async (req: Request) => {
       networks_discovered: 0,
       resources_created: 0,
       resources_updated: 0,
+      resources_skipped: 0,
+      duration_ms: 0,
     };
 
     let errorSummary: string | null = null;
@@ -145,16 +170,17 @@ Deno.serve(async (req: Request) => {
           const resourceType = discovered.resource_type === 'vm' ? 'vm' : 'physical_server';
           const attrs = discovered.attributes_json || {};
 
-          // Check if resource exists
+          // HARDENING: Check if resource exists using idempotency keys (site_id, source, external_id)
           const { data: existing } = await supabaseAdmin
             .from('resources')
             .select('id')
+            .eq('site_id', siteId)
+            .eq('source', integration.integration_type)
             .eq('external_id', discovered.external_id)
-            .eq('integration_id', integration_id)
             .single();
 
           const resourceData = {
-            site_id: discovered.site_id,
+            site_id: siteId,
             domain_id: discovered.domain_id,
             cluster_id: discovered.cluster_id,
             resource_type: resourceType,
@@ -166,18 +192,24 @@ Deno.serve(async (req: Request) => {
             source: integration.integration_type,
             external_id: discovered.external_id,
             integration_id: integration_id,
+            updated_at: new Date().toISOString(),
           };
 
           if (existing) {
+            // IDEMPOTENT: Update existing resource
             await supabaseAdmin
               .from('resources')
               .update(resourceData)
               .eq('id', existing.id);
             stats.resources_updated++;
           } else {
+            // Create new resource
             await supabaseAdmin
               .from('resources')
-              .insert(resourceData);
+              .insert({
+                ...resourceData,
+                created_at: new Date().toISOString(),
+              });
             stats.resources_created++;
           }
 
@@ -188,24 +220,27 @@ Deno.serve(async (req: Request) => {
           // Map to networks_v2 table
           const attrs = discovered.attributes_json || {};
 
+          // IDEMPOTENT: Check existence by (site_id, name)
           const { data: existing } = await supabaseAdmin
             .from('networks_v2')
             .select('id')
+            .eq('site_id', siteId)
             .eq('name', discovered.name)
-            .eq('site_id', discovered.site_id)
             .single();
 
           const networkData = {
-            site_id: discovered.site_id,
+            site_id: siteId,
             name: discovered.name,
             vlan_id: attrs.vlan_id,
             cidr: attrs.cidr,
             scope_type: 'site',
-            scope_id: discovered.site_id,
+            scope_id: siteId,
           };
 
           if (!existing) {
             await supabaseAdmin.from('networks_v2').insert(networkData);
+          } else {
+            stats.resources_skipped++;
           }
 
           stats.networks_discovered++;
@@ -213,7 +248,8 @@ Deno.serve(async (req: Request) => {
       }
     } catch (syncError) {
       console.error('Sync error:', syncError);
-      errorSummary = syncError.message || 'Sync failed';
+      // SECURITY: Sanitize error message
+      errorSummary = sanitizeError(syncError);
 
       await supabaseAdmin
         .from('virtualization_integrations')
@@ -226,7 +262,7 @@ Deno.serve(async (req: Request) => {
       await supabaseAdmin
         .from('notifications')
         .insert({
-          site_id: integration.site_id,
+          site_id: siteId,
           code: 'VIRT_INTEGRATION_FAILED',
           severity: 'critical',
           title: `Virtualization sync "${integration.name}" failed`,
@@ -235,7 +271,9 @@ Deno.serve(async (req: Request) => {
         });
     }
 
-    // Update sync run
+    // Update sync run with final stats
+    stats.duration_ms = Date.now() - syncStartTime;
+    
     await supabaseAdmin
       .from('virtualization_sync_runs')
       .update({
@@ -246,7 +284,7 @@ Deno.serve(async (req: Request) => {
       })
       .eq('id', syncRun.id);
 
-    // Update integration
+    // Update integration with status
     await supabaseAdmin
       .from('virtualization_integrations')
       .update({
@@ -256,13 +294,13 @@ Deno.serve(async (req: Request) => {
       })
       .eq('id', integration_id);
 
-    // Write audit log
+    // Write audit log with summary
     await supabaseAdmin.from('audit_logs').insert({
       user_id: user.id,
       action: 'virt_sync_completed',
       table_name: 'resources',
       scope_type: 'site',
-      scope_id: integration.site_id,
+      scope_id: siteId,
       new_data: { stats, integration_id, run_id: syncRun.id },
     });
 
