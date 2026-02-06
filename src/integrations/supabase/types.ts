@@ -14,6 +14,384 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_computers: {
+        Row: {
+          ad_site_name: string | null
+          captured_at: string
+          created_at: string | null
+          dns_hostname: string | null
+          domain_id: string
+          enabled: boolean | null
+          id: string
+          last_logon: string | null
+          name: string
+          operating_system: string | null
+          os_service_pack: string | null
+          os_version: string | null
+          ou_dn: string | null
+          site_id: string
+        }
+        Insert: {
+          ad_site_name?: string | null
+          captured_at: string
+          created_at?: string | null
+          dns_hostname?: string | null
+          domain_id: string
+          enabled?: boolean | null
+          id?: string
+          last_logon?: string | null
+          name: string
+          operating_system?: string | null
+          os_service_pack?: string | null
+          os_version?: string | null
+          ou_dn?: string | null
+          site_id: string
+        }
+        Update: {
+          ad_site_name?: string | null
+          captured_at?: string
+          created_at?: string | null
+          dns_hostname?: string | null
+          domain_id?: string
+          enabled?: boolean | null
+          id?: string
+          last_logon?: string | null
+          name?: string
+          operating_system?: string | null
+          os_service_pack?: string | null
+          os_version?: string | null
+          ou_dn?: string | null
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_computers_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_computers_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_domain_controllers: {
+        Row: {
+          ad_site_name: string | null
+          captured_at: string
+          created_at: string | null
+          domain_id: string
+          hostname: string | null
+          id: string
+          ip_address: string | null
+          is_global_catalog: boolean | null
+          is_read_only: boolean | null
+          is_up: boolean | null
+          last_seen_at: string | null
+          name: string
+          operating_system: string | null
+          site_id: string
+        }
+        Insert: {
+          ad_site_name?: string | null
+          captured_at: string
+          created_at?: string | null
+          domain_id: string
+          hostname?: string | null
+          id?: string
+          ip_address?: string | null
+          is_global_catalog?: boolean | null
+          is_read_only?: boolean | null
+          is_up?: boolean | null
+          last_seen_at?: string | null
+          name: string
+          operating_system?: string | null
+          site_id: string
+        }
+        Update: {
+          ad_site_name?: string | null
+          captured_at?: string
+          created_at?: string | null
+          domain_id?: string
+          hostname?: string | null
+          id?: string
+          ip_address?: string | null
+          is_global_catalog?: boolean | null
+          is_read_only?: boolean | null
+          is_up?: boolean | null
+          last_seen_at?: string | null
+          name?: string
+          operating_system?: string | null
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_domain_controllers_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_domain_controllers_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_groups: {
+        Row: {
+          captured_at: string
+          created_at: string | null
+          description: string | null
+          dn: string
+          domain_id: string
+          group_scope: string | null
+          group_type: string | null
+          id: string
+          is_privileged: boolean | null
+          member_count: number | null
+          name: string
+          sam_account_name: string | null
+          site_id: string
+        }
+        Insert: {
+          captured_at: string
+          created_at?: string | null
+          description?: string | null
+          dn: string
+          domain_id: string
+          group_scope?: string | null
+          group_type?: string | null
+          id?: string
+          is_privileged?: boolean | null
+          member_count?: number | null
+          name: string
+          sam_account_name?: string | null
+          site_id: string
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string | null
+          description?: string | null
+          dn?: string
+          domain_id?: string
+          group_scope?: string | null
+          group_type?: string | null
+          id?: string
+          is_privileged?: boolean | null
+          member_count?: number | null
+          name?: string
+          sam_account_name?: string | null
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_groups_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_groups_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_snapshots: {
+        Row: {
+          captured_at: string
+          computers_enabled: number | null
+          computers_stale_30d: number | null
+          computers_stale_60d: number | null
+          computers_stale_90d: number | null
+          computers_total: number | null
+          dcs_down: number | null
+          dcs_total: number | null
+          domain_id: string
+          groups_total: number | null
+          id: string
+          last_successful_sync_at: string | null
+          privileged_groups_total: number | null
+          pwd_expired: number | null
+          pwd_expiring_14d: number | null
+          pwd_expiring_30d: number | null
+          pwd_expiring_7d: number | null
+          pwd_never_expires: number | null
+          site_id: string
+          users_disabled: number | null
+          users_enabled: number | null
+          users_locked: number | null
+          users_total: number | null
+        }
+        Insert: {
+          captured_at?: string
+          computers_enabled?: number | null
+          computers_stale_30d?: number | null
+          computers_stale_60d?: number | null
+          computers_stale_90d?: number | null
+          computers_total?: number | null
+          dcs_down?: number | null
+          dcs_total?: number | null
+          domain_id: string
+          groups_total?: number | null
+          id?: string
+          last_successful_sync_at?: string | null
+          privileged_groups_total?: number | null
+          pwd_expired?: number | null
+          pwd_expiring_14d?: number | null
+          pwd_expiring_30d?: number | null
+          pwd_expiring_7d?: number | null
+          pwd_never_expires?: number | null
+          site_id: string
+          users_disabled?: number | null
+          users_enabled?: number | null
+          users_locked?: number | null
+          users_total?: number | null
+        }
+        Update: {
+          captured_at?: string
+          computers_enabled?: number | null
+          computers_stale_30d?: number | null
+          computers_stale_60d?: number | null
+          computers_stale_90d?: number | null
+          computers_total?: number | null
+          dcs_down?: number | null
+          dcs_total?: number | null
+          domain_id?: string
+          groups_total?: number | null
+          id?: string
+          last_successful_sync_at?: string | null
+          privileged_groups_total?: number | null
+          pwd_expired?: number | null
+          pwd_expiring_14d?: number | null
+          pwd_expiring_30d?: number | null
+          pwd_expiring_7d?: number | null
+          pwd_never_expires?: number | null
+          site_id?: string
+          users_disabled?: number | null
+          users_enabled?: number | null
+          users_locked?: number | null
+          users_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_snapshots_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_snapshots_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_users: {
+        Row: {
+          account_expires_at: string | null
+          captured_at: string
+          created_at: string | null
+          department: string | null
+          display_name: string | null
+          domain_id: string
+          email: string | null
+          enabled: boolean | null
+          id: string
+          last_logon: string | null
+          locked: boolean | null
+          logon_count: number | null
+          manager_dn: string | null
+          ou_dn: string | null
+          pwd_expires_at: string | null
+          pwd_last_set: string | null
+          pwd_never_expires: boolean | null
+          sam_account_name: string
+          sid: string
+          site_id: string
+          title: string | null
+          user_principal_name: string | null
+        }
+        Insert: {
+          account_expires_at?: string | null
+          captured_at: string
+          created_at?: string | null
+          department?: string | null
+          display_name?: string | null
+          domain_id: string
+          email?: string | null
+          enabled?: boolean | null
+          id?: string
+          last_logon?: string | null
+          locked?: boolean | null
+          logon_count?: number | null
+          manager_dn?: string | null
+          ou_dn?: string | null
+          pwd_expires_at?: string | null
+          pwd_last_set?: string | null
+          pwd_never_expires?: boolean | null
+          sam_account_name: string
+          sid: string
+          site_id: string
+          title?: string | null
+          user_principal_name?: string | null
+        }
+        Update: {
+          account_expires_at?: string | null
+          captured_at?: string
+          created_at?: string | null
+          department?: string | null
+          display_name?: string | null
+          domain_id?: string
+          email?: string | null
+          enabled?: boolean | null
+          id?: string
+          last_logon?: string | null
+          locked?: boolean | null
+          logon_count?: number | null
+          manager_dn?: string | null
+          ou_dn?: string | null
+          pwd_expires_at?: string | null
+          pwd_last_set?: string | null
+          pwd_never_expires?: boolean | null
+          sam_account_name?: string
+          sid?: string
+          site_id?: string
+          title?: string | null
+          user_principal_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_users_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_users_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           id: string
@@ -491,6 +869,86 @@ export type Database = {
           },
         ]
       }
+      domain_integrations: {
+        Row: {
+          agent_id: string | null
+          config_json: Json | null
+          created_at: string | null
+          created_by: string | null
+          domain_id: string
+          health_status: string | null
+          id: string
+          integration_type: string
+          last_seen_at: string | null
+          last_sync_at: string | null
+          mode: string
+          site_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          config_json?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          domain_id: string
+          health_status?: string | null
+          id?: string
+          integration_type: string
+          last_seen_at?: string | null
+          last_sync_at?: string | null
+          mode?: string
+          site_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          config_json?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          domain_id?: string
+          health_status?: string | null
+          id?: string
+          integration_type?: string
+          last_seen_at?: string | null
+          last_sync_at?: string | null
+          mode?: string
+          site_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_integrations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "scan_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "domain_integrations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "domain_integrations_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "domain_integrations_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       domain_memberships: {
         Row: {
           can_edit: boolean | null
@@ -538,6 +996,7 @@ export type Database = {
           code: string | null
           created_at: string | null
           description: string | null
+          fqdn: string | null
           hierarchy_path: unknown
           id: string
           name: string
@@ -548,6 +1007,7 @@ export type Database = {
           code?: string | null
           created_at?: string | null
           description?: string | null
+          fqdn?: string | null
           hierarchy_path?: unknown
           id?: string
           name: string
@@ -558,6 +1018,7 @@ export type Database = {
           code?: string | null
           created_at?: string | null
           description?: string | null
+          fqdn?: string | null
           hierarchy_path?: unknown
           id?: string
           name?: string
@@ -1185,6 +1646,50 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_runs: {
+        Row: {
+          created_by: string | null
+          error_summary: string | null
+          finished_at: string | null
+          id: string
+          integration_id: string
+          metrics_json: Json | null
+          run_type: string
+          started_at: string
+          success: boolean | null
+        }
+        Insert: {
+          created_by?: string | null
+          error_summary?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id: string
+          metrics_json?: Json | null
+          run_type?: string
+          started_at?: string
+          success?: boolean | null
+        }
+        Update: {
+          created_by?: string | null
+          error_summary?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id?: string
+          metrics_json?: Json | null
+          run_type?: string
+          started_at?: string
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_runs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "domain_integrations"
             referencedColumns: ["id"]
           },
         ]
@@ -2650,37 +3155,46 @@ export type Database = {
       }
       scan_agents: {
         Row: {
+          agent_type: string | null
           auth_token_hash: string
+          capabilities_json: Json | null
           created_at: string | null
           created_by: string | null
           domain_id: string
           id: string
           last_seen_at: string | null
           name: string
+          site_id: string | null
           site_tag: string | null
           status: string | null
           version: string | null
         }
         Insert: {
+          agent_type?: string | null
           auth_token_hash: string
+          capabilities_json?: Json | null
           created_at?: string | null
           created_by?: string | null
           domain_id: string
           id?: string
           last_seen_at?: string | null
           name: string
+          site_id?: string | null
           site_tag?: string | null
           status?: string | null
           version?: string | null
         }
         Update: {
+          agent_type?: string | null
           auth_token_hash?: string
+          capabilities_json?: Json | null
           created_at?: string | null
           created_by?: string | null
           domain_id?: string
           id?: string
           last_seen_at?: string | null
           name?: string
+          site_id?: string | null
           site_tag?: string | null
           status?: string | null
           version?: string | null
@@ -2698,6 +3212,13 @@ export type Database = {
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_agents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -4112,6 +4633,10 @@ export type Database = {
       can_manage_cluster: { Args: { _cluster_id: string }; Returns: boolean }
       can_manage_domain: { Args: { _domain_id: string }; Returns: boolean }
       can_manage_rbac: { Args: { _site_id: string }; Returns: boolean }
+      can_manage_resource_domain: {
+        Args: { p_domain_id: string; p_site_id: string }
+        Returns: boolean
+      }
       can_manage_site: { Args: { _site_id: string }; Returns: boolean }
       can_view_resource: {
         Args: { _resource_id: string; _resource_type: string }
@@ -4131,6 +4656,7 @@ export type Database = {
         Returns: string
       }
       get_my_claims: { Args: never; Returns: Json }
+      get_my_domain_scope_ids: { Args: never; Returns: string[] }
       get_my_profile_id: { Args: never; Returns: string }
       get_resources_with_details: {
         Args: { p_site_id?: string }
@@ -4201,6 +4727,10 @@ export type Database = {
       is_branch_admin: { Args: { _branch_id: string }; Returns: boolean }
       is_datacenter_admin: { Args: { _dc_id: string }; Returns: boolean }
       is_domain_admin: { Args: { _domain_id: string }; Returns: boolean }
+      is_domain_admin_only_for_site: {
+        Args: { p_site_id: string }
+        Returns: boolean
+      }
       is_employee_only: { Args: never; Returns: boolean }
       is_manager_of: { Args: { _employee_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
