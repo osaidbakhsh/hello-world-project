@@ -1057,6 +1057,93 @@ export type Database = {
           },
         ]
       }
+      discovered_resources: {
+        Row: {
+          attributes_json: Json | null
+          cluster_id: string | null
+          diff_action: string | null
+          discovered_at: string
+          domain_id: string | null
+          external_id: string
+          id: string
+          integration_id: string
+          ip_address: string | null
+          name: string
+          network_id: string | null
+          resource_type: string
+          run_id: string | null
+          site_id: string
+        }
+        Insert: {
+          attributes_json?: Json | null
+          cluster_id?: string | null
+          diff_action?: string | null
+          discovered_at?: string
+          domain_id?: string | null
+          external_id: string
+          id?: string
+          integration_id: string
+          ip_address?: string | null
+          name: string
+          network_id?: string | null
+          resource_type: string
+          run_id?: string | null
+          site_id: string
+        }
+        Update: {
+          attributes_json?: Json | null
+          cluster_id?: string | null
+          diff_action?: string | null
+          discovered_at?: string
+          domain_id?: string | null
+          external_id?: string
+          id?: string
+          integration_id?: string
+          ip_address?: string | null
+          name?: string
+          network_id?: string | null
+          resource_type?: string
+          run_id?: string | null
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discovered_resources_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discovered_resources_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discovered_resources_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "virtualization_integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discovered_resources_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "virtualization_sync_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discovered_resources_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       domain_integrations: {
         Row: {
           agent_id: string | null
@@ -1881,6 +1968,41 @@ export type Database = {
             columns: ["integration_id"]
             isOneToOne: false
             referencedRelation: "domain_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_secrets: {
+        Row: {
+          created_at: string
+          id: string
+          integration_id: string
+          secret_encrypted: string
+          secret_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          integration_id: string
+          secret_encrypted: string
+          secret_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          integration_id?: string
+          secret_encrypted?: string
+          secret_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_secrets_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "virtualization_integrations"
             referencedColumns: ["id"]
           },
         ]
@@ -3143,10 +3265,12 @@ export type Database = {
           environment: string | null
           eol_date: string | null
           eos_date: string | null
+          external_id: string | null
           fqdn: string | null
           health_score: number | null
           hostname: string | null
           id: string
+          integration_id: string | null
           is_backed_up: boolean | null
           last_backup_at: string | null
           last_health_check: string | null
@@ -3167,6 +3291,7 @@ export type Database = {
           secondary_ips: string[] | null
           serial_number: string | null
           site_id: string
+          source: string | null
           status: Database["public"]["Enums"]["resource_status"]
           storage_gb: number | null
           tags: string[] | null
@@ -3191,10 +3316,12 @@ export type Database = {
           environment?: string | null
           eol_date?: string | null
           eos_date?: string | null
+          external_id?: string | null
           fqdn?: string | null
           health_score?: number | null
           hostname?: string | null
           id?: string
+          integration_id?: string | null
           is_backed_up?: boolean | null
           last_backup_at?: string | null
           last_health_check?: string | null
@@ -3215,6 +3342,7 @@ export type Database = {
           secondary_ips?: string[] | null
           serial_number?: string | null
           site_id: string
+          source?: string | null
           status?: Database["public"]["Enums"]["resource_status"]
           storage_gb?: number | null
           tags?: string[] | null
@@ -3239,10 +3367,12 @@ export type Database = {
           environment?: string | null
           eol_date?: string | null
           eos_date?: string | null
+          external_id?: string | null
           fqdn?: string | null
           health_score?: number | null
           hostname?: string | null
           id?: string
+          integration_id?: string | null
           is_backed_up?: boolean | null
           last_backup_at?: string | null
           last_health_check?: string | null
@@ -3263,6 +3393,7 @@ export type Database = {
           secondary_ips?: string[] | null
           serial_number?: string | null
           site_id?: string
+          source?: string | null
           status?: Database["public"]["Enums"]["resource_status"]
           storage_gb?: number | null
           tags?: string[] | null
@@ -3290,6 +3421,13 @@ export type Database = {
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "virtualization_integrations"
             referencedColumns: ["id"]
           },
           {
@@ -4634,6 +4772,127 @@ export type Database = {
           value?: Json
         }
         Relationships: []
+      }
+      virtualization_integrations: {
+        Row: {
+          config_json: Json
+          created_at: string
+          created_by: string | null
+          domain_id: string | null
+          id: string
+          integration_type: string
+          last_error: string | null
+          last_sync_at: string | null
+          mode: string
+          name: string
+          site_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          config_json?: Json
+          created_at?: string
+          created_by?: string | null
+          domain_id?: string | null
+          id?: string
+          integration_type: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          mode?: string
+          name: string
+          site_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          config_json?: Json
+          created_at?: string
+          created_by?: string | null
+          domain_id?: string | null
+          id?: string
+          integration_type?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          mode?: string
+          name?: string
+          site_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtualization_integrations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "virtualization_integrations_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "virtualization_integrations_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      virtualization_sync_runs: {
+        Row: {
+          created_by: string | null
+          error_summary: string | null
+          finished_at: string | null
+          id: string
+          integration_id: string
+          mode: string
+          started_at: string
+          stats_json: Json | null
+          success: boolean | null
+        }
+        Insert: {
+          created_by?: string | null
+          error_summary?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id: string
+          mode: string
+          started_at?: string
+          stats_json?: Json | null
+          success?: boolean | null
+        }
+        Update: {
+          created_by?: string | null
+          error_summary?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id?: string
+          mode?: string
+          started_at?: string
+          stats_json?: Json | null
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtualization_sync_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "virtualization_sync_runs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "virtualization_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vms: {
         Row: {

@@ -7,7 +7,7 @@ import { useAppName, useAppSettings } from '@/hooks/useSupabaseData';
 import { useTheme } from 'next-themes';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSION_KEYS, type PermissionKey } from '@/security/permissionKeys';
-import { LayoutDashboard, Server, Users, KeyRound, ListTodo, Network, FileBarChart, Settings, Globe, ChevronLeft, ChevronRight, Calendar, FileSpreadsheet, Wifi, LogOut, User, Shield, History, Sun, Moon, Lock, Wrench, Building2, Phone, Clock, FolderKanban, Bot, ShoppingCart, FolderTree, Radio, UserCog, CheckSquare, Bell } from 'lucide-react';
+import { LayoutDashboard, Server, Users, KeyRound, ListTodo, Network, FileBarChart, Settings, Globe, ChevronLeft, ChevronRight, Calendar, FileSpreadsheet, Wifi, LogOut, User, Shield, History, Sun, Moon, Lock, Wrench, Building2, Phone, Clock, FolderKanban, Bot, ShoppingCart, FolderTree, Radio, UserCog, CheckSquare, Bell, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -85,6 +85,7 @@ const menuGroups: MenuGroup[] = [
   {
     label: 'nav.integrations',
     items: [
+      { id: 'virtualization', path: '/integrations/virtualization', icon: Cloud, label: 'nav.virtualization', permissionKey: PERMISSION_KEYS.INTEGRATIONS_VIRTUALIZATION_VIEW },
       { id: 'scanAgents', path: '/scan-agents', icon: Bot, label: 'nav.scanAgents', permissionKey: PERMISSION_KEYS.INTEGRATIONS_AGENTS_VIEW },
       { id: 'fileShares', path: '/file-shares', icon: FolderKanban, label: 'nav.fileShares' },
       { id: 'networkScan', path: '/network-scan', icon: Wifi, label: 'nav.networkScan' },
