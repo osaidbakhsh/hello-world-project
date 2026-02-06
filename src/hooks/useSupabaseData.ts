@@ -576,18 +576,30 @@ export function useDashboardStats(selectedDomainId?: string) {
         networkIds = domainNetworks?.map(n => n.id) || [];
       }
 
-      // Fetch servers - filter by domain_id
-      let serversData: any[] = [];
-      if (domainIdsToUse.length > 0) {
-        const { data } = await supabase
-          .from('servers')
+      // Fetch resources (unified inventory) - filter by site_id and optionally domain_id
+      // This is now the SINGLE SOURCE OF TRUTH for all inventory counts
+      let resourcesData: any[] = [];
+      if (selectedSite) {
+        let query = supabase
+          .from('resources')
           .select('*')
-          .in('domain_id', domainIdsToUse);
-        serversData = data || [];
+          .eq('site_id', selectedSite.id);
+        
+        // Optionally filter by domain if selected
+        if (selectedDomainId) {
+          query = query.eq('domain_id', selectedDomainId);
+        }
+        
+        const { data } = await query;
+        resourcesData = data || [];
       } else {
-        const { data } = await supabase.from('servers').select('*');
-        serversData = data || [];
+        const { data } = await supabase.from('resources').select('*');
+        resourcesData = data || [];
       }
+      
+      // Count physical servers from resources
+      const physicalServers = resourcesData.filter(r => r.resource_type === 'physical_server');
+      const activeServers = physicalServers.filter(s => s.status === 'online' || s.status === 'active');
 
       // Fetch tasks - filter by assigned_to profile
       let tasksData: any[] = [];
@@ -661,8 +673,8 @@ export function useDashboardStats(selectedDomainId?: string) {
       ).length || 0;
 
       setStats({
-        totalServers: serversData.length,
-        activeServers: serversData.filter(s => s.status === 'active').length,
+        totalServers: physicalServers.length,  // From resources table
+        activeServers: activeServers.length,    // From resources table
         totalTasks: tasksData?.length || 0,
         completedTasks,
         pendingTasks,
