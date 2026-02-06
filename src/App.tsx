@@ -47,6 +47,8 @@ import ResourceDetail from "./pages/ResourceDetail";
 import NOCDashboard from "./pages/NOCDashboard";
 import RoleAssignments from "./pages/RoleAssignments";
 import UserAccessDetails from "./pages/UserAccessDetails";
+import ADOverview from "./pages/ADOverview";
+import AgentsManagement from "./pages/AgentsManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -110,6 +112,9 @@ const App = () => (
                 <Route path="/noc" element={<NOCDashboard />} />
                 <Route path="/admin/rbac" element={<RoleAssignments />} />
                 <Route path="/admin/rbac/users/:userId" element={<UserAccessDetails />} />
+                <Route path="/ad-overview" element={<ADOverview />} />
+                <Route path="/ad-overview/:domainId" element={<ADOverview />} />
+                <Route path="/integrations/agents" element={<AgentsManagement />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />
