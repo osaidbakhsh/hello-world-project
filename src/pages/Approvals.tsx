@@ -47,26 +47,31 @@ import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import NoSiteSelected from '@/components/common/NoSiteSelected';
 import { formatDistanceToNow, format } from 'date-fns';
 
-const STATUS_CONFIG: Record<ApprovalStatus, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
-  draft: { label: 'Draft', color: 'bg-muted text-muted-foreground', icon: FileCheck },
-  pending: { label: 'Pending', color: 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200', icon: Clock },
-  approved: { label: 'Approved', color: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200', icon: CheckCircle2 },
-  rejected: { label: 'Rejected', color: 'bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-200', icon: XCircle },
-  applied: { label: 'Applied', color: 'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200', icon: CheckCircle2 },
-  cancelled: { label: 'Cancelled', color: 'bg-muted text-muted-foreground', icon: XCircle },
-};
+// Status config uses translation keys
+const getStatusConfig = (t: (key: string) => string): Record<ApprovalStatus, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> => ({
+  draft: { label: t('approvals.status.draft'), color: 'bg-muted text-muted-foreground', icon: FileCheck },
+  pending: { label: t('approvals.status.pending'), color: 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200', icon: Clock },
+  approved: { label: t('approvals.status.approved'), color: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200', icon: CheckCircle2 },
+  rejected: { label: t('approvals.status.rejected'), color: 'bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-200', icon: XCircle },
+  applied: { label: t('approvals.status.applied'), color: 'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200', icon: CheckCircle2 },
+  cancelled: { label: t('approvals.status.cancelled'), color: 'bg-muted text-muted-foreground', icon: XCircle },
+});
 
-const ENTITY_TYPES = [
-  { value: 'role_assignment', label: 'Role Assignment' },
-  { value: 'domain_integration', label: 'Domain Integration' },
-  { value: 'maintenance_window', label: 'Maintenance Window' },
+const getEntityTypes = (t: (key: string) => string) => [
+  { value: 'role_assignment', label: t('approvals.entityType.role_assignment') },
+  { value: 'domain_integration', label: t('approvals.entityType.domain_integration') },
+  { value: 'maintenance_window', label: t('approvals.entityType.maintenance_window') },
 ];
 
 const Approvals: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, dir } = useLanguage();
   const navigate = useNavigate();
   const { selectedSite } = useSite();
   const { hasPermission, canManageRBAC, isSuperAdmin } = usePermissions();
+  
+  // Memoized config based on translations
+  const STATUS_CONFIG = getStatusConfig(t);
+  const ENTITY_TYPES = getEntityTypes(t);
   
   // State
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'all'>('pending');
@@ -189,7 +194,7 @@ const Approvals: React.FC = () => {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            You don't have permission to view approval requests.
+            {t('common.noPermission')}
           </AlertDescription>
         </Alert>
       </div>
@@ -197,13 +202,13 @@ const Approvals: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir={dir}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Approval Requests</h1>
+          <h1 className="text-3xl font-bold">{t('approvals.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            Review and manage pending approval requests for sensitive actions
+            {t('approvals.subtitle')}
           </p>
         </div>
       </div>
@@ -245,17 +250,17 @@ const Approvals: React.FC = () => {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Filter className="h-4 w-4" />
-            Filters
+            {t('common.filters')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 flex-wrap">
             <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as ApprovalStatus | 'all')}>
               <SelectTrigger className="w-40">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t('common.status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">{t('approvals.allStatuses')}</SelectItem>
                 {Object.entries(STATUS_CONFIG).map(([key, config]) => (
                   <SelectItem key={key} value={key}>{config.label}</SelectItem>
                 ))}
@@ -264,10 +269,10 @@ const Approvals: React.FC = () => {
 
             <Select value={entityTypeFilter} onValueChange={setEntityTypeFilter}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Entity Type" />
+                <SelectValue placeholder={t('common.type')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="all">{t('approvals.allTypes')}</SelectItem>
                 {ENTITY_TYPES.map((type) => (
                   <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                 ))}
