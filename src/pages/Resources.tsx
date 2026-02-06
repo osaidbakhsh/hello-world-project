@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -35,7 +36,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Edit, Trash2, Loader2, AlertCircle, ShieldAlert, Eye, Lock } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Loader2, AlertCircle, ShieldAlert, Eye, Lock, Server, Monitor, Box, Database, Container, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -79,6 +80,7 @@ const Resources: React.FC = () => {
   // State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'physical_server' | 'vm' | 'appliance' | 'other'>('all');
   const [filterType, setFilterType] = useState<ResourceType | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<ResourceStatus | 'all'>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -154,12 +156,26 @@ const Resources: React.FC = () => {
   // Queries & Mutations (with domain filtering)
   // ============================================================
 
-  // Build filter object: for DomainAdmin without site.manage, enforce domain_id filter
+  // Build filter object: Tab-based filtering + domain filtering for RBAC
   const resourceFilters = useMemo(() => {
     const filters: any = {
-      resource_type: filterType === 'all' ? undefined : filterType,
       status: filterStatus === 'all' ? undefined : filterStatus,
     };
+
+    // Tab-based resource_type filtering (overrides dropdown if a tab is selected)
+    if (activeTab === 'physical_server') {
+      filters.resource_type = 'physical_server';
+    } else if (activeTab === 'vm') {
+      filters.resource_type = 'vm';
+    } else if (activeTab === 'appliance') {
+      filters.resource_type = 'appliance';
+    } else if (activeTab === 'other') {
+      // Other = service, container, database
+      filters.resource_type = ['service', 'container', 'database'];
+    } else if (filterType !== 'all') {
+      // If "All" tab and dropdown is selected
+      filters.resource_type = filterType;
+    }
 
     // DomainAdmin Option A: Filter to domain_id only (exclude site-level resources)
     if (isDomainAdmin && !hasSiteManagePermission && selectedDomainId) {
@@ -168,7 +184,7 @@ const Resources: React.FC = () => {
     }
 
     return filters;
-  }, [filterType, filterStatus, isDomainAdmin, hasSiteManagePermission, selectedDomainId]);
+  }, [activeTab, filterType, filterStatus, isDomainAdmin, hasSiteManagePermission, selectedDomainId]);
 
   const { data: resources = [], isLoading } = useResources(resourceFilters);
 
@@ -182,7 +198,20 @@ const Resources: React.FC = () => {
   const updateMutation = useUpdateResource();
   const deleteMutation = useDeleteResource();
 
-  // Pagination
+  // Tab counts from resources
+  const tabCounts = useMemo(() => {
+    // Need to count from all resources (not filtered data)
+    const allData = searchQuery.length >= 2 ? searchResults : resources;
+    return {
+      all: allData.length,
+      physical_server: allData.filter(r => r.resource_type === 'physical_server').length,
+      vm: allData.filter(r => r.resource_type === 'vm').length,
+      appliance: allData.filter(r => r.resource_type === 'appliance').length,
+      other: allData.filter(r => ['service', 'container', 'database'].includes(r.resource_type)).length,
+    };
+  }, [resources, searchResults, searchQuery]);
+
+  // Pagination - apply after tab filtering
   const displayData = searchQuery.length >= 2 ? searchResults : resources;
   const { currentPage, pageSize, paginatedData, totalPages, handlePageChange } = usePagination(displayData, 10);
 
@@ -472,7 +501,7 @@ const Resources: React.FC = () => {
               <CardTitle className="text-sm font-medium">Online</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.by_status.online || 0}</div>
+              <div className="text-2xl font-bold text-success">{stats.by_status.online || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -480,7 +509,7 @@ const Resources: React.FC = () => {
               <CardTitle className="text-sm font-medium">Offline</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats.by_status.offline || 0}</div>
+              <div className="text-2xl font-bold text-destructive">{stats.by_status.offline || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -488,7 +517,7 @@ const Resources: React.FC = () => {
               <CardTitle className="text-sm font-medium">Critical</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats.by_criticality.critical || 0}</div>
+              <div className="text-2xl font-bold text-destructive">{stats.by_criticality.critical || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -496,11 +525,42 @@ const Resources: React.FC = () => {
               <CardTitle className="text-sm font-medium">Backed Up</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.backed_up}</div>
+              <div className="text-2xl font-bold text-primary">{stats.backed_up}</div>
             </CardContent>
           </Card>
         </div>
       )}
+
+      {/* Inventory Hub Tabs */}
+      <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val as typeof activeTab); handlePageChange(1); }} className="w-full">
+        <TabsList className="grid w-full grid-cols-5 max-w-xl">
+          <TabsTrigger value="all" className="flex items-center gap-1.5">
+            <Box className="h-4 w-4" />
+            All
+            <Badge variant="secondary" className="ml-1 text-xs">{stats?.total || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="physical_server" className="flex items-center gap-1.5">
+            <Server className="h-4 w-4" />
+            Servers
+            <Badge variant="secondary" className="ml-1 text-xs">{stats?.by_type.physical_server || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="vm" className="flex items-center gap-1.5">
+            <Monitor className="h-4 w-4" />
+            VMs
+            <Badge variant="secondary" className="ml-1 text-xs">{stats?.by_type.vm || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="appliance" className="flex items-center gap-1.5">
+            <Settings2 className="h-4 w-4" />
+            Appliances
+            <Badge variant="secondary" className="ml-1 text-xs">{stats?.by_type.appliance || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="other" className="flex items-center gap-1.5">
+            <Database className="h-4 w-4" />
+            Other
+            <Badge variant="secondary" className="ml-1 text-xs">{(stats?.by_type.service || 0) + (stats?.by_type.container || 0) + (stats?.by_type.database || 0)}</Badge>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* DomainAdmin Option A: Check if domain selection is required */}
       {isDomainAdmin && !hasSiteManagePermission && (

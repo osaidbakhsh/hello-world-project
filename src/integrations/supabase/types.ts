@@ -3887,6 +3887,7 @@ export type Database = {
           primary_application: string | null
           purchase_date: string | null
           ram: string | null
+          resource_id: string | null
           responsible_user: string | null
           rpo_hours: number | null
           rto_hours: number | null
@@ -3927,6 +3928,7 @@ export type Database = {
           primary_application?: string | null
           purchase_date?: string | null
           ram?: string | null
+          resource_id?: string | null
           responsible_user?: string | null
           rpo_hours?: number | null
           rto_hours?: number | null
@@ -3967,6 +3969,7 @@ export type Database = {
           primary_application?: string | null
           purchase_date?: string | null
           ram?: string | null
+          resource_id?: string | null
           responsible_user?: string | null
           rpo_hours?: number | null
           rto_hours?: number | null
@@ -4005,6 +4008,13 @@ export type Database = {
             columns: ["network_id"]
             isOneToOne: false
             referencedRelation: "networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servers_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
             referencedColumns: ["id"]
           },
         ]
@@ -5181,6 +5191,15 @@ export type Database = {
       }
     }
     Functions: {
+      backfill_servers_to_resources: {
+        Args: never
+        Returns: {
+          resources_created: number
+          resources_linked: number
+          resources_updated: number
+          servers_processed: number
+        }[]
+      }
       can_access_cluster: { Args: { _cluster_id: string }; Returns: boolean }
       can_access_datacenter: { Args: { _dc_id: string }; Returns: boolean }
       can_access_domain: { Args: { _domain_id: string }; Returns: boolean }
