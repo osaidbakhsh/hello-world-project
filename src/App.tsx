@@ -52,6 +52,9 @@ import ADOverview from "./pages/ADOverview";
 import AgentsManagement from "./pages/AgentsManagement";
 import Notifications from "./pages/Notifications";
 import Approvals from "./pages/Approvals";
+import Virtualization from "./pages/Virtualization";
+import VirtualizationForm from "./pages/VirtualizationForm";
+import VirtualizationPreview from "./pages/VirtualizationPreview";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -119,6 +122,10 @@ const App = () => (
                 <Route path="/ad-overview" element={<ADOverview />} />
                 <Route path="/ad-overview/:domainId" element={<ADOverview />} />
                 <Route path="/integrations/agents" element={<AgentsManagement />} />
+                <Route path="/integrations/virtualization" element={<Virtualization />} />
+                <Route path="/integrations/virtualization/new" element={<VirtualizationForm />} />
+                <Route path="/integrations/virtualization/:id" element={<VirtualizationForm />} />
+                <Route path="/integrations/virtualization/:id/preview" element={<VirtualizationPreview />} />
                 <Route path="/governance/notifications" element={<Notifications />} />
                 <Route path="/governance/approvals" element={<Approvals />} />
               </Route>
