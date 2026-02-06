@@ -1852,6 +1852,15 @@ const translations: Record<Language, Record<string, string>> = {
     'resources.viewerHint': 'لديك صلاحية العرض فقط',
     'resources.domainAdminHint': 'أنت مسؤول نطاق - يتم عرض موارد النطاق المحدد فقط',
     'resources.selectDomainFirst': 'اختر نطاقاً لعرض الموارد',
+    'resources.totalResources': 'إجمالي الموارد',
+    'resources.backedUp': 'منسوخ احتياطياً',
+    'resources.vms': 'الأجهزة الافتراضية',
+    'resources.appliances': 'الأجهزة الشبكية',
+    'resources.searchPlaceholder': 'ابحث بالاسم، اسم المضيف، IP...',
+    'resources.filterByType': 'تصفية حسب النوع',
+    'resources.filterByStatus': 'تصفية حسب الحالة',
+    'resources.allTypes': 'جميع الأنواع',
+    'resources.allStatuses': 'جميع الحالات',
     
     // Server Details Section
     'serverDetails.network': 'الشبكة',
@@ -3743,6 +3752,15 @@ const translations: Record<Language, Record<string, string>> = {
     'resources.viewerHint': 'You have view-only access',
     'resources.domainAdminHint': 'You are a Domain Admin - showing domain-specific resources only',
     'resources.selectDomainFirst': 'Select a domain to view resources',
+    'resources.totalResources': 'Total Resources',
+    'resources.backedUp': 'Backed Up',
+    'resources.vms': 'VMs',
+    'resources.appliances': 'Appliances',
+    'resources.searchPlaceholder': 'Search by name, hostname, IP...',
+    'resources.filterByType': 'Filter by type',
+    'resources.filterByStatus': 'Filter by status',
+    'resources.allTypes': 'All Types',
+    'resources.allStatuses': 'All Statuses',
     
     // Server Details Section
     'serverDetails.network': 'Network',

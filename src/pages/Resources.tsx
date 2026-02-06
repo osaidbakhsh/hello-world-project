@@ -478,7 +478,7 @@ const Resources: React.FC = () => {
         <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
           <Eye className="h-4 w-4" />
           <AlertDescription>
-            You have read-only access to resources. Contact a Site Administrator to request edit permissions.
+            {t('resources.viewerHint')}
           </AlertDescription>
         </Alert>
       )}
@@ -486,8 +486,8 @@ const Resources: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Resources</h1>
-          <p className="text-sm text-muted-foreground">Unified inventory of VMs, physical servers, and appliances</p>
+          <h1 className="text-3xl font-bold">{t('resources.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('resources.subtitle')}</p>
         </div>
         {canManageResources ? (
         <Dialog open={isFormOpen} onOpenChange={(open) => {
@@ -505,22 +505,22 @@ const Resources: React.FC = () => {
               setFormStep('type');
               setSelectedDomainId(null);
             }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Resource
+              <Plus className="me-2 h-4 w-4" />
+              {t('resources.addResource')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingId ? 'Edit Resource' : 'Create Resource'}
+                {editingId ? t('resources.edit') : t('resources.addResource')}
                 {!editingId && formStep === 'details' && (
-                  <Badge className="ml-2 text-xs">
-                    {formData.resource_type === 'physical_server' && 'Physical Server'}
-                    {formData.resource_type === 'vm' && 'Virtual Machine'}
-                    {formData.resource_type === 'appliance' && 'Appliance'}
-                    {formData.resource_type === 'database' && 'Database'}
-                    {formData.resource_type === 'container' && 'Container'}
-                    {formData.resource_type === 'service' && 'Service'}
+                  <Badge className="ms-2 text-xs">
+                    {formData.resource_type === 'physical_server' && t('resources.physicalServer')}
+                    {formData.resource_type === 'vm' && t('resources.vm')}
+                    {formData.resource_type === 'appliance' && t('resources.appliance')}
+                    {formData.resource_type === 'database' && t('resources.database')}
+                    {formData.resource_type === 'container' && t('resources.container')}
+                    {formData.resource_type === 'service' && t('resources.service')}
                   </Badge>
                 )}
               </DialogTitle>
@@ -546,13 +546,13 @@ const Resources: React.FC = () => {
                   {/* Domain Selection for DomainAdmin */}
                   {isDomainAdmin && !hasSiteManagePermission && domains.length > 0 && (
                     <div>
-                      <Label htmlFor="domain">Domain *</Label>
+                      <Label htmlFor="domain">{t('common.domain')} *</Label>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Domain-scoped resources only
+                        {t('resources.domainAdminHint')}
                       </p>
                       <Select value={selectedDomainId || ''} onValueChange={setSelectedDomainId}>
                         <SelectTrigger id="domain" className="mt-2">
-                          <SelectValue placeholder="Select your domain" />
+                          <SelectValue placeholder={t('dashboard.selectNetwork')} />
                         </SelectTrigger>
                         <SelectContent>
                           {domainAdminScopes.map((scope) => {
@@ -682,7 +682,7 @@ const Resources: React.FC = () => {
                         variant="outline"
                         onClick={() => setFormStep('type')}
                       >
-                        Back to Type Selection
+                        {t('resources.back')}
                       </Button>
                     )}
                     <Button
@@ -690,7 +690,7 @@ const Resources: React.FC = () => {
                       variant="outline"
                       onClick={() => setIsFormOpen(false)}
                     >
-                      Cancel
+                      {t('resources.cancel')}
                     </Button>
                     <Button
                       type="submit"
@@ -698,13 +698,13 @@ const Resources: React.FC = () => {
                     >
                       {isSubmitting ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
+                          <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                          {t('resources.saving')}
                         </>
                       ) : editingId ? (
-                        'Update'
+                        t('common.update')
                       ) : (
-                        'Create'
+                        t('common.create')
                       )}
                     </Button>
                   </div>
@@ -721,7 +721,7 @@ const Resources: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Resources</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('resources.totalResources')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.total}</div>
@@ -729,7 +729,7 @@ const Resources: React.FC = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Online</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('resources.online')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">{stats.by_status.online || 0}</div>
@@ -737,7 +737,7 @@ const Resources: React.FC = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Offline</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('resources.offline')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">{stats.by_status.offline || 0}</div>
@@ -745,7 +745,7 @@ const Resources: React.FC = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Critical</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('resources.critical')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">{stats.by_criticality.critical || 0}</div>
@@ -753,7 +753,7 @@ const Resources: React.FC = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Backed Up</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('resources.backedUp')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{stats.backed_up}</div>
@@ -767,28 +767,28 @@ const Resources: React.FC = () => {
         <TabsList className="grid w-full grid-cols-5 max-w-xl">
           <TabsTrigger value="all" className="flex items-center gap-1.5">
             <Box className="h-4 w-4" />
-            All
-            <Badge variant="secondary" className="ml-1 text-xs">{stats?.total || 0}</Badge>
+            {t('resources.all')}
+            <Badge variant="secondary" className="ms-1 text-xs">{stats?.total || 0}</Badge>
           </TabsTrigger>
           <TabsTrigger value="physical_server" className="flex items-center gap-1.5">
             <Server className="h-4 w-4" />
-            Servers
-            <Badge variant="secondary" className="ml-1 text-xs">{stats?.by_type.physical_server || 0}</Badge>
+            {t('nav.servers')}
+            <Badge variant="secondary" className="ms-1 text-xs">{stats?.by_type.physical_server || 0}</Badge>
           </TabsTrigger>
           <TabsTrigger value="vm" className="flex items-center gap-1.5">
             <Monitor className="h-4 w-4" />
-            VMs
-            <Badge variant="secondary" className="ml-1 text-xs">{stats?.by_type.vm || 0}</Badge>
+            {t('resources.vms')}
+            <Badge variant="secondary" className="ms-1 text-xs">{stats?.by_type.vm || 0}</Badge>
           </TabsTrigger>
           <TabsTrigger value="appliance" className="flex items-center gap-1.5">
             <Settings2 className="h-4 w-4" />
-            Appliances
-            <Badge variant="secondary" className="ml-1 text-xs">{stats?.by_type.appliance || 0}</Badge>
+            {t('resources.appliances')}
+            <Badge variant="secondary" className="ms-1 text-xs">{stats?.by_type.appliance || 0}</Badge>
           </TabsTrigger>
           <TabsTrigger value="other" className="flex items-center gap-1.5">
             <Database className="h-4 w-4" />
-            Other
-            <Badge variant="secondary" className="ml-1 text-xs">{(stats?.by_type.service || 0) + (stats?.by_type.container || 0) + (stats?.by_type.database || 0)}</Badge>
+            {t('resources.other')}
+            <Badge variant="secondary" className="ms-1 text-xs">{(stats?.by_type.service || 0) + (stats?.by_type.container || 0) + (stats?.by_type.database || 0)}</Badge>
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -801,15 +801,14 @@ const Resources: React.FC = () => {
             <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
               <Lock className="h-4 w-4" />
               <AlertDescription>
-                You have domain-scoped access. Please select a domain below to view and manage resources.
+                {t('resources.selectDomainFirst')}
               </AlertDescription>
             </Alert>
           ) : (
             /* Domain filter hint */
             <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20">
               <AlertDescription className="text-sm">
-                📌 Showing resources for domain: <span className="font-semibold">{domains.find(d => d.id === selectedDomainId)?.name}</span>
-                (site-level resources excluded)
+                📌 {t('resources.domainAdminHint')}: <span className="font-semibold">{domains.find(d => d.id === selectedDomainId)?.name}</span>
               </AlertDescription>
             </Alert>
           )}
@@ -819,7 +818,7 @@ const Resources: React.FC = () => {
       {/* Filters & Search */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
+          <CardTitle className="text-base">{t('common.filters')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-4 flex-wrap">
@@ -827,7 +826,7 @@ const Resources: React.FC = () => {
             {isDomainAdmin && !hasSiteManagePermission && (
               <Select value={selectedDomainId || ''} onValueChange={(val) => { setSelectedDomainId(val); handlePageChange(1); }}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select domain" />
+                  <SelectValue placeholder={t('dashboard.selectNetwork')} />
                 </SelectTrigger>
                 <SelectContent>
                   {domains.map((domain) => (
@@ -840,15 +839,15 @@ const Resources: React.FC = () => {
             {/* Search */}
             <div className="flex-1 min-w-64">
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute start-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search resources by name, hostname, IP..."
+                  placeholder={t('resources.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     handlePageChange(1);
                   }}
-                  className="pl-10"
+                  className="ps-10"
                   disabled={isDomainAdmin && !hasSiteManagePermission && !selectedDomainId}
                 />
               </div>
@@ -857,12 +856,12 @@ const Resources: React.FC = () => {
             {/* Type Filter */}
             <Select value={filterType} onValueChange={(val) => { setFilterType(val as ResourceType | 'all'); handlePageChange(1); }}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by type" />
+                <SelectValue placeholder={t('resources.filterByType')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="all">{t('resources.allTypes')}</SelectItem>
                 {RESOURCE_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>{type.replace('_', ' ')}</SelectItem>
+                  <SelectItem key={type} value={type}>{t(`resources.${type}`) || type.replace('_', ' ')}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -870,12 +869,12 @@ const Resources: React.FC = () => {
             {/* Status Filter */}
             <Select value={filterStatus} onValueChange={(val) => { setFilterStatus(val as ResourceStatus | 'all'); handlePageChange(1); }}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by status" />
+                <SelectValue placeholder={t('resources.filterByStatus')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">{t('resources.allStatuses')}</SelectItem>
                 {STATUS_OPTIONS.map((status) => (
-                  <SelectItem key={status} value={status}>{status.replace('_', ' ')}</SelectItem>
+                  <SelectItem key={status} value={status}>{t(`resources.${status}`) || status.replace('_', ' ')}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -889,7 +888,7 @@ const Resources: React.FC = () => {
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <Lock className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">Please select a domain in the filters to view resources</p>
+              <p className="text-sm text-muted-foreground">{t('resources.selectDomainFirst')}</p>
             </div>
           </CardContent>
         </Card>
@@ -900,7 +899,7 @@ const Resources: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Resources ({displayData.length})
+            {t('resources.title')} ({displayData.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -913,7 +912,7 @@ const Resources: React.FC = () => {
           ) : paginatedData.length === 0 ? (
             <div className="text-center py-8">
               <AlertCircle className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">No resources found</p>
+              <p className="text-sm text-muted-foreground">{t('resources.noResources')}</p>
             </div>
           ) : (
             <>
@@ -921,16 +920,16 @@ const Resources: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Hostname</TableHead>
-                      <TableHead>IP Address</TableHead>
-                      <TableHead>OS</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Criticality</TableHead>
-                      <TableHead>Environment</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>{t('resources.name')}</TableHead>
+                      <TableHead>{t('common.type')}</TableHead>
+                      <TableHead>{t('resources.hostname')}</TableHead>
+                      <TableHead>{t('resources.ip')}</TableHead>
+                      <TableHead>{t('resources.os')}</TableHead>
+                      <TableHead>{t('resources.status')}</TableHead>
+                      <TableHead>{t('resources.criticality')}</TableHead>
+                      <TableHead>{t('resources.environment')}</TableHead>
+                      <TableHead>{t('resources.owner')}</TableHead>
+                      <TableHead>{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
