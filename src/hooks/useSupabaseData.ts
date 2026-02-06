@@ -126,7 +126,7 @@ export function useNetworks(domainId?: string) {
   return { data, isLoading, refetch: fetch };
 }
 
-// Server hooks - filtered by site
+// Server hooks - filtered by site (reads from unified server_inventory_view)
 export function useServers(networkId?: string) {
   const { selectedSite } = useSite();
   const { data: siteDomainIds = [] } = useSiteDomains();
@@ -144,7 +144,8 @@ export function useServers(networkId?: string) {
     
     setIsLoading(true);
     try {
-      let query = supabase.from('servers').select('*');
+      // Use server_inventory_view (flattened read model) instead of direct servers table
+      let query = supabase.from('server_inventory_view').select('*').eq('site_id', selectedSite.id);
       
       if (networkId) {
         query = query.eq('network_id', networkId);
@@ -159,11 +160,20 @@ export function useServers(networkId?: string) {
         return;
       }
       
-      const { data: result, error } = await query.order('created_at', { ascending: false });
+      const { data: result, error } = await query.order('name');
       if (error) throw error;
-      setData(result || []);
+      
+      // Map server_inventory_view fields to Server type expected by Servers.tsx
+      // The view returns id (which is resource_id) and server_id
+      const mappedData = (result || []).map((row: any) => ({
+        ...row,
+        id: row.server_id || row.id, // Use server_id for legacy compatibility
+        resource_id: row.id || row.resource_id,
+      }));
+      
+      setData(mappedData || []);
     } catch (e) {
-      console.error('Error fetching servers:', e);
+      console.error('Error fetching servers from view:', e);
       setData([]);
     } finally {
       setIsLoading(false);
