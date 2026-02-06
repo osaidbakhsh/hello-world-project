@@ -1,1 +1,7 @@
 project_id = "trfarkwevtyuciebmnxf"
+
+[functions.admin-reset-to-prod]
+verify_jwt = false
+
+[functions.maintenance-check]
+verify_jwt = false
