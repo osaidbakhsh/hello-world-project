@@ -4,11 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSite } from '@/contexts/SiteContext';
 import { useResources, useCreateResource, useUpdateResource, useDeleteResource, useResourceStats, useResourceSearch } from '@/hooks/useResources';
 import { useNetworksV2 } from '@/hooks/useNetworksV2';
+import { usePermissions } from '@/hooks/usePermissions';
 import type { Resource, ResourceCreateInput, ResourceUpdateInput, ResourceType, ResourceStatus, CriticalityLevel } from '@/types/resources';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +34,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Edit, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Loader2, AlertCircle, ShieldAlert, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -68,6 +70,9 @@ const Resources: React.FC = () => {
   const { user } = useAuth();
   const { selectedSite } = useSite();
   const { toast } = useToast();
+  
+  // RBAC permissions
+  const { canView, canManageResources, isViewerOnly, isLoading: permissionsLoading } = usePermissions();
 
   // State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -194,20 +199,31 @@ const Resources: React.FC = () => {
 
   return (
     <div className="space-y-6 p-6">
+      {/* Read-only banner for viewers */}
+      {isViewerOnly && (
+        <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+          <Eye className="h-4 w-4" />
+          <AlertDescription>
+            You have read-only access to resources. Contact a Site Administrator to request edit permissions.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Resources</h1>
           <p className="text-sm text-muted-foreground">Unified inventory of VMs, physical servers, and appliances</p>
         </div>
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => handleOpenForm()}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Resource
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
+        {canManageResources ? (
+          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => handleOpenForm()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Resource
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingId ? 'Edit Resource' : 'Create Resource'}</DialogTitle>
             </DialogHeader>
@@ -354,6 +370,7 @@ const Resources: React.FC = () => {
             </form>
           </DialogContent>
         </Dialog>
+        ) : null}
       </div>
 
       {/* Stats Cards */}
@@ -516,29 +533,33 @@ const Resources: React.FC = () => {
                         <TableCell>{resource.environment || '—'}</TableCell>
                         <TableCell>{resource.owner_team || '—'}</TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleOpenForm(resource)}
-                              disabled={editingId === resource.id}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleDelete(resource.id)}
-                              disabled={isDeleting === resource.id}
-                            >
-                              {isDeleting === resource.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
+                          {canManageResources ? (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleOpenForm(resource)}
+                                disabled={editingId === resource.id}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDelete(resource.id)}
+                                disabled={isDeleting === resource.id}
+                              >
+                                {isDeleting === resource.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

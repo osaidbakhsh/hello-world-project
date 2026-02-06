@@ -2573,6 +2573,81 @@ export type Database = {
           },
         ]
       }
+      role_assignments: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          id: string
+          notes: string | null
+          role_id: string
+          scope_id: string
+          scope_type: Database["public"]["Enums"]["role_scope_type"]
+          status: Database["public"]["Enums"]["role_status_type"]
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          role_id: string
+          scope_id: string
+          scope_type: Database["public"]["Enums"]["role_scope_type"]
+          status?: Database["public"]["Enums"]["role_status_type"]
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          role_id?: string
+          scope_id?: string
+          scope_type?: Database["public"]["Enums"]["role_scope_type"]
+          status?: Database["public"]["Enums"]["role_status_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_assignments_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_assignments_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roles: {
+        Row: {
+          capabilities: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          capabilities?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          capabilities?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       scan_agents: {
         Row: {
           auth_token_hash: string
@@ -3984,7 +4059,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_my_role_assignments: {
+        Row: {
+          capabilities: Json | null
+          granted_at: string | null
+          id: string | null
+          notes: string | null
+          owning_site_id: string | null
+          role_id: string | null
+          role_name: string | null
+          scope_id: string | null
+          scope_name: string | null
+          scope_type: Database["public"]["Enums"]["role_scope_type"] | null
+          status: Database["public"]["Enums"]["role_status_type"] | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_assignments_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_access_cluster: { Args: { _cluster_id: string }; Returns: boolean }
@@ -4010,7 +4109,9 @@ export type Database = {
       }
       can_edit_server: { Args: { _server_id: string }; Returns: boolean }
       can_edit_vm: { Args: { _vm_id: string }; Returns: boolean }
+      can_manage_cluster: { Args: { _cluster_id: string }; Returns: boolean }
       can_manage_domain: { Args: { _domain_id: string }; Returns: boolean }
+      can_manage_rbac: { Args: { _site_id: string }; Returns: boolean }
       can_manage_site: { Args: { _site_id: string }; Returns: boolean }
       can_view_resource: {
         Args: { _resource_id: string; _resource_type: string }
@@ -4053,14 +4154,42 @@ export type Database = {
           vm_hypervisor_type: string
         }[]
       }
+      get_scope_site_id: {
+        Args: {
+          p_scope_id: string
+          p_scope_type: Database["public"]["Enums"]["role_scope_type"]
+        }
+        Returns: string
+      }
+      get_scope_site_id_text: {
+        Args: { p_scope_id: string; p_scope_type: string }
+        Returns: string
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_user_role_assignments: {
+        Args: { p_user_id: string }
+        Returns: {
+          owning_site_id: string
+          role_name: string
+          scope_id: string
+          scope_type: Database["public"]["Enums"]["role_scope_type"]
+        }[]
       }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
+        }
+        Returns: boolean
+      }
+      has_role_at_scope: {
+        Args: {
+          p_role_name: string
+          p_scope_id: string
+          p_scope_type: Database["public"]["Enums"]["role_scope_type"]
         }
         Returns: boolean
       }
@@ -4107,6 +4236,8 @@ export type Database = {
         | "service"
         | "container"
         | "database"
+      role_scope_type: "site" | "domain" | "cluster"
+      role_status_type: "active" | "disabled"
       site_role: "site_admin" | "site_operator" | "site_viewer"
       vault_role: "vault_admin" | "vault_editor" | "vault_viewer"
     }
@@ -4256,6 +4387,8 @@ export const Constants = {
         "container",
         "database",
       ],
+      role_scope_type: ["site", "domain", "cluster"],
+      role_status_type: ["active", "disabled"],
       site_role: ["site_admin", "site_operator", "site_viewer"],
       vault_role: ["vault_admin", "vault_editor", "vault_viewer"],
     },
