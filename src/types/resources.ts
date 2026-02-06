@@ -271,3 +271,185 @@ export interface ResourceStats {
   not_backed_up: number;
   critical_offline: number;
 }
+
+// ============================================================
+// PHASE B/C: Physical Server Input (for RPC)
+// ============================================================
+export interface PhysicalServerInput {
+  // Upsert key
+  resource_id?: string;
+  
+  // Scope
+  network_id?: string;
+  site_id?: string;
+  domain_id?: string;
+  
+  // Identity
+  name: string;
+  hostname?: string;
+  ip_address?: string;
+  operating_system?: string;
+  
+  // Status
+  status?: string;
+  criticality?: string;
+  environment?: string;
+  
+  // Ownership
+  owner?: string;
+  responsible_user?: string;
+  
+  // System specs
+  cpu?: string;
+  ram?: string;
+  disk_space?: string;
+  
+  // Asset lifecycle
+  vendor?: string;
+  model?: string;
+  serial_number?: string;
+  warranty_end?: string;
+  eol_date?: string;
+  eos_date?: string;
+  purchase_date?: string;
+  
+  // Backup
+  is_backed_up?: boolean;
+  backup_policy?: string;
+  is_backed_up_by_veeam?: boolean;
+  backup_frequency?: string;
+  backup_job_name?: string;
+  
+  // Server-specific
+  beneficiary_department?: string;
+  primary_application?: string;
+  business_owner?: string;
+  contract_id?: string;
+  support_level?: string;
+  server_role?: string[];
+  rpo_hours?: number;
+  rto_hours?: number;
+  last_restore_test?: string;
+  
+  // Notes
+  notes?: string;
+  tags?: string[];
+}
+
+// ============================================================
+// PHASE B/C: VM Input (for RPC)
+// ============================================================
+export interface VMInput {
+  // Upsert key
+  resource_id?: string;
+  
+  // Scope
+  site_id?: string;
+  domain_id?: string;
+  cluster_id?: string;
+  network_id?: string;
+  
+  // Identity
+  name: string;
+  hostname?: string;
+  primary_ip?: string;
+  os?: string;
+  
+  // System specs
+  cpu_cores?: number;
+  ram_gb?: number;
+  storage_gb?: number;
+  
+  // Status
+  status?: string;
+  criticality?: string;
+  environment?: string;
+  owner_team?: string;
+  
+  // VM-specific
+  hypervisor_type?: string;
+  hypervisor_host?: string;
+  vm_id?: string;
+  template_name?: string;
+  is_template?: boolean;
+  tools_status?: string;
+  tools_version?: string;
+  snapshot_count?: number;
+  
+  // Notes
+  notes?: string;
+  tags?: string[];
+}
+
+// ============================================================
+// Server Inventory View (flattened read model)
+// ============================================================
+export interface ServerInventoryView {
+  id: string;
+  resource_id: string;
+  server_id: string;
+  
+  // Scope
+  site_id: string;
+  domain_id: string | null;
+  network_id: string | null;
+  
+  // Identity
+  name: string;
+  hostname: string | null;
+  ip_address: string | null;
+  operating_system: string | null;
+  
+  // Status
+  status: string;
+  criticality: string | null;
+  environment: string | null;
+  
+  // Ownership
+  owner: string | null;
+  
+  // System specs
+  cpu: string | null;
+  ram: string | null;
+  disk_space: string | null;
+  
+  // Asset lifecycle
+  vendor: string | null;
+  model: string | null;
+  serial_number: string | null;
+  warranty_end: string | null;
+  eol_date: string | null;
+  eos_date: string | null;
+  
+  // Backup summary
+  is_backed_up: boolean;
+  backup_policy: string | null;
+  
+  // Server-specific
+  beneficiary_department: string | null;
+  primary_application: string | null;
+  business_owner: string | null;
+  is_backed_up_by_veeam: boolean;
+  backup_frequency: string | null;
+  backup_job_name: string | null;
+  purchase_date: string | null;
+  contract_id: string | null;
+  support_level: string | null;
+  server_role: string[] | null;
+  rpo_hours: number | null;
+  rto_hours: number | null;
+  last_restore_test: string | null;
+  responsible_user: string | null;
+  
+  // Metadata
+  notes: string | null;
+  tags: string[] | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  
+  // Joined names
+  network_name: string | null;
+  domain_name: string | null;
+  site_name: string | null;
+}

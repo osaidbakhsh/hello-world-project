@@ -1,5 +1,5 @@
 // ============================================================
-// PHASE 1: Resource Service - Unified Inventory CRUD
+// PHASE 1 & B/C: Resource Service - Unified Inventory CRUD + RPCs
 // ============================================================
 
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +17,9 @@ import type {
   ResourceType,
   ResourceStatus,
   CriticalityLevel,
+  PhysicalServerInput,
+  VMInput,
+  ServerInventoryView,
 } from '@/types/resources';
 
 // ============================================================
@@ -380,4 +383,210 @@ export async function searchResources(
     ...item,
     site_name: item.sites?.name,
   })) as ResourceWithDetails[];
+}
+
+// ============================================================
+// PHASE B/C: Transactional RPCs
+// ============================================================
+
+/**
+ * Atomic upsert for physical servers.
+ * Creates/updates both resources and servers tables in a single transaction.
+ */
+export async function upsertPhysicalServer(params: PhysicalServerInput): Promise<string> {
+  const { data, error } = await supabase.rpc('upsert_physical_server', {
+    p_network_id: params.network_id || null,
+    p_site_id: params.site_id || null,
+    p_domain_id: params.domain_id || null,
+    p_name: params.name,
+    p_hostname: params.hostname || null,
+    p_ip_address: params.ip_address || null,
+    p_operating_system: params.operating_system || null,
+    p_status: params.status || 'unknown',
+    p_criticality: params.criticality || null,
+    p_environment: params.environment || null,
+    p_owner: params.owner || null,
+    p_responsible_user: params.responsible_user || null,
+    p_cpu: params.cpu || null,
+    p_ram: params.ram || null,
+    p_disk_space: params.disk_space || null,
+    p_vendor: params.vendor || null,
+    p_model: params.model || null,
+    p_serial_number: params.serial_number || null,
+    p_warranty_end: params.warranty_end || null,
+    p_eol_date: params.eol_date || null,
+    p_eos_date: params.eos_date || null,
+    p_purchase_date: params.purchase_date || null,
+    p_is_backed_up: params.is_backed_up ?? params.is_backed_up_by_veeam ?? false,
+    p_backup_policy: params.backup_policy || null,
+    p_is_backed_up_by_veeam: params.is_backed_up_by_veeam ?? false,
+    p_backup_frequency: params.backup_frequency || null,
+    p_backup_job_name: params.backup_job_name || null,
+    p_beneficiary_department: params.beneficiary_department || null,
+    p_primary_application: params.primary_application || null,
+    p_business_owner: params.business_owner || null,
+    p_contract_id: params.contract_id || null,
+    p_support_level: params.support_level || 'standard',
+    p_server_role: params.server_role || null,
+    p_rpo_hours: params.rpo_hours || null,
+    p_rto_hours: params.rto_hours || null,
+    p_last_restore_test: params.last_restore_test || null,
+    p_notes: params.notes || null,
+    p_tags: params.tags || null,
+    p_resource_id: params.resource_id || null,
+  });
+
+  if (error) {
+    console.error('Error upserting physical server:', error);
+    throw error;
+  }
+
+  return data as string;
+}
+
+/**
+ * Atomic upsert for VMs.
+ * Creates/updates both resources and resource_vm_details tables in a single transaction.
+ */
+export async function upsertVM(params: VMInput): Promise<string> {
+  const { data, error } = await supabase.rpc('upsert_vm', {
+    p_site_id: params.site_id || null,
+    p_domain_id: params.domain_id || null,
+    p_cluster_id: params.cluster_id || null,
+    p_network_id: params.network_id || null,
+    p_name: params.name,
+    p_hostname: params.hostname || null,
+    p_primary_ip: params.primary_ip || null,
+    p_os: params.os || null,
+    p_cpu_cores: params.cpu_cores || null,
+    p_ram_gb: params.ram_gb || null,
+    p_storage_gb: params.storage_gb || null,
+    p_status: params.status || 'unknown',
+    p_criticality: params.criticality || null,
+    p_environment: params.environment || null,
+    p_owner_team: params.owner_team || null,
+    p_hypervisor_type: params.hypervisor_type || null,
+    p_hypervisor_host: params.hypervisor_host || null,
+    p_vm_id: params.vm_id || null,
+    p_template_name: params.template_name || null,
+    p_is_template: params.is_template ?? false,
+    p_tools_status: params.tools_status || null,
+    p_tools_version: params.tools_version || null,
+    p_snapshot_count: params.snapshot_count ?? 0,
+    p_notes: params.notes || null,
+    p_tags: params.tags || null,
+    p_resource_id: params.resource_id || null,
+  });
+
+  if (error) {
+    console.error('Error upserting VM:', error);
+    throw error;
+  }
+
+  return data as string;
+}
+
+/**
+ * Atomic delete for physical servers.
+ * Removes both servers and resources rows in a single transaction.
+ */
+export async function deletePhysicalServer(resourceId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_physical_server', {
+    p_resource_id: resourceId,
+  });
+
+  if (error) {
+    console.error('Error deleting physical server:', error);
+    throw error;
+  }
+}
+
+/**
+ * Atomic delete for VMs.
+ * Removes both resource_vm_details and resources rows in a single transaction.
+ */
+export async function deleteVM(resourceId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_vm', {
+    p_resource_id: resourceId,
+  });
+
+  if (error) {
+    console.error('Error deleting VM:', error);
+    throw error;
+  }
+}
+
+// ============================================================
+// PHASE B/C: Server Inventory View (Flattened Read)
+// ============================================================
+
+/**
+ * Fetch servers from the flattened server_inventory_view.
+ * This replaces direct reads from the servers table.
+ */
+export async function getServerInventory(
+  siteId: string,
+  networkId?: string,
+  domainId?: string
+): Promise<ServerInventoryView[]> {
+  let query = supabase
+    .from('server_inventory_view')
+    .select('*')
+    .eq('site_id', siteId);
+
+  if (networkId) {
+    query = query.eq('network_id', networkId);
+  }
+
+  if (domainId) {
+    query = query.eq('domain_id', domainId);
+  }
+
+  const { data, error } = await query.order('name');
+
+  if (error) {
+    console.error('Error fetching server inventory:', error);
+    throw error;
+  }
+
+  return (data || []) as ServerInventoryView[];
+}
+
+/**
+ * Find existing server by deterministic match (site_id + hostname OR site_id + ip_address).
+ * Used for idempotent imports.
+ */
+export async function findExistingServerInView(
+  siteId: string,
+  hostname?: string,
+  ipAddress?: string
+): Promise<ServerInventoryView | null> {
+  if (!hostname && !ipAddress) return null;
+
+  let query = supabase
+    .from('server_inventory_view')
+    .select('*')
+    .eq('site_id', siteId);
+
+  // Build OR condition for hostname and IP
+  const conditions: string[] = [];
+  if (hostname) {
+    conditions.push(`name.ilike.${hostname}`);
+  }
+  if (ipAddress) {
+    conditions.push(`ip_address.eq.${ipAddress}`);
+  }
+
+  if (conditions.length > 0) {
+    query = query.or(conditions.join(','));
+  }
+
+  const { data, error } = await query.limit(1).maybeSingle();
+
+  if (error) {
+    console.error('Error finding existing server:', error);
+    return null;
+  }
+
+  return data as ServerInventoryView | null;
 }

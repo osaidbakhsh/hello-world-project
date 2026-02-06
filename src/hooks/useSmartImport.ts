@@ -105,8 +105,10 @@ export function useSmartImport() {
   };
 
   // Analyze import data before executing
-  const analyzeServerImport = useCallback(async (data: any[]): Promise<ImportPreview> => {
-    const { data: existingServers } = await supabase.from('servers').select('*');
+  const analyzeServerImport = useCallback(async (data: any[], siteId?: string): Promise<ImportPreview> => {
+    const { data: existingServers } = siteId 
+      ? await supabase.from('server_inventory_view').select('*').eq('site_id', siteId)
+      : await supabase.from('servers').select('*');
     const servers = existingServers || [];
     
     let toCreate = 0;
@@ -147,10 +149,9 @@ export function useSmartImport() {
     return { toCreate, toUpdate, unchanged, errors };
   }, [findExistingServer]);
 
-  // Execute server import with upsert logic
-  const importServers = useCallback(async (data: any[]): Promise<ImportResult> => {
-    const { data: existingServers } = await supabase.from('servers').select('*');
-    const servers = existingServers || [];
+  // Execute server import with upsert logic via RPC (idempotent)
+  const importServers = useCallback(async (data: any[], siteId?: string): Promise<ImportResult> => {
+    const { upsertPhysicalServer, findExistingServerInView } = await import('@/services/resourceService');
     
     const results: ImportResult = { created: 0, updated: 0, skipped: 0, errors: [] };
     
@@ -163,22 +164,33 @@ export function useSmartImport() {
           continue;
         }
         
-        const existing = await findExistingServer(row, servers);
+        // Deterministic match: site_id + (hostname OR primary_ip)
+        let existingResourceId: string | null = null;
+        if (siteId) {
+          const existing = await findExistingServerInView(siteId, serverData.name, serverData.ip_address);
+          existingResourceId = existing?.resource_id || null;
+        }
         
-        if (existing) {
-          const { error } = await supabase
-            .from('servers')
-            .update(serverData)
-            .eq('id', existing.id);
-          
-          if (error) throw error;
+        // Use RPC for atomic upsert
+        await upsertPhysicalServer({
+          resource_id: existingResourceId || undefined,
+          network_id: serverData.network_id || undefined,
+          name: serverData.name,
+          ip_address: serverData.ip_address,
+          operating_system: serverData.operating_system,
+          environment: serverData.environment,
+          status: serverData.status,
+          owner: serverData.owner,
+          responsible_user: serverData.responsible_user,
+          cpu: serverData.cpu,
+          ram: serverData.ram,
+          disk_space: serverData.disk_space,
+          notes: serverData.notes,
+        });
+        
+        if (existingResourceId) {
           results.updated++;
         } else {
-          const { error } = await supabase
-            .from('servers')
-            .insert([serverData]);
-          
-          if (error) throw error;
           results.created++;
         }
       } catch (error: any) {
@@ -187,7 +199,7 @@ export function useSmartImport() {
     }
     
     return results;
-  }, [findExistingServer]);
+  }, []);
 
   // Analyze license import data
   const analyzeLicenseImport = useCallback(async (data: any[]): Promise<ImportPreview> => {
