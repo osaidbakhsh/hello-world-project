@@ -5,6 +5,7 @@ import { useSite } from '@/contexts/SiteContext';
 import { useResources, useCreateResource, useUpdateResource, useDeleteResource, useResourceStats, useResourceSearch } from '@/hooks/useResources';
 import { useNetworksV2 } from '@/hooks/useNetworksV2';
 import { usePermissions } from '@/hooks/usePermissions';
+import { supabase } from '@/integrations/supabase/client';
 import type { Resource, ResourceCreateInput, ResourceUpdateInput, ResourceType, ResourceStatus, CriticalityLevel } from '@/types/resources';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,12 +35,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Edit, Trash2, Loader2, AlertCircle, ShieldAlert, Eye } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Loader2, AlertCircle, ShieldAlert, Eye, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DataPagination, usePagination } from '@/components/ui/data-pagination';
 import NoSiteSelected from '@/components/common/NoSiteSelected';
+import { ROLE_NAMES } from '@/security/roles';
 
 const RESOURCE_TYPES: ResourceType[] = ['vm', 'physical_server', 'appliance', 'service', 'container', 'database'];
 const STATUS_OPTIONS: ResourceStatus[] = ['online', 'offline', 'maintenance', 'degraded', 'unknown', 'decommissioned'];
@@ -72,7 +74,7 @@ const Resources: React.FC = () => {
   const { toast } = useToast();
   
   // RBAC permissions
-  const { canView, canManageResources, isViewerOnly, isLoading: permissionsLoading } = usePermissions();
+  const { canView, canManageResources, isViewerOnly, context, isLoading: permissionsLoading } = usePermissions();
 
   // State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -82,12 +84,93 @@ const Resources: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ResourceFormData>(initialFormData);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [domains, setDomains] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
+  const [domainsLoading, setDomainsLoading] = useState(false);
 
-  // Queries & Mutations
-  const { data: resources = [], isLoading } = useResources({
-    resource_type: filterType === 'all' ? undefined : filterType,
-    status: filterStatus === 'all' ? undefined : filterStatus,
-  });
+  // ============================================================
+  // DomainAdmin Option A: Detect scope and auto-filter
+  // ============================================================
+  
+  // Check if user has DomainAdmin role assigned at domain scope
+  const isDomainAdmin = useMemo(() => {
+    if (!context) return false;
+    return context.assignments.some(
+      a => a.role_name === ROLE_NAMES.DOMAIN_ADMIN && a.scope_type === 'domain' && a.status === 'active'
+    );
+  }, [context]);
+
+  // Get the domain(s) this DomainAdmin is assigned to
+  const domainAdminScopes = useMemo(() => {
+    if (!isDomainAdmin || !context) return [];
+    return context.assignments.filter(
+      a => a.role_name === ROLE_NAMES.DOMAIN_ADMIN && a.scope_type === 'domain' && a.status === 'active'
+    );
+  }, [isDomainAdmin, context]);
+
+  // Check if user has site.manage permission (SiteAdmin or InfraOperator at site scope)
+  const hasSiteManagePermission = useMemo(() => {
+    if (!context || !selectedSite) return false;
+    return context.assignments.some(
+      a => (a.role_name === ROLE_NAMES.SITE_ADMIN || a.role_name === ROLE_NAMES.INFRA_OPERATOR) 
+          && a.scope_type === 'site' 
+          && a.scope_id === selectedSite.id 
+          && a.status === 'active'
+    );
+  }, [context, selectedSite]);
+
+  // Load domains for site (for DomainAdmin dropdown or SiteAdmin optional filter)
+  React.useEffect(() => {
+    if (!selectedSite) return;
+    
+    const loadDomains = async () => {
+      setDomainsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('domains')
+          .select('id, name')
+          .eq('site_id', selectedSite.id)
+          .order('name');
+        
+        if (error) throw error;
+        setDomains(data || []);
+        
+        // For DomainAdmin: auto-select their domain if only one
+        if (isDomainAdmin && domainAdminScopes.length === 1 && !selectedDomainId) {
+          setSelectedDomainId(domainAdminScopes[0].scope_id);
+        }
+      } catch (err) {
+        console.error('Failed to load domains:', err);
+        toast({ title: 'Error', description: 'Failed to load domains', variant: 'destructive' });
+      } finally {
+        setDomainsLoading(false);
+      }
+    };
+
+    loadDomains();
+  }, [selectedSite, isDomainAdmin, domainAdminScopes]);
+
+  // ============================================================
+  // Queries & Mutations (with domain filtering)
+  // ============================================================
+
+  // Build filter object: for DomainAdmin without site.manage, enforce domain_id filter
+  const resourceFilters = useMemo(() => {
+    const filters: any = {
+      resource_type: filterType === 'all' ? undefined : filterType,
+      status: filterStatus === 'all' ? undefined : filterStatus,
+    };
+
+    // DomainAdmin Option A: Filter to domain_id only (exclude site-level resources)
+    if (isDomainAdmin && !hasSiteManagePermission && selectedDomainId) {
+      filters.domain_id = selectedDomainId;
+      filters.exclude_null_domain = true; // Custom flag to exclude domain_id IS NULL
+    }
+
+    return filters;
+  }, [filterType, filterStatus, isDomainAdmin, hasSiteManagePermission, selectedDomainId]);
+
+  const { data: resources = [], isLoading } = useResources(resourceFilters);
 
   const { data: stats } = useResourceStats();
   const { data: searchResults = [], isLoading: isSearching } = useResourceSearch(
@@ -419,6 +502,29 @@ const Resources: React.FC = () => {
         </div>
       )}
 
+      {/* DomainAdmin Option A: Check if domain selection is required */}
+      {isDomainAdmin && !hasSiteManagePermission && (
+        <div className="space-y-4">
+          {/* Require domain selection before showing table */}
+          {!selectedDomainId ? (
+            <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+              <Lock className="h-4 w-4" />
+              <AlertDescription>
+                You have domain-scoped access. Please select a domain below to view and manage resources.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            /* Domain filter hint */
+            <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20">
+              <AlertDescription className="text-sm">
+                📌 Showing resources for domain: <span className="font-semibold">{domains.find(d => d.id === selectedDomainId)?.name}</span>
+                (site-level resources excluded)
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
+
       {/* Filters & Search */}
       <Card>
         <CardHeader>
@@ -426,6 +532,20 @@ const Resources: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-4 flex-wrap">
+            {/* Domain Selection for DomainAdmin (if not site.manage) */}
+            {isDomainAdmin && !hasSiteManagePermission && (
+              <Select value={selectedDomainId || ''} onValueChange={(val) => { setSelectedDomainId(val); handlePageChange(1); }}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select domain" />
+                </SelectTrigger>
+                <SelectContent>
+                  {domains.map((domain) => (
+                    <SelectItem key={domain.id} value={domain.id}>{domain.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             {/* Search */}
             <div className="flex-1 min-w-64">
               <div className="relative">
@@ -438,6 +558,7 @@ const Resources: React.FC = () => {
                     handlePageChange(1);
                   }}
                   className="pl-10"
+                  disabled={isDomainAdmin && !hasSiteManagePermission && !selectedDomainId}
                 />
               </div>
             </div>
@@ -471,7 +592,20 @@ const Resources: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Domain selection guard for DomainAdmin */}
+      {isDomainAdmin && !hasSiteManagePermission && !selectedDomainId && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <Lock className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">Please select a domain in the filters to view resources</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Table */}
+      {!(isDomainAdmin && !hasSiteManagePermission && !selectedDomainId) && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -582,6 +716,7 @@ const Resources: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };
