@@ -297,7 +297,9 @@ const Servers: React.FC = () => {
       };
 
       if (editingServer) {
-        const { error } = await updateServer(editingServer.id, serverData);
+        // Use resource_id for updates via RPC (server_inventory_view returns this)
+        const resourceId = (editingServer as any).resource_id || editingServer.id;
+        const { error } = await updateServer(resourceId, serverData);
         if (error) throw error;
         toast({ title: t('common.success'), description: 'Server updated' });
       } else {
@@ -365,8 +367,10 @@ const Servers: React.FC = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    const { error } = await deleteServer(id);
+  const handleDelete = async (id: string, server?: Server) => {
+    // Use resource_id for deletes via RPC
+    const resourceId = server ? ((server as any).resource_id || id) : id;
+    const { error } = await deleteServer(resourceId);
     if (error) {
       toast({ title: t('common.error'), description: 'Failed to delete server', variant: 'destructive' });
     } else {
@@ -1091,7 +1095,7 @@ const Servers: React.FC = () => {
                               size="icon"
                               variant="ghost"
                               className="text-destructive hover:text-destructive"
-                              onClick={() => handleDelete(server.id)}
+                              onClick={() => handleDelete(server.id, server)}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>

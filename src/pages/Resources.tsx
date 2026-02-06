@@ -7,7 +7,7 @@ import { useNetworksV2 } from '@/hooks/useNetworksV2';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import type { Resource, ResourceCreateInput, ResourceUpdateInput, ResourceType, ResourceStatus, CriticalityLevel, PhysicalServerInput, VMInput, NetworkV2 } from '@/types/resources';
-import { upsertPhysicalServer, upsertVM, deletePhysicalServer } from '@/services/resourceService';
+import { upsertPhysicalServer, upsertVM, deletePhysicalServer, deleteVM } from '@/services/resourceService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -423,17 +423,19 @@ const Resources: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this resource?')) return;
+    if (!confirm(t('resources.deleteConfirm') || 'Are you sure you want to delete this resource?')) return;
 
     setIsDeleting(id);
     try {
       const resource = resources.find(r => r.id === id);
       if (resource?.resource_type === 'physical_server') {
         await deletePhysicalServer(id);
+      } else if (resource?.resource_type === 'vm') {
+        await deleteVM(id);
       } else {
         await deleteMutation.mutateAsync(id);
       }
-      toast({ title: 'Success', description: 'Resource deleted successfully', variant: 'default' });
+      toast({ title: t('common.success'), description: t('resources.deleteSuccess'), variant: 'default' });
     } catch (error: any) {
       console.error('Delete error:', error);
       toast({ title: 'Error', description: 'Failed to delete resource', variant: 'destructive' });
