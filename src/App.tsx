@@ -45,6 +45,8 @@ import ProcurementCreate from "./pages/ProcurementCreate";
 import ProcurementDetail from "./pages/ProcurementDetail";
 import ResourceDetail from "./pages/ResourceDetail";
 import NOCDashboard from "./pages/NOCDashboard";
+import RoleAssignments from "./pages/RoleAssignments";
+import UserAccessDetails from "./pages/UserAccessDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -106,6 +108,8 @@ const App = () => (
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/resource/:level/:id" element={<ResourceDetail />} />
                 <Route path="/noc" element={<NOCDashboard />} />
+                <Route path="/admin/rbac" element={<RoleAssignments />} />
+                <Route path="/admin/rbac/users/:userId" element={<UserAccessDetails />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />
