@@ -34,7 +34,8 @@ import {
   TrendingDown,
   Settings,
   RefreshCw,
-  Eye
+  Eye,
+  Bell
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import NoSiteSelected from '@/components/common/NoSiteSelected';
@@ -131,15 +132,17 @@ const ADOverview: React.FC = () => {
   const getHealthBadge = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle className="w-3 h-3 mr-1" />Healthy</Badge>;
+        return <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"><CheckCircle className="w-3 h-3 mr-1" />Healthy</Badge>;
       case 'degraded':
-        return <Badge className="bg-amber-100 text-amber-800"><AlertTriangle className="w-3 h-3 mr-1" />Degraded</Badge>;
+        return <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-400"><AlertTriangle className="w-3 h-3 mr-1" />Degraded</Badge>;
       case 'down':
-        return <Badge className="bg-destructive/20 text-destructive"><XCircle className="w-3 h-3 mr-1" />Down</Badge>;
+        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Down</Badge>;
       default:
         return <Badge variant="secondary">Unknown</Badge>;
     }
   };
+
+  const isIntegrationDegraded = currentIntegration?.health_status === 'degraded' || currentIntegration?.health_status === 'down';
 
   // Prepare chart data
   const chartData = [...snapshots].reverse().map(s => ({
@@ -185,7 +188,7 @@ const ADOverview: React.FC = () => {
 
       {/* Integration Status */}
       {currentIntegration && (
-        <Card>
+        <Card className={isIntegrationDegraded ? 'border-destructive/50' : ''}>
           <CardContent className="flex items-center justify-between py-4">
             <div className="flex items-center gap-4">
               <div>
@@ -211,11 +214,46 @@ const ADOverview: React.FC = () => {
                 <p className="text-muted-foreground">Mode</p>
                 <p className="font-medium uppercase">{currentIntegration.mode}</p>
               </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/governance/notifications')}
+              >
+                <Bell className="h-3 w-3 mr-1" />
+                View Notifications
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* Health Warning Banner */}
+      {isIntegrationDegraded && (
+        <Alert variant="destructive" className="border-destructive/50">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              {currentIntegration?.health_status === 'down' 
+                ? 'Integration is DOWN. Agent may be offline or experiencing errors.'
+                : 'Integration is DEGRADED. Check agent status and sync history.'}
+              {(currentIntegration as any)?.last_error && (
+                <span className="block text-sm mt-1 opacity-80">
+                  Last error: {(currentIntegration as any).last_error}
+                </span>
+              )}
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="shrink-0 ml-4"
+              onClick={() => navigate('/integrations/agents')}
+            >
+              <Settings className="h-3 w-3 mr-1" />
+              Check Agents
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Read-only banner for viewers */}
       {isViewerOnly && (
         <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">

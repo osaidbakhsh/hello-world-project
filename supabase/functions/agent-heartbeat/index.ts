@@ -56,17 +56,55 @@ Deno.serve(async (req) => {
       // Body is optional
     }
 
+    const wasOffline = agent.status === 'OFFLINE';
+
     // Update agent last_seen and status
     const { error: updateError } = await supabaseAdmin
       .from('scan_agents')
       .update({
         status: 'ONLINE',
         last_seen_at: new Date().toISOString(),
+        offline_since: null, // Clear offline_since when coming back online
       })
       .eq('id', agent.id);
 
     if (updateError) {
       console.error('Error updating agent:', updateError);
+    }
+
+    // If agent was offline and is now online, create recovery event
+    if (wasOffline) {
+      await supabaseAdmin
+        .from('agent_events')
+        .insert({
+          agent_id: agent.id,
+          domain_id: agent.domain_id,
+          event_type: 'online',
+          payload: {
+            previous_status: 'OFFLINE',
+            offline_since: agent.offline_since,
+            recovered_at: new Date().toISOString(),
+          },
+        });
+
+      // Create recovery notification
+      if (agent.site_id) {
+        await supabaseAdmin
+          .from('notifications')
+          .insert({
+            site_id: agent.site_id,
+            domain_id: agent.domain_id,
+            severity: 'info',
+            title: 'Agent Online',
+            message: `Agent "${agent.name}" is back online.`,
+            entity_type: 'agent',
+            entity_id: agent.id,
+            code: 'AGENT_ONLINE',
+            type: 'info',
+            link: '/integrations/agents',
+            is_read: false,
+          });
+      }
     }
 
     // Log heartbeat event (only every 10th heartbeat to avoid flooding)
@@ -92,6 +130,7 @@ Deno.serve(async (req) => {
         success: true,
         agent_id: agent.id,
         status: 'ONLINE',
+        was_offline: wasOffline,
         server_time: new Date().toISOString(),
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -49,6 +49,7 @@ import RoleAssignments from "./pages/RoleAssignments";
 import UserAccessDetails from "./pages/UserAccessDetails";
 import ADOverview from "./pages/ADOverview";
 import AgentsManagement from "./pages/AgentsManagement";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -115,6 +116,7 @@ const App = () => (
                 <Route path="/ad-overview" element={<ADOverview />} />
                 <Route path="/ad-overview/:domainId" element={<ADOverview />} />
                 <Route path="/integrations/agents" element={<AgentsManagement />} />
+                <Route path="/governance/notifications" element={<Notifications />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />

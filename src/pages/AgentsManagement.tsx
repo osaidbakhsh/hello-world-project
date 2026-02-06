@@ -147,14 +147,28 @@ const AgentsManagement: React.FC = () => {
     toast.success('Token copied to clipboard');
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status?.toUpperCase()) {
+  const getStatusBadge = (agent: any) => {
+    const status = agent.status?.toUpperCase();
+    const offlineSince = agent.offline_since;
+    
+    switch (status) {
       case 'ONLINE':
-        return <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle className="w-3 h-3 mr-1" />Online</Badge>;
+        return <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"><CheckCircle className="w-3 h-3 mr-1" />Online</Badge>;
       case 'OFFLINE':
-        return <Badge variant="secondary"><XCircle className="w-3 h-3 mr-1" />Offline</Badge>;
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge variant="destructive" className="gap-1">
+              <XCircle className="w-3 h-3" />Offline
+            </Badge>
+            {offlineSince && (
+              <span className="text-xs text-destructive">
+                since {formatDistanceToNow(new Date(offlineSince), { addSuffix: false })}
+              </span>
+            )}
+          </div>
+        );
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{agent.status}</Badge>;
     }
   };
 
@@ -377,16 +391,23 @@ const AgentsManagement: React.FC = () => {
                     <TableCell>
                       <Badge variant="outline">{agent.agent_type || 'file-scanner'}</Badge>
                     </TableCell>
-                    <TableCell>{getStatusBadge(agent.status)}</TableCell>
+                    <TableCell>{getStatusBadge(agent)}</TableCell>
                     <TableCell>{agent.version || '—'}</TableCell>
                     <TableCell>
-                      {agent.last_seen_at ? (
-                        <span className="text-sm" title={format(new Date(agent.last_seen_at), 'PPpp')}>
-                          {formatDistanceToNow(new Date(agent.last_seen_at), { addSuffix: true })}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Never</span>
-                      )}
+                      <div className="flex flex-col">
+                        {agent.last_seen_at ? (
+                          <>
+                            <span className="text-sm" title={format(new Date(agent.last_seen_at), 'PPpp')}>
+                              {formatDistanceToNow(new Date(agent.last_seen_at), { addSuffix: true })}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(agent.last_seen_at), 'MMM dd, HH:mm')}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">Never</span>
+                        )}
+                      </div>
                     </TableCell>
                     {canManageAgents && (
                       <TableCell>

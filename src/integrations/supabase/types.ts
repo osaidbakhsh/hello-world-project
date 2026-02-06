@@ -392,6 +392,48 @@ export type Database = {
           },
         ]
       }
+      agent_events: {
+        Row: {
+          agent_id: string
+          created_at: string
+          domain_id: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          domain_id?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          domain_id?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "scan_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_events_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           id: string
@@ -879,6 +921,7 @@ export type Database = {
           health_status: string | null
           id: string
           integration_type: string
+          last_error: string | null
           last_seen_at: string | null
           last_sync_at: string | null
           mode: string
@@ -895,6 +938,7 @@ export type Database = {
           health_status?: string | null
           id?: string
           integration_type: string
+          last_error?: string | null
           last_seen_at?: string | null
           last_sync_at?: string | null
           mode?: string
@@ -911,6 +955,7 @@ export type Database = {
           health_status?: string | null
           id?: string
           integration_type?: string
+          last_error?: string | null
           last_seen_at?: string | null
           last_sync_at?: string | null
           mode?: string
@@ -2127,41 +2172,94 @@ export type Database = {
           },
         ]
       }
+      notification_dedup: {
+        Row: {
+          count: number | null
+          dedup_key: string
+          id: string
+          last_sent_at: string
+        }
+        Insert: {
+          count?: number | null
+          dedup_key: string
+          id?: string
+          last_sent_at?: string
+        }
+        Update: {
+          count?: number | null
+          dedup_key?: string
+          id?: string
+          last_sent_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
+          code: string | null
           created_at: string
+          domain_id: string | null
+          entity_id: string | null
+          entity_type: string | null
           id: string
           is_read: boolean
           link: string | null
           message: string | null
           related_id: string | null
+          severity: string | null
+          site_id: string | null
           title: string
           type: string
           user_id: string | null
         }
         Insert: {
+          code?: string | null
           created_at?: string
+          domain_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
           is_read?: boolean
           link?: string | null
           message?: string | null
           related_id?: string | null
+          severity?: string | null
+          site_id?: string | null
           title: string
           type?: string
           user_id?: string | null
         }
         Update: {
+          code?: string | null
           created_at?: string
+          domain_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
           is_read?: boolean
           link?: string | null
           message?: string | null
           related_id?: string | null
+          severity?: string | null
+          site_id?: string | null
           title?: string
           type?: string
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
@@ -3164,6 +3262,7 @@ export type Database = {
           id: string
           last_seen_at: string | null
           name: string
+          offline_since: string | null
           site_id: string | null
           site_tag: string | null
           status: string | null
@@ -3179,6 +3278,7 @@ export type Database = {
           id?: string
           last_seen_at?: string | null
           name: string
+          offline_since?: string | null
           site_id?: string | null
           site_tag?: string | null
           status?: string | null
@@ -3194,6 +3294,7 @@ export type Database = {
           id?: string
           last_seen_at?: string | null
           name?: string
+          offline_since?: string | null
           site_id?: string | null
           site_tag?: string | null
           status?: string | null
