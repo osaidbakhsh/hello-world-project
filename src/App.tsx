@@ -57,7 +57,18 @@ import VirtualizationForm from "./pages/VirtualizationForm";
 import VirtualizationPreview from "./pages/VirtualizationPreview";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Prevent aggressive refetching
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      retry: 1,
+      staleTime: 30 * 1000, // 30 seconds
+      gcTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem>

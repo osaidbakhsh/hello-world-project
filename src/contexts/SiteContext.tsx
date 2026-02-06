@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -126,16 +126,19 @@ export const SiteProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await refetch();
   }, [refetch]);
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    selectedSite,
+    setSelectedSite,
+    sites,
+    isLoading,
+    error: error as Error | null,
+    clearSelection,
+    refetchSites,
+  }), [selectedSite, setSelectedSite, sites, isLoading, error, clearSelection, refetchSites]);
+
   return (
-    <SiteContext.Provider value={{
-      selectedSite,
-      setSelectedSite,
-      sites,
-      isLoading,
-      error: error as Error | null,
-      clearSelection,
-      refetchSites,
-    }}>
+    <SiteContext.Provider value={contextValue}>
       {children}
     </SiteContext.Provider>
   );

@@ -41,6 +41,7 @@ import { ar, enUS } from 'date-fns/locale';
 interface MaintenanceWindow {
   id: string;
   domain_id: string | null;
+  site_id: string | null;
   title: string;
   description: string | null;
   start_time: string;
@@ -53,6 +54,8 @@ interface MaintenanceWindow {
   approved_by: string | null;
   approved_at: string | null;
   notes: string | null;
+  assigned_to: string | null;
+  completion_notes: string | null;
   created_at: string;
 }
 
@@ -103,7 +106,13 @@ const MaintenanceWindows: React.FC = () => {
     affected_servers: [] as string[],
     impact_level: 'medium',
     notes: '',
+    assigned_to: '',
+    completion_notes: '',
   });
+
+  // Editing state
+  const [editingWindow, setEditingWindow] = useState<MaintenanceWindow | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Pre-select first domain when dialog opens
   useEffect(() => {
@@ -152,24 +161,69 @@ const MaintenanceWindows: React.FC = () => {
           title: window.title,
           description: window.description || null,
           domain_id: window.domain_id || null,
+          site_id: selectedSite?.id || null,
           start_time: window.start_time,
           end_time: window.end_time,
           recurrence: window.recurrence,
           affected_servers: window.affected_servers.length > 0 ? window.affected_servers : null,
           impact_level: window.impact_level,
           notes: window.notes || null,
+          assigned_to: window.assigned_to || null,
           created_by: profile?.id,
           status: 'scheduled',
         })
         .select()
         .single();
       if (error) throw error;
+      
+      // Create 'created' event
+      await supabase.from('maintenance_events').insert({
+        maintenance_id: data.id,
+        event_type: 'created',
+        actor_id: profile?.id,
+        notes: `Created maintenance window: ${window.title}`,
+      });
+      
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance_windows'] });
       toast.success(t('maintenance.created'));
       setIsAddDialogOpen(false);
+      resetForm();
+    },
+    onError: (error) => {
+      toast.error(t('common.error'));
+      console.error(error);
+    },
+  });
+
+  // Update maintenance window mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<MaintenanceWindow> }) => {
+      const { data: updated, error } = await supabase
+        .from('maintenance_windows')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      
+      // Create 'updated' event
+      await supabase.from('maintenance_events').insert({
+        maintenance_id: id,
+        event_type: 'updated',
+        actor_id: profile?.id,
+        notes: `Updated maintenance window`,
+        metadata: data,
+      });
+      
+      return updated;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance_windows'] });
+      toast.success(t('common.updated'));
+      setIsEditDialogOpen(false);
       resetForm();
     },
     onError: (error) => {
@@ -219,8 +273,11 @@ const MaintenanceWindows: React.FC = () => {
       affected_servers: [],
       impact_level: 'medium',
       notes: '',
+      assigned_to: '',
+      completion_notes: '',
     });
     setConflicts([]);
+    setEditingWindow(null);
   };
 
   // Detect conflicts
@@ -522,6 +579,25 @@ const MaintenanceWindows: React.FC = () => {
                         </div>
                       ))}
                     </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <Label>{t('maintenance.assignedTo')}</Label>
+                    <Select
+                      value={newWindow.assigned_to}
+                      onValueChange={(value) => setNewWindow(prev => ({ ...prev, assigned_to: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('maintenance.selectAssignee')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {profiles?.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="col-span-2">

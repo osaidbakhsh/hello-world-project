@@ -2199,11 +2199,58 @@ export type Database = {
           },
         ]
       }
+      maintenance_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string | null
+          event_type: string
+          id: string
+          maintenance_id: string
+          metadata: Json | null
+          notes: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string | null
+          event_type: string
+          id?: string
+          maintenance_id: string
+          metadata?: Json | null
+          notes?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          maintenance_id?: string
+          metadata?: Json | null
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_events_maintenance_id_fkey"
+            columns: ["maintenance_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_windows: {
         Row: {
           affected_servers: string[] | null
           approved_at: string | null
           approved_by: string | null
+          assigned_to: string | null
+          completion_notes: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
@@ -2213,6 +2260,7 @@ export type Database = {
           impact_level: string | null
           notes: string | null
           recurrence: string | null
+          site_id: string | null
           start_time: string
           status: string | null
           title: string
@@ -2222,6 +2270,8 @@ export type Database = {
           affected_servers?: string[] | null
           approved_at?: string | null
           approved_by?: string | null
+          assigned_to?: string | null
+          completion_notes?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -2231,6 +2281,7 @@ export type Database = {
           impact_level?: string | null
           notes?: string | null
           recurrence?: string | null
+          site_id?: string | null
           start_time: string
           status?: string | null
           title: string
@@ -2240,6 +2291,8 @@ export type Database = {
           affected_servers?: string[] | null
           approved_at?: string | null
           approved_by?: string | null
+          assigned_to?: string | null
+          completion_notes?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -2249,6 +2302,7 @@ export type Database = {
           impact_level?: string | null
           notes?: string | null
           recurrence?: string | null
+          site_id?: string | null
           start_time?: string
           status?: string | null
           title?: string
@@ -2258,6 +2312,13 @@ export type Database = {
           {
             foreignKeyName: "maintenance_windows_approved_by_fkey"
             columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_windows_assigned_to_fkey"
+            columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2274,6 +2335,13 @@ export type Database = {
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_windows_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
