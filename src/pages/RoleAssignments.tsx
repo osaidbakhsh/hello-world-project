@@ -15,7 +15,7 @@ import {
   type Role,
   type CreateRoleAssignmentInput,
 } from '@/services/rbacService';
-
+import { useCreateApproval } from '@/hooks/useApprovals';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,6 +77,7 @@ const RoleAssignments: React.FC = () => {
     hasPermission,
     isLoading: permissionsLoading 
   } = usePermissions();
+  const canApproveRBAC = hasPermission(PERMISSION_KEYS.GOV_APPROVALS_MANAGE);
 
   // State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -124,11 +125,44 @@ const RoleAssignments: React.FC = () => {
   });
 
   // Mutations
+  const createApprovalMutation = useCreateApproval();
+
   const createMutation = useMutation({
-    mutationFn: createRoleAssignment,
-    onSuccess: () => {
+    mutationFn: async (input: CreateRoleAssignmentInput) => {
+      // If user can manage RBAC, apply directly; otherwise create approval request
+      if (canManageRBAC) {
+        return createRoleAssignment(input);
+      }
+
+      // Create approval request instead
+      if (!selectedSite) throw new Error('No site selected');
+
+      const approvalInput = {
+        site_id: selectedSite.id,
+        scope_type: input.scope_type,
+        scope_id: input.scope_id,
+        entity_type: 'role_assignment',
+        action_type: 'create',
+        request_data: input as unknown as Record<string, unknown>,
+        approver_role: 'SiteAdmin',
+        requester_notes: input.notes,
+      };
+
+      return createApprovalMutation.mutateAsync(approvalInput);
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['role-assignments'] });
-      toast({ title: 'Success', description: 'Role assignment created successfully' });
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      
+      if (canManageRBAC) {
+        toast({ title: 'Success', description: 'Role assignment created successfully' });
+      } else {
+        toast({ 
+          title: 'Approval Submitted', 
+          description: 'Your role assignment request has been submitted for approval' 
+        });
+      }
+      
       setIsFormOpen(false);
       resetForm();
     },

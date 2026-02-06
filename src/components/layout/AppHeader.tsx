@@ -3,6 +3,7 @@ import { Search, Command } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import SiteSwitcher from './SiteSwitcher';
+import DomainSelector from './DomainSelector';
 import NotificationBell from './NotificationBell';
 import { Button } from '@/components/ui/button';
 
@@ -33,6 +34,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onSearchClick }) => {
     >
       {/* Site Switcher */}
       <SiteSwitcher />
+
+      {/* Domain Selector */}
+      <DomainSelector compact />
 
       {/* Search Trigger */}
       <Button
