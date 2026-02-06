@@ -379,7 +379,7 @@ async function seedProductionData(supabaseAdmin: any, ownerProfileId: string) {
       description: t.description,
       priority: t.priority,
       status: t.status,
-      domain_id: domainMap.get(t.domainCode)?.id,
+      task_status: t.status === 'done' ? 'completed' : t.status === 'in_progress' ? 'in_progress' : 'open',
       created_by: ownerProfileId,
       due_date: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
     })))
