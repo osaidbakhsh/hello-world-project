@@ -8,6 +8,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SiteProvider } from "@/contexts/SiteContext";
 import { HierarchyProvider } from "@/contexts/HierarchyContext";
+import { DomainProvider } from "@/contexts/DomainContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Layout from "@/components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -50,6 +51,7 @@ import UserAccessDetails from "./pages/UserAccessDetails";
 import ADOverview from "./pages/ADOverview";
 import AgentsManagement from "./pages/AgentsManagement";
 import Notifications from "./pages/Notifications";
+import Approvals from "./pages/Approvals";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,7 +62,8 @@ const App = () => (
       <LanguageProvider>
         <AuthProvider>
           <SiteProvider>
-            <HierarchyProvider>
+            <DomainProvider>
+              <HierarchyProvider>
               <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -117,18 +120,20 @@ const App = () => (
                 <Route path="/ad-overview/:domainId" element={<ADOverview />} />
                 <Route path="/integrations/agents" element={<AgentsManagement />} />
                 <Route path="/governance/notifications" element={<Notifications />} />
+                <Route path="/governance/approvals" element={<Approvals />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />
             </Routes>
             </BrowserRouter>
             </TooltipProvider>
-          </HierarchyProvider>
-          </SiteProvider>
-        </AuthProvider>
-      </LanguageProvider>
-    </QueryClientProvider>
-  </ThemeProvider>
-);
+              </HierarchyProvider>
+            </DomainProvider>
+           </SiteProvider>
+         </AuthProvider>
+       </LanguageProvider>
+     </QueryClientProvider>
+   </ThemeProvider>
+ );
 
 export default App;
