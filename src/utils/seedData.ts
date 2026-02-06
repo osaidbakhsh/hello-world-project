@@ -1593,42 +1593,46 @@ export async function seedAllData(): Promise<SeedResult> {
   }
 }
 
-// Reset and reseed all data
+// Reset and reseed all data - NOW SERVER-SIDE ONLY
+// This function calls the secure Edge Function which requires SuperAdmin + owner email
 export async function resetAndSeedData(): Promise<SeedResult> {
   try {
-    // Get current user's profile
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // Get current user session for authentication
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       return { success: false, message: 'User not authenticated' };
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
+    // Call the server-side reset function with double confirmation
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-reset-to-prod`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          type: 'RESET_PROD',
+          confirm_token: 'CONFIRM_RESET_ALL_DATA',
+        }),
+      }
+    );
 
-    if (!profile) {
-      return { success: false, message: 'Profile not found' };
+    const result = await response.json();
+
+    if (!response.ok) {
+      return { 
+        success: false, 
+        message: result.error || `Server returned ${response.status}`,
+      };
     }
 
-    // Delete existing demo data (only items created by this user)
-    await supabase.from('vacations').delete().eq('profile_id', profile.id);
-    await supabase.from('vault_items').delete().eq('owner_id', profile.id);
-    await supabase.from('tasks').delete().eq('created_by', profile.id);
-    await supabase.from('scan_agents').delete().eq('created_by', profile.id);
-    await supabase.from('cluster_nodes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('clusters').delete().eq('created_by', profile.id);
-    await supabase.from('datacenters').delete().eq('created_by', profile.id);
-    await supabase.from('maintenance_windows').delete().eq('created_by', profile.id);
-    await supabase.from('on_call_schedules').delete().eq('created_by', profile.id);
-    await supabase.from('file_shares').delete().eq('created_by', profile.id);
-    await supabase.from('website_applications').delete().eq('created_by', profile.id);
-    await supabase.from('licenses').delete().eq('created_by', profile.id);
-    await supabase.from('servers').delete().eq('created_by', profile.id);
-
-    // Now seed fresh data
-    return await seedAllData();
+    return {
+      success: true,
+      message: `Reset completed. Preserved: ${result.preserved?.user_email}. Seeded: ${JSON.stringify(result.seeded)}`,
+      details: result.seeded,
+    };
   } catch (error) {
     console.error('Reset and seed error:', error);
     return {
