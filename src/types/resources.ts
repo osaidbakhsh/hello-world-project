@@ -256,6 +256,7 @@ export interface ResourceFilters {
   search?: string;
   tags?: string[];
   is_backed_up?: boolean;
+  exclude_null_domain?: boolean; // DomainAdmin Option A: exclude site-level resources
 }
 
 // ============================================================

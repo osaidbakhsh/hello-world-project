@@ -46,6 +46,10 @@ export async function getResources(filters?: ResourceFilters): Promise<ResourceW
   if (filters?.domain_id) {
     query = query.eq('domain_id', filters.domain_id);
   }
+  // DomainAdmin Option A: Exclude site-level resources (domain_id IS NULL)
+  if (filters?.exclude_null_domain) {
+    query = query.not('domain_id', 'is', null);
+  }
   if (filters?.cluster_id) {
     query = query.eq('cluster_id', filters.cluster_id);
   }
