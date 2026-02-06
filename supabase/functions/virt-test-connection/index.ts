@@ -1,6 +1,7 @@
 // Edge function: virt-test-connection
 // Tests connection to hypervisor platforms (Nutanix Prism, Hyper-V)
-// Server-side only - credentials never exposed to frontend
+// SECURITY: Server-side only - credentials never exposed to frontend
+// HARDENING: Strict permission enforcement + sanitized error responses
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -44,6 +45,22 @@ Deno.serve(async (req: Request) => {
     // Verify authentication
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create user client to verify permissions
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Get user and verify authentication
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    if (userError || !user) {
       return new Response(
         JSON.stringify({ success: false, message: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -119,9 +119,14 @@ const translations: Record<Language, Record<string, string>> = {
     'virtualization.noRuns': 'لا توجد عمليات تشغيل',
     'virtualization.discoveredResources': 'الموارد المكتشفة',
     'virtualization.externalId': 'المعرف الخارجي',
-    'virtualization.action': 'الإجراء',
-    'virtualization.noDiscoveredResources': 'لا توجد موارد مكتشفة',
-    
+     'virtualization.action': 'الإجراء',
+     'virtualization.noDiscoveredResources': 'لا توجد موارد مكتشفة',
+     'virtualization.confirmSync': 'تأكيد المزامنة',
+     'virtualization.confirmSyncDescription': 'هل أنت متأكد من رغبتك في تطبيق هذه التغييرات على جدول الموارد؟ لا يمكن التراجع عن هذا الإجراء.',
+     'virtualization.resourcesCreate': 'موارد جديدة',
+     'virtualization.resourcesUpdate': 'موارد معدّلة',
+     'virtualization.confirmApply': 'تطبيق التغييرات',
+     
     // Navigation - Legacy (keep for compatibility)
     'nav.employees': 'الموظفين',
     'nav.employeePermissions': 'صلاحيات الموظفين',
@@ -1877,10 +1882,15 @@ const translations: Record<Language, Record<string, string>> = {
     'virtualization.recentRuns': 'Recent Runs',
     'virtualization.noRuns': 'No runs yet',
     'virtualization.discoveredResources': 'Discovered Resources',
-    'virtualization.externalId': 'External ID',
-    'virtualization.action': 'Action',
-    'virtualization.noDiscoveredResources': 'No discovered resources',
-    
+     'virtualization.externalId': 'External ID',
+     'virtualization.action': 'Action',
+     'virtualization.noDiscoveredResources': 'No discovered resources',
+     'virtualization.confirmSync': 'Confirm Sync',
+     'virtualization.confirmSyncDescription': 'Are you sure you want to apply these changes to the resources table? This action cannot be undone.',
+     'virtualization.resourcesCreate': 'Resources to create',
+     'virtualization.resourcesUpdate': 'Resources to update',
+     'virtualization.confirmApply': 'Confirm & Apply',
+     
     // Navigation - Legacy (keep for compatibility)
     'nav.employees': 'Employees',
     'nav.employeePermissions': 'Employee Permissions',

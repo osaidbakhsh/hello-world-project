@@ -1,6 +1,7 @@
 // Edge function: virt-run-preview
 // Runs discovery against hypervisor and populates staging tables
-// Does NOT write to production resources table
+// SECURITY: Does NOT write to production resources table
+// HARDENING: Site isolation, permission checks, idempotent discovery, sanitized errors
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -17,6 +18,24 @@ interface SyncStats {
   vms_discovered: number;
   hosts_discovered: number;
   networks_discovered: number;
+  discovered_count: number;
+}
+
+// Sanitize error messages for client exposure
+function sanitizeError(error: any): string {
+  const msg = error?.message || 'Unknown error';
+  // Never expose full stack traces, API URLs, or credentials
+  if (msg.includes('password') || msg.includes('credential') || msg.includes('token')) {
+    return 'Authentication failed';
+  }
+  if (msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND')) {
+    return 'Unable to reach hypervisor endpoint';
+  }
+  if (msg.includes('Unauthorized') || msg.includes('401') || msg.includes('403')) {
+    return 'Invalid credentials or insufficient permissions on hypervisor';
+  }
+  // Generic safe message for unknown errors
+  return 'Discovery failed due to an internal error';
 }
 
 Deno.serve(async (req: Request) => {
@@ -39,7 +58,7 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Create user client to verify permissions
+    // Create user client to verify permissions and load integration
     const supabaseUser = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -65,7 +84,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Fetch integration (RLS will verify access)
+    // SECURITY: Load integration with user client (RLS enforces site access)
     const { data: integration, error: intError } = await supabaseUser
       .from('virtualization_integrations')
       .select('*')
@@ -79,7 +98,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Create sync run record
+    // SECURITY: Ensure site_id is derived from integration record (prevent cross-site writes)
+    const siteId = integration.site_id;
+
+    // Create sync run record (server-side only)
     const { data: syncRun, error: runError } = await supabaseAdmin
       .from('virtualization_sync_runs')
       .insert({
@@ -105,18 +127,20 @@ Deno.serve(async (req: Request) => {
       .eq('integration_id', integration_id);
 
     // Run discovery based on integration type
-    let stats: SyncStats = { vms_discovered: 0, hosts_discovered: 0, networks_discovered: 0 };
+    let stats: SyncStats = { vms_discovered: 0, hosts_discovered: 0, networks_discovered: 0, discovered_count: 0 };
     let errorSummary: string | null = null;
 
     try {
       if (integration.integration_type === 'nutanix_prism') {
-        stats = await discoverNutanix(supabaseAdmin, integration, secrets, syncRun.id);
+        stats = await discoverNutanix(supabaseAdmin, integration, secrets, syncRun.id, siteId);
       } else if (integration.integration_type === 'hyperv') {
-        stats = await discoverHyperV(supabaseAdmin, integration, secrets, syncRun.id);
+        stats = await discoverHyperV(supabaseAdmin, integration, secrets, syncRun.id, siteId);
       }
+      stats.discovered_count = stats.vms_discovered + stats.hosts_discovered + stats.networks_discovered;
     } catch (discoverError) {
       console.error('Discovery error:', discoverError);
-      errorSummary = discoverError.message || 'Discovery failed';
+      // SECURITY: Sanitize error message for client
+      errorSummary = sanitizeError(discoverError);
       
       // Update integration status to degraded
       await supabaseAdmin
@@ -131,7 +155,7 @@ Deno.serve(async (req: Request) => {
       await supabaseAdmin
         .from('notifications')
         .insert({
-          site_id: integration.site_id,
+          site_id: siteId,
           code: 'VIRT_INTEGRATION_FAILED',
           severity: 'critical',
           title: `Virtualization integration "${integration.name}" preview failed`,

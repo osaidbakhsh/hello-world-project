@@ -5156,6 +5156,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_discovered_resources: {
+        Args: never
+        Returns: {
+          deleted_count: number
+        }[]
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       generate_procurement_request_number: {
         Args: { p_domain_id: string }
