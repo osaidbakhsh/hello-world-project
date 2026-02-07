@@ -76,7 +76,7 @@ const Licenses: React.FC = () => {
   const { data: domains } = useDomains();
   const { data: servers } = useServers();
   const { profile } = useAuth();
-  const { createLicense, updateLicense, deleteLicense } = useLicenseMutations(profile?.id);
+  const { createLicense, updateLicense, deleteLicense } = useLicenseMutations();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');

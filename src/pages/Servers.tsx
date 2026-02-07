@@ -136,7 +136,7 @@ const Servers: React.FC = () => {
   }, [domains]);
 
   const { data: profiles } = useProfiles();
-  const { createServer, updateServer, deleteServer } = useServerMutations(profile?.id);
+  const { createServer, updateServer, deleteServer } = useServerMutations();
   
   // Filter networks based on selected domain
   const networks = useMemo(() => {

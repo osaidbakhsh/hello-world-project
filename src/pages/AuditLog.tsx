@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 
 const AuditLog: React.FC = () => {
   const { t, dir } = useLanguage();
-  const { data: logs, isLoading, refetch } = useAuditLogs(200);
+  const { data: logs, isLoading, refetch } = useAuditLogs();
   const { data: profiles } = useProfiles();
   
   const [searchQuery, setSearchQuery] = useState('');
