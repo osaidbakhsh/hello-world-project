@@ -82,7 +82,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({ className, compact = fa
           >
             <div className="flex items-center justify-between w-full">
               <div className="flex flex-col gap-0.5">
-                <span className="font-medium">{domain.name}</span>
+                <span className="font-medium text-foreground">{domain.name}</span>
                 {domain.fqdn && (
                   <span className="text-xs text-muted-foreground">{domain.fqdn}</span>
                 )}
