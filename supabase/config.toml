@@ -4,7 +4,7 @@ project_id = "trfarkwevtyuciebmnxf"
 verify_jwt = false
 
 [functions.admin-reset-to-empty-prod]
-verify_jwt = true
+verify_jwt = false
 
 [functions.maintenance-check]
 verify_jwt = false
