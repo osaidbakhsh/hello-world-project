@@ -67,6 +67,7 @@ const menuGroups: MenuGroup[] = [
     label: 'nav.operations',
     items: [
       { id: 'employees', path: '/employees', icon: Users, label: 'nav.employees', permissionKey: PERMISSION_KEYS.PERSONNEL_EMPLOYEES_VIEW },
+      { id: 'employeePermissions', path: '/employee-permissions', icon: Shield, label: 'nav.employeePermissions', permissionKey: PERMISSION_KEYS.ADMIN_RBAC_VIEW },
       { id: 'tasks', path: '/tasks', icon: ListTodo, label: 'nav.tasks', permissionKey: PERMISSION_KEYS.OPS_TASKS_VIEW },
       { id: 'maintenance', path: '/maintenance', icon: Wrench, label: 'nav.maintenance', permissionKey: PERMISSION_KEYS.OPS_MAINTENANCE_VIEW },
       { id: 'onCall', path: '/on-call', icon: Phone, label: 'nav.onCall', permissionKey: PERMISSION_KEYS.OPS_ONCALL_VIEW },

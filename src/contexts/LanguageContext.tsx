@@ -17,6 +17,8 @@ const translations: Record<Language, Record<string, string>> = {
     'common.filters': 'التصفية',
     'common.type': 'النوع',
     'common.noPermission': 'ليس لديك صلاحية للوصول إلى هذه الصفحة',
+    'common.create': 'إنشاء',
+    'common.update': 'تحديث',
     
     // Vacations Balance
     'vacations.balance': 'رصيد الإجازات',
@@ -1919,6 +1921,8 @@ const translations: Record<Language, Record<string, string>> = {
     'common.filters': 'Filters',
     'common.type': 'Type',
     'common.noPermission': 'You do not have permission to access this page',
+    'common.create': 'Create',
+    'common.update': 'Update',
     
     // Vacations Balance
     'vacations.balance': 'Vacation Balance',
