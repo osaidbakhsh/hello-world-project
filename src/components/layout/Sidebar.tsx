@@ -50,7 +50,6 @@ const menuGroups: MenuGroup[] = [
     label: 'nav.inventory',
     items: [
       { id: 'resources', path: '/resources', icon: Server, label: 'nav.resources', permissionKey: PERMISSION_KEYS.INVENTORY_RESOURCES_VIEW },
-      { id: 'servers', path: '/servers', icon: Server, label: 'nav.servers' },
       { id: 'datacenter', path: '/datacenter', icon: Building2, label: 'nav.datacenter', permissionKey: PERMISSION_KEYS.INVENTORY_DATACENTERS_VIEW },
       { id: 'networks', path: '/networks', icon: Network, label: 'nav.networks', permissionKey: PERMISSION_KEYS.INVENTORY_NETWORKS_VIEW },
       { id: 'webApps', path: '/web-apps', icon: Globe, label: 'nav.webApps', permissionKey: PERMISSION_KEYS.WEBAPPS_VIEW },

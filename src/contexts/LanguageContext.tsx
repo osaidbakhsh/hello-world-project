@@ -19,6 +19,22 @@ const translations: Record<Language, Record<string, string>> = {
     'common.noPermission': 'ليس لديك صلاحية للوصول إلى هذه الصفحة',
     'common.create': 'إنشاء',
     'common.update': 'تحديث',
+    'common.total': 'الإجمالي',
+    
+    // Dashboard specific
+    'dashboard.welcome': 'مرحباً',
+    'dashboard.welcomeAdmin': 'مرحباً، مدير النظام',
+    'dashboard.taskProgress': 'نسبة إنجاز المهام',
+    'dashboard.inProgress': 'قيد التنفيذ',
+    'dashboard.totalResources': 'إجمالي الموارد',
+    'dashboard.activeResources': 'الموارد النشطة',
+    'dashboard.totalVMs': 'الأجهزة الافتراضية',
+    'dashboard.physicalServers': 'السيرفرات الفيزيائية',
+    'dashboard.infrastructure': 'البنية التحتية',
+    'dashboard.clusters': 'الكلسترات',
+    'dashboard.nodes': 'النودات',
+    'dashboard.unassigned': 'غير محدد',
+    'dashboard.once': 'مرة واحدة',
     
     // Vacations Balance
     'vacations.balance': 'رصيد الإجازات',
@@ -1923,6 +1939,22 @@ const translations: Record<Language, Record<string, string>> = {
     'common.noPermission': 'You do not have permission to access this page',
     'common.create': 'Create',
     'common.update': 'Update',
+    'common.total': 'Total',
+    
+    // Dashboard specific
+    'dashboard.welcome': 'Welcome',
+    'dashboard.welcomeAdmin': 'Welcome, Admin',
+    'dashboard.taskProgress': 'Task Completion',
+    'dashboard.inProgress': 'In Progress',
+    'dashboard.totalResources': 'Total Resources',
+    'dashboard.activeResources': 'Active Resources',
+    'dashboard.totalVMs': 'Virtual Machines',
+    'dashboard.physicalServers': 'Physical Servers',
+    'dashboard.infrastructure': 'Infrastructure',
+    'dashboard.clusters': 'Clusters',
+    'dashboard.nodes': 'Nodes',
+    'dashboard.unassigned': 'Unassigned',
+    'dashboard.once': 'Once',
     
     // Vacations Balance
     'vacations.balance': 'Vacation Balance',

@@ -562,9 +562,16 @@ export function useDashboardStats(selectedDomainId?: string) {
         (t as any).task_status !== 'done'
       ).length;
 
+      // Calculate VM and total resources counts
+      const vms = resourcesData.filter(r => r.resource_type === 'vm');
+      const activeResources = resourcesData.filter(r => r.status === 'online');
+
       return {
+        totalResources: resourcesData.length,
+        totalVMs: vms.length,
         totalServers: physicalServers.length,
         activeServers: activeServers.length,
+        activeResources: activeResources.length,
         totalTasks: tasksData.length,
         completedTasks,
         pendingTasks,
@@ -581,8 +588,11 @@ export function useDashboardStats(selectedDomainId?: string) {
 
   return {
     stats: query.data || {
+      totalResources: 0,
+      totalVMs: 0,
       totalServers: 0,
       activeServers: 0,
+      activeResources: 0,
       totalTasks: 0,
       completedTasks: 0,
       pendingTasks: 0,

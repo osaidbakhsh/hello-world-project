@@ -35,7 +35,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({ domainId, domainName }) => 
     {
       icon: Server,
       label: t('domainSummary.addServer'),
-      action: () => navigate('/servers'),
+      action: () => navigate('/resources'),
       color: 'text-blue-500',
     },
     {

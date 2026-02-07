@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardStats, useDomains, useTasks, useProfiles } from '@/hooks/useSupabaseData';
+import { useClusters, useClusterNodes } from '@/hooks/useDatacenter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
@@ -23,10 +24,13 @@ import {
   Target,
   LayoutDashboard,
   User,
+  Box,
+  HardDrive,
+  Layers,
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
-  const { t, dir } = useLanguage();
+  const { t, dir, language } = useLanguage();
   const { profile, isAdmin } = useAuth();
   const [selectedDomainId, setSelectedDomainId] = useState<string>('all');
   const [taskViewMode, setTaskViewMode] = useState<'my' | 'team'>('my');
@@ -34,6 +38,8 @@ const Dashboard: React.FC = () => {
   const { stats, isLoading } = useDashboardStats(selectedDomainId === 'all' ? undefined : selectedDomainId);
   const { data: tasks } = useTasks();
   const { data: profiles } = useProfiles();
+  const { data: clusters = [] } = useClusters();
+  const { data: nodes = [] } = useClusterNodes();
 
   // Calculate task completion percentage
   const taskCompletionRate = stats.totalTasks > 0 
@@ -55,10 +61,15 @@ const Dashboard: React.FC = () => {
 
   // Get employee name by profile ID
   const getEmployeeName = (profileId: string | null) => {
-    if (!profileId) return 'غير محدد';
+    if (!profileId) return t('dashboard.unassigned');
     const found = profiles.find(p => p.id === profileId);
-    return found?.full_name || 'غير محدد';
+    return found?.full_name || t('dashboard.unassigned');
   };
+
+  // Datacenter stats
+  const totalClusters = clusters.length;
+  const totalNodes = nodes.length;
+  const activeNodes = nodes.filter(n => n.status === 'active').length;
 
   return (
     <div className="space-y-6" dir={dir}>
@@ -71,7 +82,9 @@ const Dashboard: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold">{t('dashboard.title')}</h1>
             <p className="text-muted-foreground">
-              {isAdmin ? 'مرحباً، مدير النظام' : `مرحباً، ${profile?.full_name || 'المستخدم'}`}
+              {isAdmin 
+                ? t('dashboard.welcomeAdmin') 
+                : `${t('dashboard.welcome')}, ${profile?.full_name || ''}`}
             </p>
           </div>
         </div>
@@ -95,7 +108,7 @@ const Dashboard: React.FC = () => {
             </Select>
           )}
           <Badge variant="outline" className="text-sm">
-            {new Date().toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US', {
+            {new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -105,19 +118,26 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Updated for Resources */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
-          title={t('dashboard.totalServers')}
-          value={stats.totalServers}
-          icon={Server}
+          title={t('dashboard.totalResources')}
+          value={stats.totalResources || stats.totalServers}
+          icon={Box}
           variant="primary"
           isLoading={isLoading}
         />
         <StatCard
-          title={t('dashboard.activeServers')}
-          value={stats.activeServers}
-          icon={CheckCircle}
+          title={t('dashboard.totalVMs')}
+          value={stats.totalVMs || 0}
+          icon={Layers}
+          variant="accent"
+          isLoading={isLoading}
+        />
+        <StatCard
+          title={t('dashboard.physicalServers')}
+          value={stats.totalServers}
+          icon={Server}
           variant="success"
           isLoading={isLoading}
         />
@@ -142,13 +162,57 @@ const Dashboard: React.FC = () => {
           variant="accent"
           isLoading={isLoading}
         />
-        <StatCard
-          title={t('dashboard.domains')}
-          value={stats.totalNetworks}
-          icon={Network}
-          variant="primary"
-          isLoading={isLoading}
-        />
+      </div>
+
+      {/* Infrastructure Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="card-hover">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <HardDrive className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('dashboard.clusters')}</p>
+                  <p className="text-2xl font-bold">{totalClusters}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="card-hover">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-success/10">
+                  <Server className="w-5 h-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('dashboard.nodes')}</p>
+                  <p className="text-2xl font-bold">{activeNodes} / {totalNodes}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="card-hover">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Network className="w-5 h-5 text-accent-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('dashboard.domains')}</p>
+                  <p className="text-2xl font-bold">{stats.totalNetworks}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Web Apps Widget */}
@@ -167,14 +231,14 @@ const Dashboard: React.FC = () => {
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Target className="w-5 h-5 text-primary" />
-              نسبة إنجاز المهام
+              {t('dashboard.taskProgress')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Overall Progress */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>الإجمالي</span>
+                <span>{t('common.total')}</span>
                 <span className="font-bold text-primary">{taskCompletionRate}%</span>
               </div>
               <Progress value={taskCompletionRate} className="h-3" />
@@ -193,7 +257,7 @@ const Dashboard: React.FC = () => {
               <div className="flex items-center justify-between p-3 rounded-lg bg-warning/10 border border-warning/20">
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-warning" />
-                  <span className="text-sm font-medium">قيد التنفيذ</span>
+                  <span className="text-sm font-medium">{t('dashboard.inProgress')}</span>
                 </div>
                 <Badge className="bg-warning text-warning-foreground">{inProgressTasks}</Badge>
               </div>
@@ -254,7 +318,7 @@ const Dashboard: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <span>{task.frequency === 'once' ? 'مرة واحدة' : t(`tasks.${task.frequency}`)}</span>
+                          <span>{task.frequency === 'once' ? t('dashboard.once') : t(`tasks.${task.frequency}`)}</span>
                           {taskViewMode === 'team' && task.assigned_to && (
                             <span className="flex items-center gap-1 text-primary">
                               <User className="w-3 h-3" />
@@ -264,7 +328,7 @@ const Dashboard: React.FC = () => {
                         </div>
                         {task.due_date && (
                           <span>
-                            {new Date(task.due_date).toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US')}
+                            {new Date(task.due_date).toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
                           </span>
                         )}
                       </div>
