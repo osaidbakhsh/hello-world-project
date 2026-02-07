@@ -5505,6 +5505,14 @@ export type Database = {
         }[]
       }
       owns_vault_item: { Args: { _vault_item_id: string }; Returns: boolean }
+      reset_to_empty_prod: {
+        Args: {
+          p_dry_run?: boolean
+          p_owner_profile_id: string
+          p_owner_user_id: string
+        }
+        Returns: Json
+      }
       text2ltree: { Args: { "": string }; Returns: unknown }
       upsert_physical_server: {
         Args: {

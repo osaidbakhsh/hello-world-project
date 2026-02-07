@@ -3,5 +3,8 @@ project_id = "trfarkwevtyuciebmnxf"
 [functions.admin-reset-to-prod]
 verify_jwt = false
 
+[functions.admin-reset-to-empty-prod]
+verify_jwt = true
+
 [functions.maintenance-check]
 verify_jwt = false
