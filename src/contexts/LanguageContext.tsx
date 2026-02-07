@@ -1879,6 +1879,16 @@ const translations: Record<Language, Record<string, string>> = {
     'resources.filterByStatus': 'تصفية حسب الحالة',
     'resources.allTypes': 'جميع الأنواع',
     'resources.allStatuses': 'جميع الحالات',
+    'resources.selectLevel': 'اختر المستوى',
+    'resources.selectEnvironment': 'اختر البيئة',
+    'resources.ownerPlaceholder': 'مثال: فريق البنية التحتية',
+    'resources.notesPlaceholder': 'أي معلومات إضافية...',
+    'resources.domain': 'النطاق',
+    'resources.noNetworksWarning': 'لم يتم إنشاء أي شبكات. يرجى إنشاء شبكة أولاً من صفحة الشبكات.',
+    'resources.env.production': 'إنتاج',
+    'resources.env.staging': 'اختبار مرحلي',
+    'resources.env.testing': 'اختبار',
+    'resources.env.development': 'تطوير',
     
     // Server Details Section
     'serverDetails.network': 'الشبكة',
@@ -3797,6 +3807,16 @@ const translations: Record<Language, Record<string, string>> = {
     'resources.filterByStatus': 'Filter by status',
     'resources.allTypes': 'All Types',
     'resources.allStatuses': 'All Statuses',
+    'resources.selectLevel': 'Select level',
+    'resources.selectEnvironment': 'Select environment',
+    'resources.ownerPlaceholder': 'e.g., Infrastructure Team',
+    'resources.notesPlaceholder': 'Any additional information...',
+    'resources.domain': 'Domain',
+    'resources.noNetworksWarning': 'No networks created. Please create a network first from the Networks page.',
+    'resources.env.production': 'Production',
+    'resources.env.staging': 'Staging',
+    'resources.env.testing': 'Testing',
+    'resources.env.development': 'Development',
     
     // Server Details Section
     'serverDetails.network': 'Network',

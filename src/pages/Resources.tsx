@@ -593,58 +593,67 @@ const Resources: React.FC = () => {
                   />
 
                   {/* Type-Specific Sections */}
-                  {formData.resource_type === 'physical_server' && networks.length > 0 && (
-                    <ServerDetailsSection
-                      networkId={formData.network_id}
-                      networks={networks}
-                      cpu={formData.cpu}
-                      ram={formData.ram}
-                      diskSpace={formData.disk_space}
-                      vendor={formData.vendor}
-                      model={formData.model}
-                      serialNumber={formData.serial_number}
-                      warrantyEnd={formData.warranty_end}
-                      eoDate={formData.eol_date}
-                      eosDate={formData.eos_date}
-                      purchaseDate={formData.purchase_date}
-                      beneficiaryDepartment={formData.beneficiary_department}
-                      primaryApplication={formData.primary_application}
-                      businessOwner={formData.business_owner}
-                      isBackedUpByVeeam={formData.is_backed_up_by_veeam}
-                      backupFrequency={formData.backup_frequency}
-                      backupJobName={formData.backup_job_name}
-                      contractId={formData.contract_id}
-                      supportLevel={formData.support_level}
-                      serverRole={formData.server_role}
-                      rpoHours={formData.rpo_hours}
-                      rtoHours={formData.rto_hours}
-                      lastRestoreTest={formData.last_restore_test}
-                      responsibleUser={formData.responsible_user}
-                      onNetworkIdChange={(v) => setFormData({ ...formData, network_id: v })}
-                      onCpuChange={(v) => setFormData({ ...formData, cpu: v })}
-                      onRamChange={(v) => setFormData({ ...formData, ram: v })}
-                      onDiskSpaceChange={(v) => setFormData({ ...formData, disk_space: v })}
-                      onVendorChange={(v) => setFormData({ ...formData, vendor: v })}
-                      onModelChange={(v) => setFormData({ ...formData, model: v })}
-                      onSerialNumberChange={(v) => setFormData({ ...formData, serial_number: v })}
-                      onWarrantyEndChange={(v) => setFormData({ ...formData, warranty_end: v })}
-                      onEoDateChange={(v) => setFormData({ ...formData, eol_date: v })}
-                      onEosDateChange={(v) => setFormData({ ...formData, eos_date: v })}
-                      onPurchaseDateChange={(v) => setFormData({ ...formData, purchase_date: v })}
-                      onBeneficiaryDepartmentChange={(v) => setFormData({ ...formData, beneficiary_department: v })}
-                      onPrimaryApplicationChange={(v) => setFormData({ ...formData, primary_application: v })}
-                      onBusinessOwnerChange={(v) => setFormData({ ...formData, business_owner: v })}
-                      onIsBackedUpByVeeamChange={(v) => setFormData({ ...formData, is_backed_up_by_veeam: v })}
-                      onBackupFrequencyChange={(v) => setFormData({ ...formData, backup_frequency: v })}
-                      onBackupJobNameChange={(v) => setFormData({ ...formData, backup_job_name: v })}
-                      onContractIdChange={(v) => setFormData({ ...formData, contract_id: v })}
-                      onSupportLevelChange={(v) => setFormData({ ...formData, support_level: v })}
-                      onServerRoleChange={(v) => setFormData({ ...formData, server_role: v })}
-                      onRpoHoursChange={(v) => setFormData({ ...formData, rpo_hours: v })}
-                      onRtoHoursChange={(v) => setFormData({ ...formData, rto_hours: v })}
-                      onLastRestoreTestChange={(v) => setFormData({ ...formData, last_restore_test: v })}
-                      onResponsibleUserChange={(v) => setFormData({ ...formData, responsible_user: v })}
-                    />
+                  {formData.resource_type === 'physical_server' && (
+                    networks.length > 0 ? (
+                      <ServerDetailsSection
+                        networkId={formData.network_id}
+                        networks={networks}
+                        cpu={formData.cpu}
+                        ram={formData.ram}
+                        diskSpace={formData.disk_space}
+                        vendor={formData.vendor}
+                        model={formData.model}
+                        serialNumber={formData.serial_number}
+                        warrantyEnd={formData.warranty_end}
+                        eoDate={formData.eol_date}
+                        eosDate={formData.eos_date}
+                        purchaseDate={formData.purchase_date}
+                        beneficiaryDepartment={formData.beneficiary_department}
+                        primaryApplication={formData.primary_application}
+                        businessOwner={formData.business_owner}
+                        isBackedUpByVeeam={formData.is_backed_up_by_veeam}
+                        backupFrequency={formData.backup_frequency}
+                        backupJobName={formData.backup_job_name}
+                        contractId={formData.contract_id}
+                        supportLevel={formData.support_level}
+                        serverRole={formData.server_role}
+                        rpoHours={formData.rpo_hours}
+                        rtoHours={formData.rto_hours}
+                        lastRestoreTest={formData.last_restore_test}
+                        responsibleUser={formData.responsible_user}
+                        onNetworkIdChange={(v) => setFormData({ ...formData, network_id: v })}
+                        onCpuChange={(v) => setFormData({ ...formData, cpu: v })}
+                        onRamChange={(v) => setFormData({ ...formData, ram: v })}
+                        onDiskSpaceChange={(v) => setFormData({ ...formData, disk_space: v })}
+                        onVendorChange={(v) => setFormData({ ...formData, vendor: v })}
+                        onModelChange={(v) => setFormData({ ...formData, model: v })}
+                        onSerialNumberChange={(v) => setFormData({ ...formData, serial_number: v })}
+                        onWarrantyEndChange={(v) => setFormData({ ...formData, warranty_end: v })}
+                        onEoDateChange={(v) => setFormData({ ...formData, eol_date: v })}
+                        onEosDateChange={(v) => setFormData({ ...formData, eos_date: v })}
+                        onPurchaseDateChange={(v) => setFormData({ ...formData, purchase_date: v })}
+                        onBeneficiaryDepartmentChange={(v) => setFormData({ ...formData, beneficiary_department: v })}
+                        onPrimaryApplicationChange={(v) => setFormData({ ...formData, primary_application: v })}
+                        onBusinessOwnerChange={(v) => setFormData({ ...formData, business_owner: v })}
+                        onIsBackedUpByVeeamChange={(v) => setFormData({ ...formData, is_backed_up_by_veeam: v })}
+                        onBackupFrequencyChange={(v) => setFormData({ ...formData, backup_frequency: v })}
+                        onBackupJobNameChange={(v) => setFormData({ ...formData, backup_job_name: v })}
+                        onContractIdChange={(v) => setFormData({ ...formData, contract_id: v })}
+                        onSupportLevelChange={(v) => setFormData({ ...formData, support_level: v })}
+                        onServerRoleChange={(v) => setFormData({ ...formData, server_role: v })}
+                        onRpoHoursChange={(v) => setFormData({ ...formData, rpo_hours: v })}
+                        onRtoHoursChange={(v) => setFormData({ ...formData, rto_hours: v })}
+                        onLastRestoreTestChange={(v) => setFormData({ ...formData, last_restore_test: v })}
+                        onResponsibleUserChange={(v) => setFormData({ ...formData, responsible_user: v })}
+                      />
+                    ) : (
+                      <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          {t('resources.noNetworksWarning')}
+                        </AlertDescription>
+                      </Alert>
+                    )
                   )}
 
                   {formData.resource_type === 'vm' && (
@@ -922,13 +931,12 @@ const Resources: React.FC = () => {
                     <TableRow>
                       <TableHead>{t('resources.name')}</TableHead>
                       <TableHead>{t('common.type')}</TableHead>
+                      <TableHead>{t('resources.domain')}</TableHead>
                       <TableHead>{t('resources.hostname')}</TableHead>
                       <TableHead>{t('resources.ip')}</TableHead>
-                      <TableHead>{t('resources.os')}</TableHead>
                       <TableHead>{t('resources.status')}</TableHead>
                       <TableHead>{t('resources.criticality')}</TableHead>
                       <TableHead>{t('resources.environment')}</TableHead>
-                      <TableHead>{t('resources.owner')}</TableHead>
                       <TableHead>{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -936,26 +944,25 @@ const Resources: React.FC = () => {
                     {paginatedData.map((resource) => (
                       <TableRow key={resource.id}>
                         <TableCell className="font-medium">{resource.name}</TableCell>
-                        <TableCell>{resource.resource_type.replace('_', ' ')}</TableCell>
+                        <TableCell>{t(`resources.${resource.resource_type}`) || resource.resource_type.replace('_', ' ')}</TableCell>
+                        <TableCell>{resource.domain_name || '—'}</TableCell>
                         <TableCell>{resource.hostname || '—'}</TableCell>
                         <TableCell>{resource.primary_ip || '—'}</TableCell>
-                        <TableCell>{resource.os || '—'}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(resource.status)}>
-                            {resource.status}
+                            {t(`resources.${resource.status}`) || resource.status}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           {resource.criticality ? (
                             <Badge className={getCriticalityColor(resource.criticality)}>
-                              {resource.criticality}
+                              {t(`resources.${resource.criticality}`) || resource.criticality}
                             </Badge>
                           ) : (
                             '—'
                           )}
                         </TableCell>
-                        <TableCell>{resource.environment || '—'}</TableCell>
-                        <TableCell>{resource.owner_team || '—'}</TableCell>
+                        <TableCell>{resource.environment ? (t(`resources.env.${resource.environment}`) || resource.environment) : '—'}</TableCell>
                         <TableCell>
                           {canManageResources ? (
                             <div className="flex gap-2">
