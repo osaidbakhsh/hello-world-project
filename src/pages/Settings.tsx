@@ -13,12 +13,13 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock, ImageIcon, Loader2, LayoutDashboard, Lock, Upload, Database, CheckCircle, XCircle } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Info, Palette, FileSpreadsheet, Download, User, Mail, Shield, Clock, ImageIcon, Loader2, LayoutDashboard, Lock, Upload, Database, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { downloadServerTemplate, downloadEmployeeReportTemplate, downloadLicenseTemplate, downloadNetworkTemplate, downloadEmployeeTemplate } from '@/utils/excelTemplates';
 import SectionOrderSettings from '@/components/settings/SectionOrderSettings';
 import SidebarOrderSettings from '@/components/settings/SidebarOrderSettings';
 import HTTPSSettingsTab from '@/components/settings/HTTPSSettingsTab';
+import ResetToEmptyProdTab from '@/components/settings/ResetToEmptyProdTab';
 import { seedAllData, resetAndSeedData } from '@/utils/seedData';
 import { cn } from '@/lib/utils';
 
@@ -479,8 +480,12 @@ const Settings: React.FC = () => {
           { value: 'ntp', icon: Clock, labelKey: 'settings.ntp', advanced: true },
           { value: 'https', icon: Lock, labelKey: 'settings.https', advanced: false },
           { value: 'templates', icon: FileSpreadsheet, labelKey: 'settings.templates', advanced: false },
+          { value: 'danger', icon: Trash2, labelKey: 'settings.danger', advanced: true, superAdminOnly: true },
         ];
-        const visibleTabs = allTabs.filter(tab => !tab.advanced || showAdvanced);
+        const visibleTabs = allTabs.filter(tab => 
+          (!tab.advanced || showAdvanced) && 
+          (!tab.superAdminOnly || isSuperAdmin)
+        );
         
         return (
 <Tabs defaultValue="general" className="w-full">
@@ -1105,6 +1110,13 @@ const Settings: React.FC = () => {
         <TabsContent value="https" className="space-y-6 mt-6">
           <HTTPSSettingsTab />
         </TabsContent>
+
+        {/* Danger Zone Tab - Super Admin Only */}
+        {isSuperAdmin && (
+          <TabsContent value="danger" className="space-y-6 mt-6">
+            <ResetToEmptyProdTab />
+          </TabsContent>
+        )}
           </Tabs>
         );
       })()}
