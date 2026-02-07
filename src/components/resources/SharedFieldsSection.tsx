@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { ResourceType, ResourceStatus, CriticalityLevel } from '@/types/resources';
 
 interface SharedFieldsProps {
@@ -70,6 +71,8 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
   onOwnerTeamChange,
   onNotesChange,
 }) => {
+  const { t } = useLanguage();
+  
   // Determine if this is a physical server
   const isPhysicalServer = resourceType === 'physical_server';
   const isVM = resourceType === 'vm';
@@ -80,14 +83,14 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
         {/* Name (required) */}
         <div className="col-span-2">
           <Label htmlFor="name" className="font-semibold">
-            Name *
+            {t('resources.name')} *
           </Label>
           <Input
             id="name"
             value={name}
             onChange={(e) => onNameChange(e.target.value)}
             placeholder={
-              isPhysicalServer ? 'e.g., PROD-SERVER-01' : isVM ? 'e.g., web-prod-01' : 'Resource name'
+              isPhysicalServer ? 'e.g., PROD-SERVER-01' : isVM ? 'e.g., web-prod-01' : t('resources.name')
             }
             className="mt-1"
           />
@@ -95,7 +98,7 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
 
         {/* Hostname */}
         <div>
-          <Label htmlFor="hostname">Hostname</Label>
+          <Label htmlFor="hostname">{t('resources.hostname')}</Label>
           <Input
             id="hostname"
             value={hostname || ''}
@@ -107,7 +110,7 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
 
         {/* Primary IP */}
         <div>
-          <Label htmlFor="ip">Primary IP</Label>
+          <Label htmlFor="ip">{t('resources.ip')}</Label>
           <Input
             id="ip"
             value={primaryIp || ''}
@@ -119,13 +122,13 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
 
         {/* Operating System */}
         <div className="col-span-2">
-          <Label htmlFor="os">Operating System</Label>
+          <Label htmlFor="os">{t('resources.os')}</Label>
           <div className="mt-1 flex gap-2">
             <Input
               id="os"
               value={os || ''}
               onChange={(e) => onOsChange(e.target.value)}
-              placeholder="Windows Server 2022 or custom..."
+              placeholder="Windows Server 2022"
               list="os-options"
               className="flex-1"
             />
@@ -139,7 +142,7 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
 
         {/* Status */}
         <div>
-          <Label htmlFor="status">Status</Label>
+          <Label htmlFor="status">{t('resources.status')}</Label>
           <Select value={status} onValueChange={onStatusChange}>
             <SelectTrigger id="status" className="mt-1">
               <SelectValue />
@@ -147,7 +150,7 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
             <SelectContent>
               {STATUS_OPTIONS.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                  {t(`resources.${s}`) || s.charAt(0).toUpperCase() + s.slice(1)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -156,15 +159,15 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
 
         {/* Criticality */}
         <div>
-          <Label htmlFor="criticality">Criticality</Label>
+          <Label htmlFor="criticality">{t('resources.criticality')}</Label>
           <Select value={criticality || ''} onValueChange={onCriticalityChange}>
             <SelectTrigger id="criticality" className="mt-1">
-              <SelectValue placeholder="Select level" />
+              <SelectValue placeholder={t('resources.selectLevel')} />
             </SelectTrigger>
             <SelectContent>
               {CRITICALITY_LEVELS.map((level) => (
                 <SelectItem key={level} value={level}>
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                  {t(`resources.${level}`) || level.charAt(0).toUpperCase() + level.slice(1)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -173,15 +176,15 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
 
         {/* Environment */}
         <div>
-          <Label htmlFor="environment">Environment</Label>
+          <Label htmlFor="environment">{t('resources.environment')}</Label>
           <Select value={environment || ''} onValueChange={onEnvironmentChange}>
             <SelectTrigger id="environment" className="mt-1">
-              <SelectValue placeholder="Select environment" />
+              <SelectValue placeholder={t('resources.selectEnvironment')} />
             </SelectTrigger>
             <SelectContent>
               {ENVIRONMENT_OPTIONS.map((env) => (
                 <SelectItem key={env} value={env}>
-                  {env.charAt(0).toUpperCase() + env.slice(1)}
+                  {t(`resources.env.${env}`) || env.charAt(0).toUpperCase() + env.slice(1)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -190,12 +193,12 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
 
         {/* Owner Team */}
         <div>
-          <Label htmlFor="ownerTeam">Owner Team</Label>
+          <Label htmlFor="ownerTeam">{t('resources.owner')}</Label>
           <Input
             id="ownerTeam"
             value={ownerTeam || ''}
             onChange={(e) => onOwnerTeamChange(e.target.value)}
-            placeholder="e.g., Infrastructure Team"
+            placeholder={t('resources.ownerPlaceholder')}
             className="mt-1"
           />
         </div>
@@ -203,12 +206,12 @@ export const SharedFieldsSection: React.FC<SharedFieldsProps> = ({
 
       {/* Notes */}
       <div>
-        <Label htmlFor="notes">Notes</Label>
+        <Label htmlFor="notes">{t('resources.notes')}</Label>
         <Textarea
           id="notes"
           value={notes || ''}
           onChange={(e) => onNotesChange(e.target.value)}
-          placeholder="Any additional information..."
+          placeholder={t('resources.notesPlaceholder')}
           className="mt-1"
           rows={3}
         />
