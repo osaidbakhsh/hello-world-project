@@ -1,10 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
+// ============================================================
+// Optimized Supabase Data Hooks with React Query
+// ============================================================
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Domain, Network, Server, Task, Vacation, EmployeeReport, License, Profile, YearlyGoal, DomainMembership } from '@/types/supabase-models';
 import { useSite } from '@/contexts/SiteContext';
 import { useSiteDomains, useSiteProfileIds } from '@/hooks/useSiteDomains';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCallback, useState } from 'react';
 
-// Types for new tables
+// ============================================================
+// Types
+// ============================================================
 export interface WebsiteApplication {
   id: string;
   name: string;
@@ -43,432 +51,369 @@ export interface AuditLog {
   user_agent: string | null;
   created_at: string;
 }
-import { useAuth } from '@/contexts/AuthContext';
 
-// Domain hooks - now filtered by selected site
+// ============================================================
+// Query Keys - Centralized for consistency
+// ============================================================
+export const queryKeys = {
+  domains: (siteId?: string) => ['domains', siteId] as const,
+  networks: (siteId?: string, domainId?: string) => ['networks', siteId, domainId] as const,
+  servers: (siteId?: string, networkId?: string) => ['servers', siteId, networkId] as const,
+  tasks: (siteId?: string) => ['tasks', siteId] as const,
+  vacations: (siteId?: string) => ['vacations', siteId] as const,
+  licenses: (siteId?: string) => ['licenses', siteId] as const,
+  profiles: (siteId?: string) => ['profiles', siteId] as const,
+  employeeReports: (siteId?: string) => ['employee-reports', siteId] as const,
+  yearlyGoals: (profileId?: string) => ['yearly-goals', profileId] as const,
+  domainMemberships: (profileId?: string) => ['domain-memberships', profileId] as const,
+  dashboardStats: (siteId?: string, domainId?: string) => ['dashboard-stats', siteId, domainId] as const,
+  webApps: (siteId?: string) => ['web-apps', siteId] as const,
+  notifications: (userId?: string) => ['notifications', userId] as const,
+};
+
+// ============================================================
+// Domain hooks - filtered by selected site
+// ============================================================
 export function useDomains() {
   const { selectedSite } = useSite();
-  const [data, setData] = useState<Domain[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
 
-  const fetch = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let query = supabase.from('domains').select('*').order('name', { ascending: true });
-      
+  const query = useQuery({
+    queryKey: queryKeys.domains(selectedSite?.id),
+    queryFn: async () => {
+      let q = supabase.from('domains').select('*').order('name', { ascending: true });
       if (selectedSite) {
-        query = query.eq('site_id', selectedSite.id);
+        q = q.eq('site_id', selectedSite.id);
       }
-      
-      const { data: result, error: fetchError } = await query;
-      if (fetchError) throw fetchError;
-      setData((result as Domain[]) || []);
-      setError(null);
-    } catch (e) {
-      setError(e as Error);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedSite?.id]);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data as Domain[]) || [];
+    },
+    staleTime: 60 * 1000, // 1 minute
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, error, refetch: fetch };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
+// ============================================================
+// Network hooks - filtered by site domains
+// ============================================================
 export function useNetworks(domainId?: string) {
   const { selectedSite } = useSite();
   const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
-  const [data, setData] = useState<Network[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  const fetch = useCallback(async () => {
-    // Wait for domains to load
-    if (!selectedSite || (domainsLoading && !domainId)) {
-      setData([]);
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      let query = supabase.from('networks').select('*');
+  const query = useQuery({
+    queryKey: queryKeys.networks(selectedSite?.id, domainId),
+    queryFn: async () => {
+      let q = supabase.from('networks').select('*');
       
       if (domainId) {
-        query = query.eq('domain_id', domainId);
+        q = q.eq('domain_id', domainId);
       } else if (siteDomainIds.length > 0) {
-        query = query.in('domain_id', siteDomainIds);
-      } else {
-        setData([]);
-        setIsLoading(false);
-        return;
+        q = q.in('domain_id', siteDomainIds);
+      } else if (selectedSite) {
+        return []; // No domains for this site
       }
       
-      const { data: result, error } = await query.order('name');
+      const { data, error } = await q.order('name');
       if (error) throw error;
-      setData(result || []);
-    } catch (e) {
-      console.error('Error fetching networks:', e);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [domainId, selectedSite?.id, siteDomainIds, domainsLoading]);
+      return data || [];
+    },
+    enabled: !domainsLoading && (!!domainId || siteDomainIds.length > 0 || !selectedSite),
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, refetch: fetch };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading || domainsLoading,
+    refetch: query.refetch,
+  };
 }
 
-// Server hooks - filtered by site (reads from unified server_inventory_view)
+// ============================================================
+// Server hooks - filtered by site
+// ============================================================
 export function useServers(networkId?: string) {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
   const { data: siteNetworks = [], isLoading: networksLoading } = useNetworks();
-  const [data, setData] = useState<Server[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  const fetch = useCallback(async () => {
-    // Wait for networks to load before fetching servers
-    if (!selectedSite || (networksLoading && !networkId)) {
-      setData([]);
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      // Use server_inventory_view (flattened read model) instead of direct servers table
-      let query = supabase.from('server_inventory_view').select('*').eq('site_id', selectedSite.id);
-      
-      if (networkId) {
-        query = query.eq('network_id', networkId);
-      } else if (siteNetworks.length > 0) {
-        // Filter by network_id for servers in the site's networks
-        const siteNetworkIds = siteNetworks.map(n => n.id);
-        query = query.in('network_id', siteNetworkIds);
-      } else {
-        // No networks for this site, return empty
-        setData([]);
-        setIsLoading(false);
-        return;
+  const query = useQuery({
+    queryKey: queryKeys.servers(selectedSite?.id, networkId),
+    queryFn: async () => {
+      if (!selectedSite) {
+        const { data, error } = await supabase.from('server_inventory_view').select('*').order('name');
+        if (error) throw error;
+        return (data || []).map((row: any) => ({
+          ...row,
+          id: row.server_id || row.id,
+          resource_id: row.id || row.resource_id,
+        }));
       }
       
-      const { data: result, error } = await query.order('name');
-      if (error) throw error;
+      let q = supabase.from('server_inventory_view').select('*').eq('site_id', selectedSite.id);
       
-      // Map server_inventory_view fields to Server type expected by Servers.tsx
-      // The view returns id (which is resource_id) and server_id
-      const mappedData = (result || []).map((row: any) => ({
+      if (networkId) {
+        q = q.eq('network_id', networkId);
+      } else if (siteNetworks.length > 0) {
+        const siteNetworkIds = siteNetworks.map(n => n.id);
+        q = q.in('network_id', siteNetworkIds);
+      } else {
+        return [];
+      }
+      
+      const { data, error } = await q.order('name');
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
         ...row,
-        id: row.server_id || row.id, // Use server_id for legacy compatibility
+        id: row.server_id || row.id,
         resource_id: row.id || row.resource_id,
       }));
-      
-      setData(mappedData || []);
-    } catch (e) {
-      console.error('Error fetching servers from view:', e);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [networkId, selectedSite?.id, siteNetworks, networksLoading]);
+    },
+    enabled: !networksLoading,
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, refetch: fetch };
+  return {
+    data: (query.data as Server[]) || [],
+    isLoading: query.isLoading || networksLoading,
+    refetch: query.refetch,
+  };
 }
 
+// ============================================================
 // Task hooks - filtered by site via assigned_to profile membership
+// ============================================================
 export function useTasks() {
   const { selectedSite } = useSite();
   const { data: siteProfileIds, isLoading: profilesLoading } = useSiteProfileIds();
-  const [data, setData] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
 
-  const fetch = useCallback(async () => {
-    // Wait for site profile IDs to load before fetching
-    if (profilesLoading) {
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      let query = supabase.from('tasks').select('*').order('created_at', { ascending: false });
+  const query = useQuery({
+    queryKey: queryKeys.tasks(selectedSite?.id),
+    queryFn: async () => {
+      let q = supabase.from('tasks').select('*').order('created_at', { ascending: false });
       
-      // Filter tasks by profiles in the selected site (only if we have profile IDs)
-      // null = no memberships configured, show all
-      // array with items = filter by those IDs
       if (siteProfileIds && siteProfileIds.length > 0) {
-        query = query.in('assigned_to', siteProfileIds);
+        q = q.in('assigned_to', siteProfileIds);
       }
-      // If siteProfileIds is null, show all tasks (no site filtering)
       
-      const { data: result, error: fetchError } = await query;
-      if (fetchError) throw fetchError;
-      setData((result as Task[]) || []);
-      setError(null);
-    } catch (e) {
-      setError(e as Error);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedSite?.id, siteProfileIds, profilesLoading]);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data as Task[]) || [];
+    },
+    enabled: !profilesLoading,
+    staleTime: 30 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, error, refetch: fetch };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading || profilesLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
+// ============================================================
 // Vacation hooks - filtered by site via profile membership
+// ============================================================
 export function useVacations() {
   const { selectedSite } = useSite();
   const { data: siteProfileIds, isLoading: profilesLoading } = useSiteProfileIds();
-  const [data, setData] = useState<Vacation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
 
-  const fetch = useCallback(async () => {
-    // Wait for site profile IDs to load before fetching
-    if (profilesLoading) {
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      let query = supabase.from('vacations').select('*').order('created_at', { ascending: false });
+  const query = useQuery({
+    queryKey: queryKeys.vacations(selectedSite?.id),
+    queryFn: async () => {
+      let q = supabase.from('vacations').select('*').order('created_at', { ascending: false });
       
-      // Filter vacations by profiles in the selected site (only if we have profile IDs)
       if (siteProfileIds && siteProfileIds.length > 0) {
-        query = query.in('profile_id', siteProfileIds);
+        q = q.in('profile_id', siteProfileIds);
       }
-      // If siteProfileIds is null, show all vacations (no site filtering)
       
-      const { data: result, error: fetchError } = await query;
-      if (fetchError) throw fetchError;
-      setData((result as Vacation[]) || []);
-      setError(null);
-    } catch (e) {
-      setError(e as Error);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedSite?.id, siteProfileIds, profilesLoading]);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data as Vacation[]) || [];
+    },
+    enabled: !profilesLoading,
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, error, refetch: fetch };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading || profilesLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
+// ============================================================
 // Employee Reports hooks - filtered by site via profile membership
+// ============================================================
 export function useEmployeeReports() {
   const { selectedSite } = useSite();
   const { data: siteProfileIds = [] } = useSiteProfileIds();
-  const [data, setData] = useState<EmployeeReport[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
 
-  const fetch = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let query = supabase.from('employee_reports').select('*').order('created_at', { ascending: false });
+  const query = useQuery({
+    queryKey: queryKeys.employeeReports(selectedSite?.id),
+    queryFn: async () => {
+      let q = supabase.from('employee_reports').select('*').order('created_at', { ascending: false });
       
       if (selectedSite && siteProfileIds.length > 0) {
-        query = query.in('profile_id', siteProfileIds);
+        q = q.in('profile_id', siteProfileIds);
       }
       
-      const { data: result, error: fetchError } = await query;
-      if (fetchError) throw fetchError;
-      setData((result as EmployeeReport[]) || []);
-      setError(null);
-    } catch (e) {
-      setError(e as Error);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedSite?.id, siteProfileIds]);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data as EmployeeReport[]) || [];
+    },
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, error, refetch: fetch };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
+// ============================================================
 // License hooks - filtered by site via domain
+// ============================================================
 export function useLicenses() {
   const { selectedSite } = useSite();
-  const { data: siteDomainIds = [] } = useSiteDomains();
-  const [data, setData] = useState<License[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
 
-  const fetch = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let query = supabase.from('licenses').select('*').order('expiry_date', { ascending: true });
+  const query = useQuery({
+    queryKey: queryKeys.licenses(selectedSite?.id),
+    queryFn: async () => {
+      let q = supabase.from('licenses').select('*').order('expiry_date', { ascending: true });
       
       if (selectedSite && siteDomainIds.length > 0) {
-        query = query.in('domain_id', siteDomainIds);
+        q = q.in('domain_id', siteDomainIds);
       }
       
-      const { data: result, error: fetchError } = await query;
-      if (fetchError) throw fetchError;
-      setData((result as License[]) || []);
-      setError(null);
-    } catch (e) {
-      setError(e as Error);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedSite?.id, siteDomainIds]);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data as License[]) || [];
+    },
+    enabled: !domainsLoading || !selectedSite,
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, error, refetch: fetch };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading || domainsLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
+// ============================================================
 // Profile hooks - filtered by site via domain membership
+// ============================================================
 export function useProfiles() {
   const { selectedSite } = useSite();
-  const { data: siteProfileIds = [] } = useSiteProfileIds();
-  const [data, setData] = useState<Profile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { data: siteProfileIds, isLoading: profilesLoading } = useSiteProfileIds();
 
-  const fetch = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let query = supabase.from('profiles').select('*').order('full_name', { ascending: true });
+  const query = useQuery({
+    queryKey: queryKeys.profiles(selectedSite?.id),
+    queryFn: async () => {
+      let q = supabase.from('profiles').select('*').order('full_name', { ascending: true });
       
-      if (selectedSite && siteProfileIds.length > 0) {
-        query = query.in('id', siteProfileIds);
+      // Only filter if we have profile IDs; null means show all
+      if (selectedSite && siteProfileIds && siteProfileIds.length > 0) {
+        q = q.in('id', siteProfileIds);
       }
       
-      const { data: result, error: fetchError } = await query;
-      if (fetchError) throw fetchError;
-      setData((result as Profile[]) || []);
-      setError(null);
-    } catch (e) {
-      setError(e as Error);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedSite?.id, siteProfileIds]);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data as Profile[]) || [];
+    },
+    enabled: !profilesLoading,
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, error, refetch: fetch };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading || profilesLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
+// ============================================================
 // Yearly Goals hooks
+// ============================================================
 export function useYearlyGoals(profileId?: string) {
-  const [data, setData] = useState<YearlyGoal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetch = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let query = supabase.from('yearly_goals').select('*');
+  const query = useQuery({
+    queryKey: queryKeys.yearlyGoals(profileId),
+    queryFn: async () => {
+      let q = supabase.from('yearly_goals').select('*');
       if (profileId) {
-        query = query.eq('profile_id', profileId);
+        q = q.eq('profile_id', profileId);
       }
-      const { data: result, error } = await query.order('year', { ascending: false });
+      const { data, error } = await q.order('year', { ascending: false });
       if (error) throw error;
-      setData(result || []);
-    } catch (e) {
-      console.error('Error fetching yearly goals:', e);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [profileId]);
+      return data || [];
+    },
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, refetch: fetch };
+  return {
+    data: (query.data as YearlyGoal[]) || [],
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
 }
 
+// ============================================================
 // Domain Memberships hooks
+// ============================================================
 export function useDomainMemberships(profileId?: string) {
-  const [data, setData] = useState<DomainMembership[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetch = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let query = supabase.from('domain_memberships').select('*');
+  const query = useQuery({
+    queryKey: queryKeys.domainMemberships(profileId),
+    queryFn: async () => {
+      let q = supabase.from('domain_memberships').select('*');
       if (profileId) {
-        query = query.eq('profile_id', profileId);
+        q = q.eq('profile_id', profileId);
       }
-      const { data: result, error } = await query;
+      const { data, error } = await q;
       if (error) throw error;
-      setData(result || []);
-    } catch (e) {
-      console.error('Error fetching domain memberships:', e);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [profileId]);
+      return data || [];
+    },
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, refetch: fetch };
+  return {
+    data: (query.data as DomainMembership[]) || [],
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
 }
 
-// App Settings
+// ============================================================
+// App Settings - App Name
+// ============================================================
 export function useAppName() {
-  const [appName, setAppName] = useState('IT');
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetch = useCallback(async () => {
-    try {
+  const queryClient = useQueryClient();
+  
+  const query = useQuery({
+    queryKey: ['app-name'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('app_settings')
         .select('value')
         .eq('key', 'app_name')
         .maybeSingle();
       
-      if (!error && data?.value) {
-        setAppName(data.value);
-      }
-    } catch (e) {
-      console.error('Error fetching app name:', e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
+      if (error) throw error;
+      return data?.value || 'IT';
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   const updateAppName = async (newName: string) => {
     try {
@@ -478,7 +423,7 @@ export function useAppName() {
         .eq('key', 'app_name');
       
       if (!error) {
-        setAppName(newName);
+        queryClient.setQueryData(['app-name'], newName);
         return true;
       }
       return false;
@@ -488,10 +433,17 @@ export function useAppName() {
     }
   };
 
-  return { appName, isLoading, updateAppName, refetch: fetch };
+  return { 
+    appName: query.data || 'IT', 
+    isLoading: query.isLoading, 
+    updateAppName, 
+    refetch: query.refetch 
+  };
 }
 
+// ============================================================
 // App Settings - General
+// ============================================================
 export function useAppSettings() {
   const getSetting = useCallback(async (key: string): Promise<string | null> => {
     try {
@@ -513,7 +465,6 @@ export function useAppSettings() {
 
   const updateSetting = async (key: string, value: string): Promise<boolean> => {
     try {
-      // Try to update first
       const { data: existing } = await supabase
         .from('app_settings')
         .select('id')
@@ -527,7 +478,6 @@ export function useAppSettings() {
           .eq('key', key);
         return !error;
       } else {
-        // Insert new setting
         const { error } = await supabase
           .from('app_settings')
           .insert({ key, value });
@@ -542,493 +492,347 @@ export function useAppSettings() {
   return { getSetting, updateSetting };
 }
 
-// Dashboard stats - filtered by site
+// ============================================================
+// Dashboard Stats - Optimized with single query
+// ============================================================
 export function useDashboardStats(selectedDomainId?: string) {
-  const { isAdmin } = useAuth();
   const { selectedSite } = useSite();
   const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
   const { data: siteProfileIds = [], isLoading: profilesLoading } = useSiteProfileIds();
-  
-  const [stats, setStats] = useState({
-    totalServers: 0,
-    activeServers: 0,
-    totalTasks: 0,
-    completedTasks: 0,
-    pendingTasks: 0,
-    overdueTasks: 0,
-    totalLicenses: 0,
-    expiringLicenses: 0,
-    totalEmployees: 0,
-    totalNetworks: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
 
-  const fetch = useCallback(async () => {
-    // Wait for site domains and profiles to load before fetching stats
-    if (selectedSite && (domainsLoading || profilesLoading)) {
-      return; // Keep isLoading true until dependencies are ready
-    }
-
-    setIsLoading(true);
-    try {
-      // Use site domain IDs or selected domain ID
+  const query = useQuery({
+    queryKey: queryKeys.dashboardStats(selectedSite?.id, selectedDomainId),
+    queryFn: async () => {
       const domainIdsToUse = selectedDomainId 
         ? [selectedDomainId] 
         : (selectedSite && siteDomainIds.length > 0 ? siteDomainIds : []);
-      
-      // Fetch networks for domain filtering
-      let networkIds: string[] = [];
-      if (domainIdsToUse.length > 0) {
-        const { data: domainNetworks } = await supabase
-          .from('networks')
-          .select('id')
-          .in('domain_id', domainIdsToUse);
-        networkIds = domainNetworks?.map(n => n.id) || [];
-      }
 
-      // Fetch resources (unified inventory) - filter by site_id and optionally domain_id
-      // This is now the SINGLE SOURCE OF TRUTH for all inventory counts
-      let resourcesData: any[] = [];
-      if (selectedSite) {
-        let query = supabase
-          .from('resources')
-          .select('*')
-          .eq('site_id', selectedSite.id);
+      // Parallel fetch all data
+      const [resourcesRes, tasksRes, licensesRes, profilesRes, networksRes] = await Promise.all([
+        // Resources
+        selectedSite 
+          ? supabase.from('resources').select('resource_type, status').eq('site_id', selectedSite.id)
+          : supabase.from('resources').select('resource_type, status'),
         
-        // Optionally filter by domain if selected
-        if (selectedDomainId) {
-          query = query.eq('domain_id', selectedDomainId);
-        }
+        // Tasks
+        siteProfileIds.length > 0
+          ? supabase.from('tasks').select('status, task_status, due_date').in('assigned_to', siteProfileIds)
+          : supabase.from('tasks').select('status, task_status, due_date'),
         
-        const { data } = await query;
-        resourcesData = data || [];
-      } else {
-        const { data } = await supabase.from('resources').select('*');
-        resourcesData = data || [];
-      }
-      
-      // Count physical servers from resources
-      const physicalServers = resourcesData.filter(r => r.resource_type === 'physical_server');
-      const activeServers = physicalServers.filter(s => s.status === 'online' || s.status === 'active');
+        // Licenses
+        domainIdsToUse.length > 0
+          ? supabase.from('licenses').select('expiry_date').in('domain_id', domainIdsToUse)
+          : supabase.from('licenses').select('expiry_date'),
+        
+        // Profiles
+        siteProfileIds.length > 0
+          ? supabase.from('profiles').select('id').in('id', siteProfileIds)
+          : supabase.from('profiles').select('id'),
+        
+        // Networks
+        domainIdsToUse.length > 0
+          ? supabase.from('networks').select('id').in('domain_id', domainIdsToUse)
+          : supabase.from('networks').select('id'),
+      ]);
 
-      // Fetch tasks - filter by assigned_to profile
-      let tasksData: any[] = [];
-      if (selectedSite && siteProfileIds.length > 0) {
-        const { data } = await supabase
-          .from('tasks')
-          .select('*')
-          .in('assigned_to', siteProfileIds);
-        tasksData = data || [];
-      } else {
-        const { data } = await supabase.from('tasks').select('*');
-        tasksData = data || [];
-      }
-
-      // Fetch licenses - filter by domain_id
-      let licensesData: any[] = [];
-      if (domainIdsToUse.length > 0) {
-        const { data } = await supabase
-          .from('licenses')
-          .select('*')
-          .in('domain_id', domainIdsToUse);
-        licensesData = data || [];
-      } else {
-        const { data } = await supabase.from('licenses').select('*');
-        licensesData = data || [];
-      }
-
-      // Fetch profiles - filter by site profile ids
-      let profilesData: any[] = [];
-      if (selectedSite && siteProfileIds.length > 0) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', siteProfileIds);
-        profilesData = data || [];
-      } else {
-        const { data } = await supabase.from('profiles').select('*');
-        profilesData = data || [];
-      }
-
-      // Fetch networks - filter by domain_id
-      let networksData: any[] = [];
-      if (domainIdsToUse.length > 0) {
-        const { data } = await supabase
-          .from('networks')
-          .select('*')
-          .in('domain_id', domainIdsToUse);
-        networksData = data || [];
-      } else {
-        const { data } = await supabase.from('networks').select('*');
-        networksData = data || [];
-      }
+      const resourcesData = resourcesRes.data || [];
+      const tasksData = tasksRes.data || [];
+      const licensesData = licensesRes.data || [];
+      const profilesData = profilesRes.data || [];
+      const networksData = networksRes.data || [];
 
       const now = new Date();
       const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-      // Calculate task stats using BOTH status AND task_status for Kanban sync
-      const completedTasks = tasksData?.filter(t => 
+      const physicalServers = resourcesData.filter(r => r.resource_type === 'physical_server');
+      const activeServers = physicalServers.filter(s => s.status === 'online');
+
+      const completedTasks = tasksData.filter(t => 
         t.status === 'completed' || (t as any).task_status === 'done'
-      ).length || 0;
+      ).length;
       
-      const pendingTasks = tasksData?.filter(t => 
+      const pendingTasks = tasksData.filter(t => 
         t.status !== 'completed' && (t as any).task_status !== 'done'
-      ).length || 0;
+      ).length;
       
-      const overdueTasks = tasksData?.filter(t => 
+      const overdueTasks = tasksData.filter(t => 
         t.due_date && 
         new Date(t.due_date) < now && 
         t.status !== 'completed' && 
         (t as any).task_status !== 'done'
-      ).length || 0;
+      ).length;
 
-      setStats({
-        totalServers: physicalServers.length,  // From resources table
-        activeServers: activeServers.length,    // From resources table
-        totalTasks: tasksData?.length || 0,
+      return {
+        totalServers: physicalServers.length,
+        activeServers: activeServers.length,
+        totalTasks: tasksData.length,
         completedTasks,
         pendingTasks,
         overdueTasks,
         totalLicenses: licensesData.length,
         expiringLicenses: licensesData.filter(l => l.expiry_date && new Date(l.expiry_date) <= thirtyDaysFromNow).length,
-        totalEmployees: profilesData?.length || 0,
-        totalNetworks: networksData?.length || 0,
-      });
-    } catch (e) {
-      console.error('Error fetching dashboard stats:', e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedDomainId, selectedSite?.id, siteDomainIds, siteProfileIds, domainsLoading, profilesLoading]);
+        totalEmployees: profilesData.length,
+        totalNetworks: networksData.length,
+      };
+    },
+    enabled: !domainsLoading && !profilesLoading,
+    staleTime: 30 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { stats, isLoading, refetch: fetch };
+  return {
+    stats: query.data || {
+      totalServers: 0,
+      activeServers: 0,
+      totalTasks: 0,
+      completedTasks: 0,
+      pendingTasks: 0,
+      overdueTasks: 0,
+      totalLicenses: 0,
+      expiringLicenses: 0,
+      totalEmployees: 0,
+      totalNetworks: 0,
+    },
+    isLoading: query.isLoading || domainsLoading || profilesLoading,
+    refetch: query.refetch,
+  };
 }
 
-// Website Applications hooks - filtered by site (includes global apps with null domain_id)
-export function useWebsiteApplications(includeInactive = false) {
+// ============================================================
+// Web Applications hooks
+// ============================================================
+export function useWebsiteApplications(includeInactive?: boolean) {
   const { selectedSite } = useSite();
   const { data: siteDomainIds = [], isLoading: domainsLoading } = useSiteDomains();
-  const [data, setData] = useState<WebsiteApplication[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  const fetch = useCallback(async () => {
-    // Wait for domains to load before fetching
-    if (!selectedSite || domainsLoading) {
-      setData([]);
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      let query = supabase
-        .from('website_applications')
-        .select('*');
+  const query = useQuery({
+    queryKey: [...queryKeys.webApps(selectedSite?.id), includeInactive],
+    queryFn: async () => {
+      let q = supabase.from('website_applications').select('*').order('sort_order');
+      
+      if (selectedSite && siteDomainIds.length > 0) {
+        q = q.in('domain_id', siteDomainIds);
+      }
       
       if (!includeInactive) {
-        query = query.eq('is_active', true);
+        q = q.eq('is_active', true);
       }
       
-      // Include global apps (null domain_id) + site-specific apps if domains exist
-      if (siteDomainIds.length > 0) {
-        // Build OR filter for domain_id in siteDomainIds or domain_id is null
-        const domainFilter = siteDomainIds.map(id => `domain_id.eq.${id}`).join(',');
-        query = query.or(`domain_id.is.null,${domainFilter}`);
-      } else {
-        // No domains for this site, only show global apps
-        query = query.is('domain_id', null);
-      }
-      
-      const { data: result, error } = await query.order('sort_order', { ascending: true });
+      const { data, error } = await q;
       if (error) throw error;
-      setData((result as WebsiteApplication[]) || []);
-    } catch (e) {
-      console.error('Error fetching website applications:', e);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [includeInactive, selectedSite?.id, siteDomainIds, domainsLoading]);
+      return (data as WebsiteApplication[]) || [];
+    },
+    enabled: !domainsLoading || !selectedSite,
+    staleTime: 60 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, refetch: fetch };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading || domainsLoading,
+    refetch: query.refetch,
+  };
 }
 
+// ============================================================
 // Notifications hooks
-export function useNotifications() {
-  const [data, setData] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+// ============================================================
+export function useNotificationsData() {
+  const { user } = useAuth();
 
-  const fetch = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const { data: result, error } = await supabase
+  const query = useQuery({
+    queryKey: queryKeys.notifications(user?.id),
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
         .from('notifications')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
+      
       if (error) throw error;
-      const notifications = (result as Notification[]) || [];
-      setData(notifications);
-      setUnreadCount(notifications.filter(n => !n.is_read).length);
-    } catch (e) {
-      console.error('Error fetching notifications:', e);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      return (data as Notification[]) || [];
+    },
+    enabled: !!user?.id,
+    staleTime: 30 * 1000,
+  });
 
-  const markAsRead = async (notificationId: string) => {
-    try {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
-      fetch();
-    } catch (e) {
-      console.error('Error marking notification as read:', e);
-    }
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    refetch: query.refetch,
   };
-
-  const markAllAsRead = async () => {
-    try {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('is_read', false);
-      fetch();
-    } catch (e) {
-      console.error('Error marking all notifications as read:', e);
-    }
-  };
-
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, unreadCount, isLoading, refetch: fetch, markAsRead, markAllAsRead };
 }
 
+// ============================================================
 // Audit Logs hooks
-export function useAuditLogs(limit = 100) {
-  const [data, setData] = useState<AuditLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetch = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const { data: result, error } = await supabase
+// ============================================================
+export function useAuditLogs(filters?: { 
+  startDate?: Date; 
+  endDate?: Date; 
+  action?: string;
+  tableName?: string;
+}) {
+  const query = useQuery({
+    queryKey: ['audit-logs', filters],
+    queryFn: async () => {
+      let q = supabase
         .from('audit_logs')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .limit(100);
+      
+      if (filters?.action) {
+        q = q.eq('action', filters.action);
+      }
+      if (filters?.tableName) {
+        q = q.eq('table_name', filters.tableName);
+      }
+      if (filters?.startDate) {
+        q = q.gte('created_at', filters.startDate.toISOString());
+      }
+      if (filters?.endDate) {
+        q = q.lte('created_at', filters.endDate.toISOString());
+      }
+      
+      const { data, error } = await q;
       if (error) throw error;
-      setData((result as AuditLog[]) || []);
-    } catch (e) {
-      console.error('Error fetching audit logs:', e);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [limit]);
+      return (data as AuditLog[]) || [];
+    },
+    staleTime: 30 * 1000,
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, isLoading, refetch: fetch };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
 }
 
-// Log an action to audit_logs
-export async function logAuditAction(
-  userId: string | undefined,
-  action: string,
-  tableName?: string,
-  recordId?: string,
-  oldData?: Record<string, any>,
-  newData?: Record<string, any>
-) {
-  try {
-    await supabase.from('audit_logs').insert({
-      user_id: userId,
-      action,
-      table_name: tableName,
-      record_id: recordId,
-      old_data: oldData,
-      new_data: newData,
-      user_agent: navigator.userAgent,
-    });
-  } catch (e) {
-    console.error('Error logging audit action:', e);
-  }
+// ============================================================
+// Hook for invalidating related queries
+// ============================================================
+export function useInvalidateQueries() {
+  const queryClient = useQueryClient();
+  const { selectedSite } = useSite();
+
+  return {
+    invalidateDomains: () => queryClient.invalidateQueries({ queryKey: ['domains'] }),
+    invalidateNetworks: () => queryClient.invalidateQueries({ queryKey: ['networks'] }),
+    invalidateServers: () => queryClient.invalidateQueries({ queryKey: ['servers'] }),
+    invalidateTasks: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+    invalidateVacations: () => queryClient.invalidateQueries({ queryKey: ['vacations'] }),
+    invalidateLicenses: () => queryClient.invalidateQueries({ queryKey: ['licenses'] }),
+    invalidateProfiles: () => queryClient.invalidateQueries({ queryKey: ['profiles'] }),
+    invalidateDashboard: () => queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] }),
+    invalidateAll: () => {
+      queryClient.invalidateQueries({ queryKey: ['domains'] });
+      queryClient.invalidateQueries({ queryKey: ['networks'] });
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+  };
 }
 
-// CRUD operations for Servers (using transactional RPCs)
-export function useServerMutations(profileId?: string) {
-  const createServer = async (serverData: Record<string, any>) => {
-    try {
-      // Use transactional RPC instead of direct insert
-      const { upsertPhysicalServer } = await import('@/services/resourceService');
-      const resourceId = await upsertPhysicalServer({
-        network_id: serverData.network_id,
-        name: serverData.name,
-        hostname: serverData.name, // Use name as hostname if not provided
-        ip_address: serverData.ip_address,
-        operating_system: serverData.operating_system,
-        status: serverData.status || 'active',
-        criticality: serverData.criticality,
-        environment: serverData.environment,
-        owner: serverData.owner,
-        responsible_user: serverData.responsible_user,
-        cpu: serverData.cpu,
-        ram: serverData.ram,
-        disk_space: serverData.disk_space,
-        vendor: serverData.vendor,
-        model: serverData.model,
-        serial_number: serverData.serial_number,
-        warranty_end: serverData.warranty_end,
-        eol_date: serverData.eol_date,
-        eos_date: serverData.eos_date,
-        purchase_date: serverData.purchase_date,
-        is_backed_up_by_veeam: serverData.is_backed_up_by_veeam,
-        backup_frequency: serverData.backup_frequency,
-        backup_job_name: serverData.backup_job_name,
-        beneficiary_department: serverData.beneficiary_department,
-        primary_application: serverData.primary_application,
-        business_owner: serverData.business_owner,
-        contract_id: serverData.contract_id,
-        support_level: serverData.support_level,
-        server_role: serverData.server_role,
-        rpo_hours: serverData.rpo_hours,
-        rto_hours: serverData.rto_hours,
-        last_restore_test: serverData.last_restore_test,
-        notes: serverData.notes,
-      });
-      await logAuditAction(profileId, 'create', 'servers', resourceId, undefined, serverData);
-      return { data: { id: resourceId, resource_id: resourceId }, error: null };
-    } catch (e) {
-      console.error('Error creating server via RPC:', e);
-      return { data: null, error: e as Error };
+// ============================================================
+// Server Mutations
+// ============================================================
+export function useServerMutations() {
+  const queryClient = useQueryClient();
+
+  const createServer = async (data: any) => {
+    const { data: result, error } = await supabase
+      .from('servers')
+      .insert(data)
+      .select()
+      .single();
+    
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     }
+    return { data: result, error };
   };
 
-  const updateServer = async (id: string, serverData: Record<string, any>) => {
-    try {
-      // Determine if id is a resource_id or server_id
-      // For now, assume it's a resource_id (from server_inventory_view)
-      const { upsertPhysicalServer } = await import('@/services/resourceService');
-      const resourceId = await upsertPhysicalServer({
-        resource_id: id, // Pass as resource_id for update
-        network_id: serverData.network_id,
-        name: serverData.name,
-        hostname: serverData.name,
-        ip_address: serverData.ip_address,
-        operating_system: serverData.operating_system,
-        status: serverData.status,
-        criticality: serverData.criticality,
-        environment: serverData.environment,
-        owner: serverData.owner,
-        responsible_user: serverData.responsible_user,
-        cpu: serverData.cpu,
-        ram: serverData.ram,
-        disk_space: serverData.disk_space,
-        vendor: serverData.vendor,
-        model: serverData.model,
-        serial_number: serverData.serial_number,
-        warranty_end: serverData.warranty_end,
-        eol_date: serverData.eol_date,
-        eos_date: serverData.eos_date,
-        purchase_date: serverData.purchase_date,
-        is_backed_up_by_veeam: serverData.is_backed_up_by_veeam,
-        backup_frequency: serverData.backup_frequency,
-        backup_job_name: serverData.backup_job_name,
-        beneficiary_department: serverData.beneficiary_department,
-        primary_application: serverData.primary_application,
-        business_owner: serverData.business_owner,
-        contract_id: serverData.contract_id,
-        support_level: serverData.support_level,
-        server_role: serverData.server_role,
-        rpo_hours: serverData.rpo_hours,
-        rto_hours: serverData.rto_hours,
-        last_restore_test: serverData.last_restore_test,
-        notes: serverData.notes,
-      });
-      await logAuditAction(profileId, 'update', 'servers', resourceId);
-      return { data: { id: resourceId }, error: null };
-    } catch (e) {
-      console.error('Error updating server via RPC:', e);
-      return { data: null, error: e as Error };
+  const updateServer = async (id: string, data: any) => {
+    const { data: result, error } = await supabase
+      .from('servers')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     }
+    return { data: result, error };
   };
 
   const deleteServer = async (id: string) => {
-    try {
-      const { deletePhysicalServer } = await import('@/services/resourceService');
-      await deletePhysicalServer(id);
-      await logAuditAction(profileId, 'delete', 'servers', id);
-      return { error: null };
-    } catch (e) {
-      console.error('Error deleting server via RPC:', e);
-      return { error: e as Error };
+    const { error } = await supabase
+      .from('servers')
+      .delete()
+      .eq('id', id);
+    
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     }
+    return { error };
   };
 
   return { createServer, updateServer, deleteServer };
 }
 
-// CRUD operations for Licenses
-export function useLicenseMutations(profileId?: string) {
-  const createLicense = async (licenseData: Record<string, any>) => {
-    try {
-      const { data, error } = await supabase
-        .from('licenses')
-        .insert(licenseData as any)
-        .select()
-        .single();
-      if (error) throw error;
-      await logAuditAction(profileId, 'create', 'licenses', data.id, undefined, licenseData);
-      return { data, error: null };
-    } catch (e) {
-      return { data: null, error: e as Error };
+// ============================================================
+// License Mutations
+// ============================================================
+export function useLicenseMutations() {
+  const queryClient = useQueryClient();
+
+  const createLicense = async (data: any) => {
+    const { data: result, error } = await supabase
+      .from('licenses')
+      .insert(data)
+      .select()
+      .single();
+    
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['licenses'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     }
+    return { data: result, error };
   };
 
-  const updateLicense = async (id: string, licenseData: Record<string, any>) => {
-    try {
-      const { data: old } = await supabase.from('licenses').select('*').eq('id', id).single();
-      const { data, error } = await supabase
-        .from('licenses')
-        .update(licenseData as any)
-        .eq('id', id)
-        .select()
-        .single();
-      if (error) throw error;
-      await logAuditAction(profileId, 'update', 'licenses', id, old, licenseData);
-      return { data, error: null };
-    } catch (e) {
-      return { data: null, error: e as Error };
+  const updateLicense = async (id: string, data: any) => {
+    const { data: result, error } = await supabase
+      .from('licenses')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['licenses'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     }
+    return { data: result, error };
   };
 
   const deleteLicense = async (id: string) => {
-    try {
-      const { data: old } = await supabase.from('licenses').select('*').eq('id', id).single();
-      const { error } = await supabase.from('licenses').delete().eq('id', id);
-      if (error) throw error;
-      await logAuditAction(profileId, 'delete', 'licenses', id, old, undefined);
-      return { error: null };
-    } catch (e) {
-      return { error: e as Error };
+    const { error } = await supabase
+      .from('licenses')
+      .delete()
+      .eq('id', id);
+    
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['licenses'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     }
+    return { error };
   };
 
   return { createLicense, updateLicense, deleteLicense };
